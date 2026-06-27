@@ -1,0 +1,152 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --background: #eef4f6;
+  --foreground: #171717;
+  --card: #ffffff;
+  --card-foreground: #171717;
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --primary: #293681;
+  --primary-foreground: #ffffff;
+  --secondary: #4274d9;
+  --secondary-foreground: #ffffff;
+  --muted: #e2ecef;
+  --muted-foreground: #5b6573;
+  --accent: #95ccdd;
+  --accent-foreground: #16323b;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #d4e2e6;
+  --input: #ffffff;
+  --ring: #4274d9;
+  --chart-1: #293681;
+  --chart-2: #4274d9;
+  --chart-3: #95ccdd;
+  --chart-4: #d0e7e6;
+  --chart-5: #6b8fd4;
+  --radius: 0.85rem;
+  --sidebar: rgba(255, 255, 255, 0.7);
+  --sidebar-foreground: #171717;
+  --sidebar-primary: #293681;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #d0e7e6;
+  --sidebar-accent-foreground: #16323b;
+  --sidebar-border: #d4e2e6;
+  --sidebar-ring: #4274d9;
+  --success: #16a34a;
+  --warning: #d97706;
+
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.6);
+}
+
+.dark {
+  --background: #0c1322;
+  --foreground: #ededed;
+  --card: #131c30;
+  --card-foreground: #ededed;
+  --popover: #131c30;
+  --popover-foreground: #ededed;
+  --primary: #4274d9;
+  --primary-foreground: #ffffff;
+  --secondary: #293681;
+  --secondary-foreground: #ffffff;
+  --muted: #1c2740;
+  --muted-foreground: #9aa6bd;
+  --accent: #95ccdd;
+  --accent-foreground: #0c1322;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #243352;
+  --input: #1c2740;
+  --ring: #4274d9;
+  --chart-1: #4274d9;
+  --chart-2: #95ccdd;
+  --chart-3: #6b8fd4;
+  --chart-4: #d0e7e6;
+  --chart-5: #293681;
+  --sidebar: rgba(19, 28, 48, 0.7);
+  --sidebar-foreground: #ededed;
+  --sidebar-primary: #4274d9;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1c2740;
+  --sidebar-accent-foreground: #ededed;
+  --sidebar-border: #243352;
+  --sidebar-ring: #4274d9;
+  --success: #22c55e;
+  --warning: #f59e0b;
+
+  --glass-bg: rgba(19, 28, 48, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme inline {
+  --font-sans: 'DM Sans', 'DM Sans Fallback', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'JetBrains Mono Fallback', monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    border: 1px solid var(--glass-border);
+  }
+  .glass-strong {
+    background-color: var(--glass-bg);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid var(--glass-border);
+  }
+}

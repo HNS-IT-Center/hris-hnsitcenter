@@ -1,0 +1,521 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum Role {
+  EMPLOYEE
+  HRD
+  BOSS
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ALPHA
+  FORGOT_CHECKIN
+  FORGOT_CHECKOUT
+  ON_LEAVE
+  HOLIDAY
+}
+
+enum LeaveType {
+  ANNUAL_LEAVE
+  SICK
+  PERSONAL
+  HALF_DAY
+  OVERTIME
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum ShiftSwapStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum RecruitmentStatus {
+  WAITING_CALL
+  INTERVIEW_1
+  INTERVIEW_2
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum EmailStatus {
+  NOT_SENT
+  SENT
+  FAILED
+  BOUNCED
+}
+
+enum BroadcastTag {
+  NOTICE
+  EVENT
+  URGENT
+}
+
+enum AttentionFlagType {
+  anomaly_checkin
+  forgot_checkin
+  forgot_checkout
+  email_bounce
+  overtime_holiday
+}
+
+// ============================================================
+// CORE MODELS
+// ============================================================
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+}
+
+model Store {
+  id          String   @id @default(cuid())
+  name        String
+  address     String?
+  latitude    Float
+  longitude   Float
+  radiusMeters Int     @default(150)
+  openTime    String   @default("08:00")  // HH:mm WIB
+  closeTime   String   @default("21:00") // HH:mm WIB
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users               User[]
+  storeAssignments    StoreAssignment[]
+  attendances         Attendance[]
+  rainyDays           RainyDay[]
+}
+
+model Shift {
+  id                String   @id @default(cuid())
+  name              String
+  startTime         String   // HH:mm WIB
+  endTime           String   // HH:mm WIB
+  checkinWindowMin  Int      @default(15) // minutes before startTime check-in opens
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  users             User[]
+  shiftAssignments  ShiftAssignment[]
+  shiftOverrides    ShiftOverride[]
+  shiftSwapsA       ShiftSwap[]       @relation("ShiftSwapShiftA")
+  shiftSwapsB       ShiftSwap[]       @relation("ShiftSwapShiftB")
+  broadcastFilters  BroadcastFilterShift[]
+}
+
+model User {
+  id              String    @id @default(cuid())
+  // SSO-sourced fields (populated on first SSO login)
+  ssoId           String?   @unique  // The `id` from the SSO JWT payload
+  email           String    @unique
+  name            String
+  username        String?   @unique
+  avatarUrl       String?
+  role            Role      @default(EMPLOYEE)
+  position        String?
+  joinDate        DateTime  @default(now())
+  isActive        Boolean   @default(true)
+  notifEnabled    Boolean   @default(true)
+  twoFAEnabled    Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Current assignments (denormalized for quick lookup)
+  departmentId    String?
+  storeId         String?
+  shiftId         String?
+
+  department      Department?         @relation(fields: [departmentId], references: [id])
+  store           Store?              @relation(fields: [storeId], references: [id])
+  shift           Shift?              @relation(fields: [shiftId], references: [id])
+
+  attendances         Attendance[]
+  leaveRequests       LeaveRequest[]
+  overtimeRequests    OvertimeRequest[]
+  leaveQuotas         LeaveQuota[]
+  pushSubscriptions   PushSubscription[]
+  storeAssignments    StoreAssignment[]
+  shiftAssignments    ShiftAssignment[]
+  shiftOverrides      ShiftOverride[]
+  shiftSwapsA         ShiftSwap[]       @relation("ShiftSwapUserA")
+  shiftSwapsB         ShiftSwap[]       @relation("ShiftSwapUserB")
+  shiftSwapsApproved  ShiftSwap[]       @relation("ShiftSwapApprover")
+  attentionFlags      AttentionFlag[]
+  performanceMonthly  PerformanceMonthly[]
+  recruitmentCreated  Recruitment[]
+  broadcastsCreated   Broadcast[]
+  broadcastFilters    BroadcastFilterUser[]
+}
+
+// ============================================================
+// ATTENDANCE
+// ============================================================
+
+model Attendance {
+  id               String           @id @default(cuid())
+  userId           String
+  storeId          String?
+  date             DateTime         // Midnight UTC for the WIB calendar day
+  status           AttendanceStatus @default(PRESENT)
+  checkInTime      DateTime?
+  checkOutTime     DateTime?
+  checkInPhotoUrl  String?
+  checkOutPhotoUrl String?
+  checkInLat       Float?
+  checkInLng       Float?
+  checkOutLat      Float?
+  checkOutLng      Float?
+  checkInDistance  Float?           // Distance in meters from store at check-in
+  checkOutDistance Float?
+  lateMinutes      Int              @default(0)
+  isAnomaly        Boolean          @default(false)
+  anomalyNote      String?
+  isForgotCheckin  Boolean          @default(false)
+  isForgotCheckout Boolean          @default(false)
+  isRainyDay       Boolean          @default(false)
+  photoTimestamp   DateTime?
+  locationTimestamp DateTime?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id])
+  store         Store?         @relation(fields: [storeId], references: [id])
+  attentionFlags AttentionFlag[]
+
+  @@unique([userId, date])
+}
+
+model ShiftOverride {
+  id          String   @id @default(cuid())
+  userId      String
+  shiftId     String
+  date        DateTime // Midnight UTC for the specific WIB day
+  customStart String?  // HH:mm override (optional)
+  customEnd   String?  // HH:mm override (optional)
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  shift Shift @relation(fields: [shiftId], references: [id])
+
+  @@unique([userId, date])
+}
+
+model ShiftSwap {
+  id          String          @id @default(cuid())
+  userAId     String
+  userBId     String
+  shiftAId    String          // userA's original shift
+  shiftBId    String          // userB's original shift
+  swapDate    DateTime        // The calendar day of the swap
+  status      ShiftSwapStatus @default(PENDING)
+  approvedById String?
+  rejectReason String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  userA       User  @relation("ShiftSwapUserA", fields: [userAId], references: [id])
+  userB       User  @relation("ShiftSwapUserB", fields: [userBId], references: [id])
+  shiftA      Shift @relation("ShiftSwapShiftA", fields: [shiftAId], references: [id])
+  shiftB      Shift @relation("ShiftSwapShiftB", fields: [shiftBId], references: [id])
+  approvedBy  User? @relation("ShiftSwapApprover", fields: [approvedById], references: [id])
+}
+
+// ============================================================
+// LEAVE & OVERTIME
+// ============================================================
+
+model LeaveQuota {
+  id              String   @id @default(cuid())
+  userId          String
+  periodStart     DateTime // Anniversary date
+  periodEnd       DateTime
+  totalDays       Int      @default(12)
+  usedDays        Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, periodStart])
+}
+
+model LeaveRequest {
+  id            String      @id @default(cuid())
+  userId        String
+  type          LeaveType
+  status        LeaveStatus @default(PENDING)
+  startDate     DateTime
+  endDate       DateTime
+  totalDays     Float       @default(1)
+  reason        String?
+  sickNoteUrl   String?
+  sickNoteFileName String?
+  rejectReason  String?
+  // For OVERTIME type
+  overtimeStart DateTime?
+  overtimeEnd   DateTime?
+  overtimeTask  String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model OvertimeRequest {
+  id           String         @id @default(cuid())
+  userId       String
+  status       OvertimeStatus @default(PENDING)
+  overtimeDate DateTime
+  startTime    DateTime
+  endTime      DateTime?
+  totalHours   Float?
+  task         String?
+  rejectReason String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+// ============================================================
+// CALENDAR
+// ============================================================
+
+model HolidayMarker {
+  id          String   @id @default(cuid())
+  date        DateTime @unique
+  name        String
+  createdAt   DateTime @default(now())
+
+  assignments HolidayAssignment[]
+}
+
+model HolidayAssignment {
+  id              String        @id @default(cuid())
+  holidayMarkerId String
+  applyToAll      Boolean       @default(true)
+  userId          String?
+
+  holidayMarker HolidayMarker @relation(fields: [holidayMarkerId], references: [id], onDelete: Cascade)
+}
+
+model RainyDay {
+  id        String   @id @default(cuid())
+  date      DateTime
+  storeId   String?  // null = all stores
+  createdAt DateTime @default(now())
+
+  store Store? @relation(fields: [storeId], references: [id])
+
+  @@unique([date, storeId])
+}
+
+// ============================================================
+// PERFORMANCE
+// ============================================================
+
+model PerformanceMonthly {
+  id                String   @id @default(cuid())
+  userId            String
+  year              Int
+  month             Int      // 1-12
+  totalPresent      Int      @default(0)
+  totalLate         Int      @default(0)
+  totalAlpha        Int      @default(0)
+  totalLeave        Int      @default(0)
+  totalSick         Int      @default(0)
+  totalAnnualLeave  Int      @default(0)
+  totalOvertime     Float    @default(0)
+  lateMinutesTotal  Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, year, month])
+}
+
+// ============================================================
+// RECRUITMENT
+// ============================================================
+
+model Recruitment {
+  id              String            @id @default(cuid())
+  name            String
+  email           String
+  phone           String?
+  position        String
+  status          RecruitmentStatus @default(WAITING_CALL)
+  cvUrl           String?
+  cvFileName      String?
+  notes           String?
+  interviewDate   DateTime?
+  interview2Date  DateTime?
+  rejectionReason String?
+  cancelReason    String?
+
+  callEmailStatus      EmailStatus @default(NOT_SENT)
+  callEmailSentAt      DateTime?
+  rejectEmailStatus    EmailStatus @default(NOT_SENT)
+  rejectEmailSentAt    DateTime?
+  rescheduleEmailStatus EmailStatus @default(NOT_SENT)
+  rescheduleEmailSentAt DateTime?
+  acceptEmailStatus    EmailStatus @default(NOT_SENT)
+  acceptEmailSentAt    DateTime?
+  lastEmailError       String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User @relation(fields: [createdById], references: [id])
+}
+
+// ============================================================
+// NOTIFICATIONS
+// ============================================================
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Broadcast {
+  id          String       @id @default(cuid())
+  title       String
+  message     String
+  tag         BroadcastTag
+  sentAt      DateTime?
+  createdById String
+  createdAt   DateTime     @default(now())
+
+  createdBy     User                   @relation(fields: [createdById], references: [id])
+  filterDepts   BroadcastFilterDept[]
+  filterStores  BroadcastFilterStore[]
+  filterShifts  BroadcastFilterShift[]
+  filterUsers   BroadcastFilterUser[]
+}
+
+model BroadcastFilterDept {
+  id           String @id @default(cuid())
+  broadcastId  String
+  departmentId String
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+}
+
+model BroadcastFilterStore {
+  id          String @id @default(cuid())
+  broadcastId String
+  storeId     String
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+}
+
+model BroadcastFilterShift {
+  id          String @id @default(cuid())
+  broadcastId String
+  shiftId     String
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  shift     Shift     @relation(fields: [shiftId], references: [id])
+}
+
+model BroadcastFilterUser {
+  id          String @id @default(cuid())
+  broadcastId String
+  userId      String
+
+  broadcast Broadcast @relation(fields: [broadcastId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+// ============================================================
+// ATTENTION FLAGS
+// ============================================================
+
+model AttentionFlag {
+  id           String            @id @default(cuid())
+  userId       String            // The affected employee
+  type         AttentionFlagType
+  description  String
+  relatedId    String?           // ID of related attendance, recruitment, etc.
+  isResolved   Boolean           @default(false)
+  resolvedNote String?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id])
+  attendance Attendance? @relation(fields: [relatedId], references: [id])
+}
+
+// ============================================================
+// ASSIGNMENT HISTORY (audit trail)
+// ============================================================
+
+model StoreAssignment {
+  id        String    @id @default(cuid())
+  userId    String
+  storeId   String
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  store Store @relation(fields: [storeId], references: [id])
+}
+
+model ShiftAssignment {
+  id        String    @id @default(cuid())
+  userId    String
+  shiftId   String
+  startDate DateTime
+  endDate   DateTime?
+  createdAt DateTime  @default(now())
+
+  user  User  @relation(fields: [userId], references: [id])
+  shift Shift @relation(fields: [shiftId], references: [id])
+}
