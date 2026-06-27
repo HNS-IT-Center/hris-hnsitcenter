@@ -41,6 +41,8 @@ export default async function LoginPage({
     session_expired: 'Sesi Anda telah berakhir. Silakan masuk kembali.',
     invalid_token: 'Token tidak valid. Silakan masuk kembali.',
     unauthorized: 'Anda tidak memiliki akses ke halaman tersebut.',
+    not_whitelisted: 'Akun Anda belum terdaftar di sistem HRIS. Silakan hubungi HRD.',
+    account_disabled: 'Akun Anda telah dinonaktifkan. Silakan hubungi HRD.',
   }
 
   const errorMessage = error ? (errorMessages[error] ?? 'Terjadi kesalahan. Silakan masuk kembali.') : null
