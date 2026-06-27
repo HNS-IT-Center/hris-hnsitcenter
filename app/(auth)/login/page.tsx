@@ -11,7 +11,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { LoginForm } from './login-form'
 
-const SSO_LOGIN_URL = 'https://sso.hnsitcenter.id/api/auth/signin/google'
+const SSO_LOGIN_URL = 'https://sso.hnsitcenter.id/api/auth/google'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://hris.hnsitcenter.id'
 
 export default async function LoginPage({
@@ -30,7 +30,7 @@ export default async function LoginPage({
   const returnTo = params.redirectUrl ?? `${APP_URL}/dashboard`
 
   // Direct to Google OAuth on the SSO server to avoid the intermediate SSO login page
-  const ssoUrl = `${SSO_LOGIN_URL}?callbackUrl=${encodeURIComponent(returnTo)}`
+  const ssoUrl = `${SSO_LOGIN_URL}?redirectUrl=${encodeURIComponent(returnTo)}`
 
   const errorMessages: Record<string, string> = {
     session_expired: 'Sesi Anda telah berakhir. Silakan masuk kembali.',

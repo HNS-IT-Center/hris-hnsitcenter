@@ -62,6 +62,14 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
   const handleLogout = (): void => {
     // Clear the sso_token cookie locally (this effectively signs out of all subdomains)
     document.cookie = 'sso_token=; Max-Age=0; path=/; domain=.hnsitcenter.id;'
+    
+    // Broadcast to other tabs just like the SSO app does
+    try {
+      const bc = new BroadcastChannel('sso_auth_sync')
+      bc.postMessage('session_updated')
+      bc.close()
+    } catch (e) {}
+
     // Redirect directly back to our own login page instead of the SSO's 404 logout route
     window.location.href = '/login'
   }

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 
-const SSO_LOGIN_URL = 'https://sso.hnsitcenter.id/login'
 
 /** Decode the JWT_SECRET env variable once for Edge Runtime compatibility */
 function getSecret(): Uint8Array {
@@ -44,9 +43,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     }
 
     const redirectUrl = request.nextUrl.href
-    return NextResponse.redirect(
-      `${SSO_LOGIN_URL}?redirectUrl=${encodeURIComponent(redirectUrl)}`,
-    )
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('redirectUrl', redirectUrl)
+    return NextResponse.redirect(loginUrl)
   }
 
   // ── Verify token ──────────────────────────────────────────────────────────
@@ -78,11 +78,11 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const isExpired =
       err instanceof Error && err.message.toLowerCase().includes('expired')
 
-    const redirectTarget = isExpired
-      ? `${SSO_LOGIN_URL}?error=session_expired`
-      : `${SSO_LOGIN_URL}?error=invalid_token`
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.searchParams.set('error', isExpired ? 'session_expired' : 'invalid_token')
 
-    const response = NextResponse.redirect(redirectTarget)
+    const response = NextResponse.redirect(loginUrl)
     // Clear the invalid cookie to prevent redirect loops
     response.cookies.delete('sso_token')
     return response
