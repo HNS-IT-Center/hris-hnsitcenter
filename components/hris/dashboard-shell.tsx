@@ -60,9 +60,10 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
   const activeNavId: NavId = "dashboard" // default fallback
 
   const handleLogout = (): void => {
-    // Clear the sso_token cookie and redirect to SSO logout
-    document.cookie = 'sso_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.hnsitcenter.id'
-    window.location.href = 'https://sso.hnsitcenter.id/logout?redirectUrl=' + encodeURIComponent(window.location.origin)
+    // Clear the sso_token cookie locally (this effectively signs out of all subdomains)
+    document.cookie = 'sso_token=; Max-Age=0; path=/; domain=.hnsitcenter.id;'
+    // Redirect directly back to our own login page instead of the SSO's 404 logout route
+    window.location.href = '/login'
   }
 
   return (
