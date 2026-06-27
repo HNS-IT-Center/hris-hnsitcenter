@@ -58,17 +58,21 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     // Extract user fields from JWT payload
     const userId = (payload.id as string) ?? ''
     const userEmail = (payload.email as string) ?? ''
+    const userName = (payload.name as string) ?? ''
     const userRole = (payload.globalRole as string) ?? 'EMPLOYEE'
     const userPosition = (payload.positionId as string) ?? ''
     const userDept = (payload.departmentId as string) ?? ''
+    const userDeptName = (payload.departmentName as string) ?? ''
 
     // Clone and inject headers so Server Components can read user identity
     const requestHeaders = new Headers(request.headers)
     requestHeaders.set('x-user-id', userId)
     requestHeaders.set('x-user-email', userEmail)
+    requestHeaders.set('x-user-name', userName)
     requestHeaders.set('x-user-role', userRole)
     requestHeaders.set('x-user-position', userPosition)
     requestHeaders.set('x-user-dept', userDept)
+    requestHeaders.set('x-user-dept-name', userDeptName)
 
     return NextResponse.next({
       request: { headers: requestHeaders },

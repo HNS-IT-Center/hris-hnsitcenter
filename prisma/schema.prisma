@@ -17,6 +17,7 @@ enum Role {
   EMPLOYEE
   HRD
   BOSS
+  ADMIN
 }
 
 enum AttendanceStatus {

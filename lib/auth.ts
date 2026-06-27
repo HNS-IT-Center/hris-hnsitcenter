@@ -3,8 +3,11 @@ import { headers } from 'next/headers'
 export interface SSOUser {
   id: string
   email: string
-  role: string       // 'EMPLOYEE' | 'HRD' | 'BOSS' — injected by middleware
+  name: string
+  globalRole: string
+  role: string       // Computed local role? We can just pass globalRole for now
   departmentId: string | null
+  departmentName: string | null
   positionId: string | null
 }
 
@@ -21,8 +24,10 @@ export async function getServerUser(): Promise<SSOUser> {
   const h = await headers()
   const id = h.get('x-user-id')
   const email = h.get('x-user-email')
-  const role = h.get('x-user-role') ?? 'EMPLOYEE'
+  const name = h.get('x-user-name') ?? email?.split('@')[0] ?? ''
+  const globalRole = h.get('x-user-role') ?? 'EMPLOYEE'
   const departmentId = h.get('x-user-dept')
+  const departmentName = h.get('x-user-dept-name')
   const positionId = h.get('x-user-position')
 
   if (!id || !email) {
@@ -32,8 +37,11 @@ export async function getServerUser(): Promise<SSOUser> {
   return {
     id,
     email,
-    role: role.toUpperCase(),
+    name,
+    globalRole,
+    role: globalRole, // Fallback for old code expecting `role`
     departmentId: departmentId || null,
+    departmentName: departmentName || null,
     positionId: positionId || null,
   }
 }
