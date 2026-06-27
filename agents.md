@@ -47,8 +47,30 @@ npx prisma migrate reset
 ```
 *(This will drop the database, recreate it from the schema, and automatically run the seed script!)*
 
-## 4. Next Steps (Phase 2 & Beyond)
-- **Phase 2:** Employee Management & Shift Assignments
-- **Phase 3:** Attendance Module (Geofencing, Photo Check-in)
-- **Phase 4:** Leave & Overtime Approvals
-- **Phase 5:** Notifications (VAPID/Web Push, Resend) & Cron Jobs
+## 4. Next Steps & Detailed Phase Planning (Phase 2 - 5)
+
+This section contains the precise technical roadmap. Any new AI agent reading this file should pick up the next uncompleted phase.
+
+### Phase 2: Employee & Shift Management (Status: NOT STARTED)
+- **Objective:** Allow HRD to manage user accounts, roles, departments, stores, and assign shifts.
+- **Backend/API:** Create Next.js Server Actions to execute CRUD operations on Prisma models (`User`, `Department`, `Position`, `Store`, `Shift`).
+- **Frontend Integration:** Wire up the UI components in `/app/(dashboard)/hrd/employees` and `/app/(dashboard)/hrd/shifts`.
+- **Media Upload:** Implement Cloudflare R2 upload for employee profile pictures inside the `EmployeeForm`. Ensure files are compressed (WebP) client-side before uploading.
+
+### Phase 3: Attendance Module (Geofencing & Selfie) (Status: NOT STARTED)
+- **Objective:** Core check-in / check-out mechanism for employees.
+- **Frontend Tracking:** Use HTML5 Geolocation API on the `/attendance` page to grab the user's `latitude` and `longitude`.
+- **Photo Verification:** Implement HTML5 Camera API to capture a selfie. Compress it and upload it directly to Cloudflare R2.
+- **Validation:** Compare the user's location against their assigned `Store` coordinates to enforce Geofencing.
+- **Database:** Insert records into the `Attendance` table with `status` (Present, Late, etc.) based on `Shift` start times.
+
+### Phase 4: Leave & Overtime Approvals (Status: NOT STARTED)
+- **Objective:** Enable employees to request time off or overtime, and allow HRD to approve/reject.
+- **Employee View:** Build submission forms in `/leave` and `/performance` for `LeaveRequest` and `OvertimeRequest`.
+- **HRD View:** Wire up the data tables in `/hrd/leave` to allow bulk approval/rejection.
+- **State Management:** When a leave is approved, deduct the quota from the user's available leave balance (if applicable in schema).
+
+### Phase 5: Notifications & Automation (Status: NOT STARTED)
+- **Push Notifications (VAPID):** Implement Web Push API. Ask users for notification permissions, store the subscription in the database, and send push notifications for important events (e.g., Leave Approved).
+- **Email (Resend):** Integrate Resend API for critical email alerts (e.g. HRD receives a new leave request).
+- **Cron Jobs (Vercel Cron):** Setup `/api/cron/auto-checkout` to run every night at 23:59 to automatically check out users who forgot to clock out, marking them as `Missed Checkout`.
