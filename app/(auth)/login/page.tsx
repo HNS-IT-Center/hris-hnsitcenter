@@ -7,12 +7,11 @@
  * The SSO server will authenticate them and set the cross-domain `sso_token`
  * cookie, then redirect back to the `redirectUrl` provided.
  */
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { LoginForm } from './login-form'
 
 const SSO_LOGIN_URL = 'https://sso.hnsitcenter.id/api/auth/google'
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://hris.hnsitcenter.id'
 
 export default async function LoginPage({
   searchParams,
@@ -25,9 +24,15 @@ export default async function LoginPage({
     redirect('/dashboard')
   }
 
+  // Dynamically get the current domain from request headers
+  const headersList = await headers()
+  const host = headersList.get('x-forwarded-host') || headersList.get('host') || 'absensi.hnsitcenter.id'
+  const protocol = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
+  const dynamicAppUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`
+
   const params = await searchParams
   const error = params.error
-  const returnTo = params.redirectUrl ?? `${APP_URL}/dashboard`
+  const returnTo = params.redirectUrl ?? `${dynamicAppUrl}/dashboard`
 
   // Direct to Google OAuth on the SSO server to avoid the intermediate SSO login page
   const ssoUrl = `${SSO_LOGIN_URL}?redirectUrl=${encodeURIComponent(returnTo)}`
