@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import type React from "react"
+import { usePathname } from "next/navigation"
 import { Sidebar } from "@/components/hris/sidebar"
 import { Topbar } from "@/components/hris/topbar"
 import type { NavId } from "@/components/hris/sidebar"
@@ -22,50 +23,23 @@ interface DashboardShellProps {
   children: React.ReactNode
 }
 
-const PAGE_TITLES: Partial<Record<string, string>> = {
-  "/dashboard": "Dashboard",
-  "/attendance": "Absensi",
-  "/leave": "Izin & Cuti",
-  "/performance": "Performa",
-  "/profile": "Profil",
-  "/hrd/dashboard": "Dashboard HRD",
-  "/hrd/employees": "Karyawan",
-  "/hrd/shifts": "Shift",
-  "/hrd/stores": "Toko",
-  "/hrd/leave": "Approval Izin",
-  "/hrd/overtime": "Approval Lembur",
-  "/hrd/shift-swap": "Tukar Shift",
-  "/hrd/calendar": "Kelola Kalender",
-  "/hrd/recruitment": "Rekrutmen",
-  "/hrd/broadcast": "Broadcast",
-  "/hrd/settings": "Pengaturan",
-}
-
-/**
- * DashboardShell — Client component wrapping authenticated pages.
- *
- * Receives the hydrated user from the server layout,
- * manages sidebar mobile open state, and renders the
- * existing Sidebar + Topbar components.
- */
 export function DashboardShell({ user, children }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
 
-  // Derive role for sidebar — BOSS gets HRD nav view
-  const sidebarRole = user.role === "HRD" || user.role === "BOSS" ? "hrd" : "employee"
+  // Derive role for sidebar — based on URL path!
+  const isHrdAuthorized = user.role === "HRD" || user.role === "BOSS"
+  const isHrdRoute = pathname?.startsWith('/hrd')
+  const sidebarRole = (isHrdAuthorized && isHrdRoute) ? "hrd" : "employee"
 
-  // Get the active nav ID from the current path
-  // Since children handle their own routing, we don't manage active page state here.
-  // The sidebar will navigate via <Link> in Next.js route pages.
   const activeNavId: NavId = "dashboard" // default fallback
 
   const handleLogout = (): void => {
-    // Redirect to the server-side logout endpoint to properly clear HttpOnly cookies
     window.location.href = '/api/auth/logout'
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-[100dvh] bg-background">
       <Sidebar
         role={sidebarRole}
         active={activeNavId}
@@ -76,7 +50,7 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
         user={user}
       />
 
-      <div className="flex min-h-screen flex-col lg:pl-[260px]">
+      <div className="flex min-h-[100dvh] flex-col lg:pl-[260px]">
         <Topbar
           title="HRIS"
           role={sidebarRole}
@@ -92,3 +66,4 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     </div>
   )
 }
+

@@ -90,7 +90,7 @@ export function Sidebar({ role, active, onSelect, mobileOpen, onMobileClose, onL
 
       <aside
         className={cn(
-          "glass fixed left-0 top-0 z-50 flex h-screen w-[260px] flex-col border-r border-sidebar-border transition-transform duration-300 lg:translate-x-0",
+          "glass fixed left-0 top-0 z-50 flex h-[100dvh] w-[260px] flex-col border-r border-sidebar-border transition-transform duration-300 lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
