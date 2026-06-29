@@ -33,6 +33,7 @@ export async function updateEmployee(id: string, data: {
   shiftPattern?: string | null
   storeId?: string | null
   shiftId?: string | null
+  secondaryShiftId?: string | null
   isActive?: boolean
   avatarUrl?: string | null
 }) {
@@ -45,6 +46,7 @@ export async function updateEmployee(id: string, data: {
         shiftPattern: data.shiftPattern,
         storeId: data.storeId,
         shiftId: data.shiftId,
+        secondaryShiftId: data.secondaryShiftId,
         isActive: data.isActive,
         avatarUrl: data.avatarUrl,
       },

@@ -16,18 +16,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Briefcase, CalendarDays, ChevronRight, Clock, Download, MapPin, Search, CalendarIcon, Upload, ImageIcon } from "lucide-react"
-import { format } from "date-fns"
+import { Briefcase, CalendarDays, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock } from "lucide-react"
+import { format, addDays } from "date-fns"
 import { id } from "date-fns/locale"
+import { type DateRange } from "react-day-picker"
 
 import { updateEmployee } from "@/app/actions/employee"
 import { compressToWebP } from "@/lib/utils/file"
+import { DatePickerWithRange } from "@/components/hris/shared/date-range-picker"
 
-// Types based on Prisma schema
 type User = any
 type Store = any
 type Shift = any
@@ -43,9 +55,8 @@ const WEEKDAYS = [
 ]
 
 const SHIFT_PATTERNS = [
-  { id: "MORNING_ONLY", label: "Pagi Saja" },
-  { id: "WEEKLY_ALTERNATING", label: "Rotasi Mingguan" },
-  { id: "BIWEEKLY_ALTERNATING", label: "Rotasi 2 Mingguan" },
+  { id: "MORNING_ONLY", label: "Shift Tetap (Pilih 1 Shift)" },
+  { id: "WEEKLY_ALTERNATING", label: "Rotasi Mingguan (Shift 1 & 2)" },
 ]
 
 function StatusBadge({ active }: { active: boolean }) {
@@ -73,6 +84,10 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
   const [draft, setDraft] = useState<any | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: addDays(new Date(), 30),
+  })
 
   // Unique departments for filter
   const departments = Array.from(new Set(employees.map(e => e.departmentName).filter(Boolean))) as string[]
@@ -131,6 +146,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
       shiftPattern: draft.shiftPattern,
       storeId: draft.storeId,
       shiftId: draft.shiftId,
+      secondaryShiftId: draft.shiftPattern === 'WEEKLY_ALTERNATING' ? draft.secondaryShiftId : null,
       isActive: draft.isActive,
       avatarUrl: draft.avatarUrl,
     })
@@ -139,7 +155,6 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
       loading: 'Menyimpan perubahan...',
       success: (res) => {
         if (res.success) {
-          // Update local state
           setEmployees(prev => prev.map(e => e.id === draft.id ? { ...e, ...draft } : e))
           setSelected(null)
           return `Data ${draft.name} diperbarui`
@@ -164,7 +179,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <GlassCard className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <GlassCard className="flex flex-col gap-3 lg:flex-row lg:items-center overflow-hidden w-full break-words">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari karyawan..." className="pl-9 bg-input" />
@@ -196,17 +211,33 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" className="gap-1.5">
-            <Download className="h-4 w-4" />
-            Export
-          </Button>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="gap-1.5 w-full sm:w-auto">
+                <Download className="h-4 w-4" />
+                Export Rekap
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="space-y-4">
+                <h4 className="font-medium leading-none">Export Rekap Absensi</h4>
+                <p className="text-sm text-muted-foreground">Pilih rentang tanggal untuk diexport.</p>
+                <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+                <div className="flex flex-col gap-2 pt-2">
+                  <Button variant="outline" className="w-full" onClick={() => toast.success("Mengekspor PDF...")}>Export PDF</Button>
+                  <Button variant="outline" className="w-full" onClick={() => toast.success("Mengekspor Excel...")}>Export XLS</Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
       </GlassCard>
 
       {/* Mobile: cards */}
       <div className="grid gap-3 lg:hidden">
         {filtered.map((e) => (
-          <GlassCard key={e.id} className="p-4">
+          <GlassCard key={e.id} className="p-4 w-full overflow-hidden break-words">
             <button onClick={() => openDetail(e)} className="flex w-full items-center gap-3 text-left">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary/15 text-sm font-semibold text-secondary overflow-hidden">
                 {e.avatarUrl ? <img src={e.avatarUrl} alt={e.name} className="h-full w-full object-cover" /> : e.name.charAt(0)}
@@ -235,15 +266,15 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
           </GlassCard>
         ))}
         {filtered.length === 0 && (
-          <GlassCard className="py-10 text-center text-sm text-muted-foreground">
+          <GlassCard className="py-10 text-center text-sm text-muted-foreground w-full">
             Tidak ada karyawan yang cocok dengan filter.
           </GlassCard>
         )}
       </div>
 
       {/* Desktop: table */}
-      <GlassCard className="hidden overflow-hidden p-0 lg:block">
-        <div className="overflow-x-auto">
+      <GlassCard className="hidden overflow-hidden p-0 lg:block w-full">
+        <div className="overflow-x-auto w-full">
           <Table>
             <TableHeader>
               <TableRow>
@@ -260,12 +291,12 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                 <TableRow key={e.id} className="cursor-pointer" onClick={() => openDetail(e)}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/15 text-xs font-semibold text-secondary overflow-hidden">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/15 text-xs font-semibold text-secondary overflow-hidden shrink-0">
                         {e.avatarUrl ? <img src={e.avatarUrl} alt={e.name} className="h-full w-full object-cover" /> : e.name.charAt(0)}
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground">{e.name}</p>
-                        <p className="text-xs text-muted-foreground">{e.email}</p>
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground truncate max-w-[200px]">{e.name}</p>
+                        <p className="text-xs text-muted-foreground truncate max-w-[200px]">{e.email}</p>
                       </div>
                     </div>
                   </TableCell>
@@ -288,13 +319,13 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
 
       {/* Detail / Edit dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl w-[95vw] sm:w-full">
           {draft && (
             <>
               <DialogHeader>
                 <div className="flex items-center gap-4">
                   <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/15 text-xl font-semibold text-secondary overflow-hidden relative">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/15 text-xl font-semibold text-secondary overflow-hidden relative shrink-0">
                       {draft.avatarUrl ? <img src={draft.avatarUrl} alt={draft.name} className="h-full w-full object-cover" /> : draft.name.charAt(0)}
                       <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
                         <Upload className="h-5 w-5 text-white" />
@@ -312,7 +343,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
               </DialogHeader>
 
               <div className="grid gap-6 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Posisi (Dari SSO)</Label>
                     <Input value={draft.positionName || '-'} disabled className="bg-muted" />
@@ -323,31 +354,46 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Tanggal Bergabung</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
                         <Button
                           variant={"outline"}
                           className={cn(
-                            "w-full justify-start text-left font-normal bg-input",
+                            "w-full justify-between text-left font-normal bg-input text-foreground",
                             !draft.joinDate && "text-muted-foreground"
                           )}
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {draft.joinDate ? format(draft.joinDate, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
+                          <div className="flex items-center">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {draft.joinDate ? format(draft.joinDate, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
+                          </div>
+                          <Lock className="h-3 w-3 text-muted-foreground" />
                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={draft.joinDate}
-                          onSelect={(d) => d && setDraft({ ...draft, joinDate: d })}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Ubah Tanggal Bergabung?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Mengubah tanggal bergabung karyawan ini berpotensi me-reset dan menghitung ulang periode kuota cuti tahunannya. Apakah Anda yakin ingin melanjutkannya?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <div className="flex justify-center p-4">
+                          <Calendar
+                            mode="single"
+                            selected={draft.joinDate}
+                            onSelect={(d) => d && setDraft({ ...draft, joinDate: d })}
+                            initialFocus
+                            className="rounded-md border"
+                          />
+                        </div>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Selesai</AlertDialogCancel>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
 
                   <div className="space-y-1.5">
@@ -370,24 +416,24 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                 <div className="h-px bg-border my-2" />
                 <h4 className="text-sm font-medium text-foreground">Pengaturan Jadwal & Lokasi</h4>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Lokasi Toko/Cabang</Label>
-                    <Select value={draft.storeId || "none"} onValueChange={(v) => setDraft({ ...draft, storeId: v === "none" ? null : v })}>
-                      <SelectTrigger className="w-full bg-input">
-                        <SelectValue placeholder="Pilih lokasi" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Belum Ditentukan</SelectItem>
-                        {stores.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-1.5">
+                  <Label>Lokasi Toko/Cabang</Label>
+                  <Select value={draft.storeId || "none"} onValueChange={(v) => setDraft({ ...draft, storeId: v === "none" ? null : v })}>
+                    <SelectTrigger className="w-full bg-input">
+                      <SelectValue placeholder="Pilih lokasi" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Pusat / Tidak Ada</SelectItem>
+                      {stores.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
+                <div className="space-y-4 rounded-lg border border-border p-4 bg-muted/20">
                   <div className="space-y-1.5">
                     <Label>Pola Rotasi Shift</Label>
                     <Select value={draft.shiftPattern || "none"} onValueChange={(v) => setDraft({ ...draft, shiftPattern: v === "none" ? null : v })}>
@@ -395,7 +441,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                         <SelectValue placeholder="Pilih pola" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Tidak Ada / Manual</SelectItem>
+                        <SelectItem value="none">Manual / Tidak Ada</SelectItem>
                         {SHIFT_PATTERNS.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.label}
@@ -404,6 +450,62 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {draft.shiftPattern === "MORNING_ONLY" && (
+                    <div className="space-y-1.5 pt-2">
+                      <Label>Pilih Shift</Label>
+                      <Select value={draft.shiftId || "none"} onValueChange={(v) => setDraft({ ...draft, shiftId: v === "none" ? null : v })}>
+                        <SelectTrigger className="w-full bg-input">
+                          <SelectValue placeholder="Pilih shift utama" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Belum Ditentukan</SelectItem>
+                          {shifts.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name} ({s.startTime}-{s.endTime})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {draft.shiftPattern === "WEEKLY_ALTERNATING" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border mt-2">
+                      <div className="space-y-1.5">
+                        <Label>Shift 1 (Minggu Ganjil)</Label>
+                        <Select value={draft.shiftId || "none"} onValueChange={(v) => setDraft({ ...draft, shiftId: v === "none" ? null : v })}>
+                          <SelectTrigger className="w-full bg-input">
+                            <SelectValue placeholder="Pilih shift pertama" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Belum Ditentukan</SelectItem>
+                            {shifts.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.name} ({s.startTime}-{s.endTime})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Shift 2 (Minggu Genap)</Label>
+                        <Select value={draft.secondaryShiftId || "none"} onValueChange={(v) => setDraft({ ...draft, secondaryShiftId: v === "none" ? null : v })}>
+                          <SelectTrigger className="w-full bg-input">
+                            <SelectValue placeholder="Pilih shift kedua" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Belum Ditentukan</SelectItem>
+                            {shifts.map((s) => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {s.name} ({s.startTime}-{s.endTime})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -426,7 +528,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                     ))}
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Pilih hari dimana karyawan ini libur secara rutin (misal: Office libur Sabtu/Minggu).
+                    Pilih hari dimana karyawan ini libur secara rutin. Jika rotasi shift memiliki libur yang berubah-ubah, biarkan kosong dan atur dari Kalender Shift.
                   </p>
                 </div>
               </div>

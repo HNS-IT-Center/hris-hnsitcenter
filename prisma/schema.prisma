@@ -131,7 +131,8 @@ model Shift {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  users             User[]
+  usersPrimary      User[]            @relation("PrimaryShift")
+  usersSecondary    User[]            @relation("SecondaryShift")
   shiftAssignments  ShiftAssignment[]
   shiftOverrides    ShiftOverride[]
   shiftSwapsA       ShiftSwap[]       @relation("ShiftSwapShiftA")
@@ -170,10 +171,12 @@ model User {
   departmentId    String?
   storeId         String?
   shiftId         String?
+  secondaryShiftId String? // For weekly rotating shift pattern
 
   department      Department?         @relation(fields: [departmentId], references: [id])
   store           Store?              @relation(fields: [storeId], references: [id])
-  shift           Shift?              @relation(fields: [shiftId], references: [id])
+  shift           Shift?              @relation("PrimaryShift", fields: [shiftId], references: [id])
+  secondaryShift  Shift?              @relation("SecondaryShift", fields: [secondaryShiftId], references: [id])
 
   attendances         Attendance[]
   leaveRequests       LeaveRequest[]

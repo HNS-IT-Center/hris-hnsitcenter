@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GlassCard, SectionTitle } from "@/components/hris/shared"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import {
   Dialog,
@@ -17,7 +20,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { CANDIDATES, type Candidate } from "@/lib/hris-data"
-import { Download, Mail, Plus, Upload, UserCheck, UserX } from "lucide-react"
+import { Download, Mail, Plus, Upload, UserCheck, UserX, CalendarIcon } from "lucide-react"
+import { format } from "date-fns"
+import { id } from "date-fns/locale"
+import { cn } from "@/lib/utils"
 
 const STAGES: { id: Candidate["stage"]; label: string }[] = [
   { id: "waiting", label: "Waiting Call" },
@@ -27,9 +33,12 @@ const STAGES: { id: Candidate["stage"]; label: string }[] = [
   { id: "rejected", label: "Ditolak" },
 ]
 
-export function RecruitmentPage() {
+export function RecruitmentPage({ departments = [], positions = [] }: { departments?: string[], positions?: string[] }) {
   const [selected, setSelected] = useState<Candidate | null>(null)
   const [addOpen, setAddOpen] = useState(false)
+  const [draftDate, setDraftDate] = useState<Date | undefined>(undefined)
+  const [draftDept, setDraftDept] = useState<string>("")
+  const [draftPos, setDraftPos] = useState<string>("")
 
   return (
     <div className="space-y-5">
@@ -44,12 +53,12 @@ export function RecruitmentPage() {
                 Tambah Kandidat
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Tambah Kandidat</DialogTitle>
                 <DialogDescription>Masukkan informasi kandidat baru.</DialogDescription>
               </DialogHeader>
-              <div className="space-y-4">
+              <div className="space-y-4 py-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="c-name">Nama</Label>
                   <Input id="c-name" placeholder="Nama lengkap" className="bg-input" />
@@ -58,15 +67,58 @@ export function RecruitmentPage() {
                   <Label htmlFor="c-email">Email</Label>
                   <Input id="c-email" type="email" placeholder="email@contoh.com" className="bg-input" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="c-dept">Departemen</Label>
+                    <Select value={draftDept} onValueChange={setDraftDept}>
+                      <SelectTrigger className="w-full bg-input">
+                        <SelectValue placeholder="Pilih departemen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((d) => (
+                          <SelectItem key={d} value={d}>{d}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="c-pos">Posisi</Label>
-                    <Input id="c-pos" placeholder="cth. Designer" className="bg-input" />
+                    <Select value={draftPos} onValueChange={setDraftPos}>
+                      <SelectTrigger className="w-full bg-input">
+                        <SelectValue placeholder="Pilih posisi" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {positions.map((p) => (
+                          <SelectItem key={p} value={p}>{p}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="c-date">Tgl Interview</Label>
-                    <Input id="c-date" type="date" className="bg-input" />
-                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Tgl Interview</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={cn(
+                          "w-full justify-start text-left font-normal bg-input",
+                          !draftDate && "text-muted-foreground"
+                        )}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {draftDate ? format(draftDate, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={draftDate}
+                        onSelect={setDraftDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Upload CV</Label>
@@ -93,11 +145,11 @@ export function RecruitmentPage() {
       />
 
       {/* Kanban */}
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5 overflow-x-auto pb-4">
         {STAGES.map((stage) => {
           const items = CANDIDATES.filter((c) => c.stage === stage.id)
           return (
-            <div key={stage.id} className="rounded-2xl border border-border bg-muted/30 p-3">
+            <div key={stage.id} className="rounded-2xl border border-border bg-muted/30 p-3 min-w-[250px]">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-foreground">{stage.label}</h3>
                 <span className="rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground">{items.length}</span>

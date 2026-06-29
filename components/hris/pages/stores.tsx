@@ -15,6 +15,17 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { GlassCard, SectionTitle } from "@/components/hris/shared"
 import { Clock, MapPin, Plus, Radius, Users, Edit2, Trash2 } from "lucide-react"
 
@@ -75,8 +86,6 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Apakah Anda yakin ingin menghapus toko ini?")) return
-    
     const promise = deleteStore(id)
     toast.promise(promise, {
       loading: "Menghapus toko...",
@@ -184,27 +193,40 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {stores.map((s) => (
-          <GlassCard key={s.id} className="group relative">
+          <GlassCard key={s.id} className="group relative w-full overflow-hidden break-words">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/30 text-accent-foreground">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/30 text-accent-foreground shrink-0">
                   <MapPin className="h-4 w-4" />
                 </div>
-                <h3 className="font-semibold text-foreground">{s.name}</h3>
+                <h3 className="font-semibold text-foreground truncate">{s.name}</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setEditTarget(s)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-secondary/20 rounded-md text-muted-foreground"
+                  className="md:opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-secondary/20 rounded-md text-muted-foreground"
                 >
                   <Edit2 className="h-4 w-4" />
                 </button>
-                <button 
-                  onClick={() => handleDelete(s.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/20 text-destructive rounded-md"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="md:opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/20 text-destructive rounded-md">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Hapus Toko?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Apakah Anda yakin ingin menghapus toko <b>{s.name}</b>? Tindakan ini tidak dapat dibatalkan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(s.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Hapus</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
             <p className="mt-2 text-sm text-muted-foreground">{s.address || "Belum ada alamat"}</p>

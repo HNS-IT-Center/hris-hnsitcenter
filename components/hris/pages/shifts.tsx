@@ -14,12 +14,22 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 import { GlassCard, SectionTitle } from "@/components/hris/shared"
-import { Clock, Plus, Users, Trash2, Edit2 } from "lucide-react"
+import { Clock, Plus, Trash2, Edit2 } from "lucide-react"
 
 import { createShift, updateShift, deleteShift } from "@/app/actions/shift"
 
-// Using any for rapid prototyping, normally would use Prisma's Shift type
 type Shift = any
 
 export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
@@ -75,8 +85,6 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Apakah Anda yakin ingin menghapus shift ini?")) return
-    
     const promise = deleteShift(id)
     toast.promise(promise, {
       loading: "Menghapus shift...",
@@ -166,27 +174,40 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {shifts.map((s) => (
-          <GlassCard key={s.id} className="group relative">
+          <GlassCard key={s.id} className="group relative w-full overflow-hidden break-words">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
                   <Clock className="h-4 w-4" />
                 </div>
-                <h3 className="font-semibold text-foreground">{s.name}</h3>
+                <h3 className="font-semibold text-foreground truncate">{s.name}</h3>
               </div>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setEditTarget(s)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-secondary/20 rounded-md text-muted-foreground"
+                  className="md:opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-secondary/20 rounded-md text-muted-foreground"
                 >
                   <Edit2 className="h-4 w-4" />
                 </button>
-                <button 
-                  onClick={() => handleDelete(s.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/20 text-destructive rounded-md"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="md:opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/20 text-destructive rounded-md">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Hapus Shift?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Apakah Anda yakin ingin menghapus shift <b>{s.name}</b>? Tindakan ini tidak dapat dibatalkan.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Batal</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleDelete(s.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Hapus</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
             <p className="text-2xl font-bold text-foreground">
@@ -204,7 +225,7 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
 
       {/* Edit Dialog */}
       <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           {editTarget && (
             <>
               <DialogHeader>
