@@ -30,6 +30,7 @@ export type NavId =
   | "performance"
   | "profile"
   | "hrd-dashboard"
+  | "hrd-attendance"
   | "employees"
   | "shifts"
   | "stores"
@@ -49,6 +50,7 @@ const EMPLOYEE_NAV: NavItem[] = [
 
 const HRD_NAV: NavItem[] = [
   { id: "hrd-dashboard", label: "Dashboard HRD", icon: LayoutDashboard, href: "/hrd/dashboard" },
+  { id: "hrd-attendance", label: "Log Absensi", icon: CalendarCheck, href: "/hrd/attendance" },
   { id: "employees", label: "Karyawan", icon: Users, href: "/hrd/employees" },
   { id: "shifts", label: "Shift", icon: CalendarDays, href: "/hrd/shifts" },
   { id: "stores", label: "Toko", icon: MapPin, href: "/hrd/stores" },

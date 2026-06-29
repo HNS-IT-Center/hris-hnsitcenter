@@ -1,41 +1,78 @@
 "use client"
 
-import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/hris/shared"
-import { CURRENT_USER, LEAVE_QUOTA } from "@/lib/hris-data"
-import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Pencil } from "lucide-react"
+import { Briefcase, Building2, Clock, IdCard, Mail, MapPin } from "lucide-react"
+import type { getMyLeaveQuota } from "@/app/actions/leave"
 
-const WORK_INFO = [
-  { label: "ID Karyawan", value: CURRENT_USER.employeeId, icon: IdCard },
-  { label: "Email", value: CURRENT_USER.email, icon: Mail },
-  { label: "Departemen", value: CURRENT_USER.department, icon: Briefcase },
-  { label: "Toko", value: CURRENT_USER.store, icon: MapPin },
-  { label: "Shift", value: CURRENT_USER.shift, icon: Clock },
-  { label: "Tanggal Bergabung", value: CURRENT_USER.joinDate, icon: Building2 },
-]
+type LeaveQuota = Awaited<ReturnType<typeof getMyLeaveQuota>>
 
-export function ProfilePage() {
+type UserProfile = {
+  id: string
+  name: string
+  email: string
+  username?: string | null
+  avatarUrl?: string | null
+  role: string
+  positionName?: string | null
+  departmentName?: string | null
+  joinDate: Date | string
+  store?: { name: string } | null
+  shift?: { name: string } | null
+  department?: { name: string } | null
+}
+
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  EMPLOYEE: "Karyawan",
+  HRD: "HRD",
+  BOSS: "Pimpinan",
+  ADMIN: "Admin",
+}
+
+export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuota: LeaveQuota }) {
+  const joinDate = new Date(user.joinDate).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+
+  const workInfo = [
+    { label: "ID Karyawan", value: user.username ?? user.id.slice(0, 8).toUpperCase(), icon: IdCard },
+    { label: "Email", value: user.email, icon: Mail },
+    { label: "Departemen", value: user.department?.name ?? user.departmentName ?? "—", icon: Briefcase },
+    { label: "Toko", value: user.store?.name ?? "Belum diatur", icon: MapPin },
+    { label: "Shift", value: user.shift?.name ?? "Belum diatur", icon: Clock },
+    { label: "Tanggal Bergabung", value: joinDate, icon: Building2 },
+  ]
+
   return (
     <div className="space-y-6">
       <GlassCard className="bg-primary text-primary-foreground">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-          <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 text-2xl font-bold">
-            {CURRENT_USER.initials}
-          </div>
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.name}
+              className="h-20 w-20 rounded-2xl object-cover"
+            />
+          ) : (
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 text-2xl font-bold">
+              {getInitials(user.name)}
+            </div>
+          )}
           <div className="text-center sm:text-left">
-            <h2 className="text-xl font-bold">{CURRENT_USER.name}</h2>
-            <p className="text-primary-foreground/80">{CURRENT_USER.role}</p>
-            <p className="mt-1 text-sm text-primary-foreground/60">{CURRENT_USER.employeeId}</p>
+            <h2 className="text-xl font-bold">{user.name}</h2>
+            <p className="text-primary-foreground/80">{user.positionName ?? ROLE_LABELS[user.role] ?? user.role}</p>
+            <p className="mt-1 text-sm text-primary-foreground/60">{user.email}</p>
           </div>
-          <Button
-            variant="secondary"
-            className="gap-1.5 sm:ml-auto"
-            onClick={() => toast.info("Mode edit profil", { description: "Fitur ubah profil akan segera tersedia." })}
-          >
-            <Pencil className="h-4 w-4" />
-            Edit Profil
-          </Button>
         </div>
       </GlassCard>
 
@@ -43,7 +80,7 @@ export function ProfilePage() {
         <GlassCard className="lg:col-span-2">
           <h3 className="mb-4 font-semibold text-foreground">Informasi Kerja</h3>
           <div className="grid gap-4 sm:grid-cols-2">
-            {WORK_INFO.map((info) => {
+            {workInfo.map((info) => {
               const Icon = info.icon
               return (
                 <div key={info.label} className="flex items-center gap-3">
@@ -64,9 +101,9 @@ export function ProfilePage() {
           <h3 className="mb-4 font-semibold text-foreground">Kuota Cuti</h3>
           <div className="space-y-3">
             {[
-              { label: "Total", value: LEAVE_QUOTA.total },
-              { label: "Terpakai", value: LEAVE_QUOTA.used },
-              { label: "Sisa", value: LEAVE_QUOTA.remaining },
+              { label: "Total", value: leaveQuota.total },
+              { label: "Terpakai", value: leaveQuota.used },
+              { label: "Sisa", value: leaveQuota.remaining },
             ].map((q) => (
               <div key={q.label} className="flex items-center justify-between rounded-xl border border-border bg-card/50 px-4 py-3">
                 <span className="text-sm text-muted-foreground">{q.label}</span>
@@ -75,8 +112,8 @@ export function ProfilePage() {
             ))}
             <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-secondary"
-                style={{ width: `${(LEAVE_QUOTA.used / LEAVE_QUOTA.total) * 100}%` }}
+                className="h-full rounded-full bg-secondary transition-all"
+                style={{ width: `${Math.min(100, (leaveQuota.used / leaveQuota.total) * 100)}%` }}
               />
             </div>
           </div>

@@ -1,10 +1,9 @@
 "use client"
 
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/hris/shared"
-import type { NavId } from "@/components/hris/sidebar"
-import { ATTENTION_FLAGS, HRD_STATS, PENDING_APPROVALS } from "@/lib/hris-data"
 import { cn } from "@/lib/utils"
 import {
   AlertTriangle,
@@ -12,25 +11,31 @@ import {
   CalendarCheck,
   ClipboardList,
   Clock,
-  RefreshCw,
-  UserMinus,
   Users,
+  UserMinus,
+  CalendarDays,
 } from "lucide-react"
+import type { getHrdDashboardData } from "@/app/actions/dashboard"
+import { resolveAttentionFlag } from "@/app/actions/flags"
 
-const STATS = [
-  { label: "Karyawan Aktif", value: HRD_STATS.totalActive, icon: Users, color: "text-primary", bg: "bg-primary/10" },
-  { label: "Hadir", value: HRD_STATS.present, icon: CalendarCheck, color: "text-success", bg: "bg-success/10" },
-  { label: "Telat", value: HRD_STATS.late, icon: Clock, color: "text-warning", bg: "bg-warning/10" },
-  { label: "Tidak Hadir", value: HRD_STATS.missing, icon: UserMinus, color: "text-destructive", bg: "bg-destructive/10" },
-]
+type HrdData = Awaited<ReturnType<typeof getHrdDashboardData>>
 
-const QUICK = [
-  { label: "Izin", value: PENDING_APPROVALS.length, icon: ClipboardList },
-  { label: "Lembur", value: 2, icon: Clock },
-  { label: "Tukar Shift", value: 1, icon: RefreshCw },
-]
+export function HrdDashboard({ data }: { data: HrdData }) {
+  const router = useRouter()
+  const { totalActive, present, late, missing, pendingLeaveCount, unresolvedFlags } = data
 
-export function HrdDashboard({ onNavigate }: { onNavigate: (id: NavId) => void }) {
+  const STATS = [
+    { label: "Karyawan Aktif", value: totalActive, icon: Users, color: "text-primary", bg: "bg-primary/10" },
+    { label: "Hadir", value: present, icon: CalendarCheck, color: "text-success", bg: "bg-success/10" },
+    { label: "Telat", value: late, icon: Clock, color: "text-warning", bg: "bg-warning/10" },
+    { label: "Tidak Hadir", value: missing, icon: UserMinus, color: "text-destructive", bg: "bg-destructive/10" },
+  ]
+
+  const QUICK = [
+    { label: "Izin & Cuti", value: pendingLeaveCount, icon: ClipboardList, path: "/hrd/leave" },
+    { label: "Log Absensi Hari Ini", value: null, icon: CalendarDays, path: "/hrd/attendance" },
+  ]
+
   return (
     <div className="space-y-6">
       {/* Stats row */}
@@ -57,46 +62,48 @@ export function HrdDashboard({ onNavigate }: { onNavigate: (id: NavId) => void }
             <h2 className="font-semibold text-foreground">Perlu Diperhatikan</h2>
           </div>
           <div className="space-y-3">
-            {ATTENTION_FLAGS.map((flag) => (
-              <div
-                key={flag.id}
-                className={cn(
-                  "flex items-start justify-between gap-3 rounded-xl border p-3",
-                  flag.severity === "danger" ? "border-destructive/30 bg-destructive/5" : "border-warning/30 bg-warning/5",
-                )}
-              >
-                <div className="flex items-start gap-3">
-                  <AlertTriangle
-                    className={cn("mt-0.5 h-5 w-5 shrink-0", flag.severity === "danger" ? "text-destructive" : "text-warning")}
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{flag.title}</p>
-                    <p className="text-xs text-muted-foreground">{flag.description}</p>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="shrink-0"
-                  onClick={() => toast.success("Flag diselesaikan", { description: flag.title })}
+            {unresolvedFlags.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-4">Tidak ada flag yang perlu diperhatikan. 🎉</p>
+            ) : (
+              unresolvedFlags.map((flag) => (
+                <div
+                  key={flag.id}
+                  className="flex items-start justify-between gap-3 rounded-xl border border-warning/30 bg-warning/5 p-3"
                 >
-                  Resolve
-                </Button>
-              </div>
-            ))}
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{flag.user.name}</p>
+                      <p className="text-xs text-muted-foreground">{flag.description}</p>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={async () => {
+                      await resolveAttentionFlag(flag.id)
+                      toast.success("Flag diselesaikan")
+                    }}
+                  >
+                    Resolve
+                  </Button>
+                </div>
+              ))
+            )}
           </div>
         </GlassCard>
 
-        {/* Pending approvals quick links */}
+        {/* Quick links */}
         <GlassCard>
-          <h2 className="mb-4 font-semibold text-foreground">Approval Tertunda</h2>
+          <h2 className="mb-4 font-semibold text-foreground">Aksi Cepat</h2>
           <div className="space-y-3">
             {QUICK.map((q) => {
               const Icon = q.icon
               return (
                 <button
                   key={q.label}
-                  onClick={() => onNavigate("leave")}
+                  onClick={() => router.push(q.path)}
                   className="flex w-full items-center justify-between rounded-xl border border-border bg-card/50 p-3 text-left transition-colors hover:border-primary/40"
                 >
                   <span className="flex items-center gap-3">
@@ -106,9 +113,11 @@ export function HrdDashboard({ onNavigate }: { onNavigate: (id: NavId) => void }
                     <span className="text-sm font-medium text-foreground">{q.label}</span>
                   </span>
                   <span className="flex items-center gap-2">
-                    <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-semibold text-destructive-foreground">
-                      {q.value}
-                    </span>
+                    {q.value !== null && q.value > 0 && (
+                      <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-destructive px-1.5 text-xs font-semibold text-destructive-foreground">
+                        {q.value}
+                      </span>
+                    )}
                     <ArrowRight className="h-4 w-4 text-muted-foreground" />
                   </span>
                 </button>
