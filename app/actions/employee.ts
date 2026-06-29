@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 
 export async function getEmployees() {
+  console.log("Cache bust action")
   return await prisma.user.findMany({
     include: {
       department: true,

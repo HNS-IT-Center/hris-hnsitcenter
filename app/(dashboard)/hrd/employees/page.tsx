@@ -4,6 +4,8 @@ import { getStores } from "@/app/actions/store"
 import { getShifts } from "@/app/actions/shift"
 
 export default async function Page() { 
+  // Cache bust to fix Vercel build using old Prisma schema cache
+  console.log("Fetching employees...")
   const employees = await getEmployees()
   const stores = await getStores()
   const shifts = await getShifts()
