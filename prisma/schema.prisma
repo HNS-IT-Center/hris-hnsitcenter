@@ -148,6 +148,7 @@ model User {
   name            String
   username        String?   @unique
   avatarUrl       String?
+  phoneNumber     String?
   role            Role      @default(EMPLOYEE)
   
   // Synced from SSO (Read-Only in HRIS)

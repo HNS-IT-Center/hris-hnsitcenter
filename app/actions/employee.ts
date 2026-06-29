@@ -64,3 +64,68 @@ export async function updateEmployee(id: string, data: {
     return { success: false, error: 'Failed to update employee' }
   }
 }
+
+export async function createEmployee(data: {
+  name: string
+  email: string
+  departmentName: string
+  positionName: string
+  storeId?: string | null
+  shiftId?: string | null
+  phoneNumber?: string | null
+}) {
+  try {
+    const existing = await prisma.user.findUnique({ where: { email: data.email } })
+    if (existing) {
+      return { success: false, error: 'Email sudah terdaftar.' }
+    }
+
+    let departmentId = null
+    if (data.departmentName) {
+      const dept = await prisma.department.findUnique({ where: { name: data.departmentName } })
+      if (dept) departmentId = dept.id
+    }
+
+    let role: any = 'EMPLOYEE'
+    if (data.departmentName === 'HRD') {
+      role = 'HRD'
+    } else if (data.departmentName === 'BOSS') {
+      role = 'BOSS'
+    }
+
+    const newUser = await prisma.user.create({
+      data: {
+        name: data.name,
+        email: data.email,
+        departmentName: data.departmentName,
+        departmentId,
+        positionName: data.positionName,
+        storeId: data.storeId,
+        shiftId: data.shiftId,
+        phoneNumber: data.phoneNumber,
+        role,
+        isActive: true,
+        notifEnabled: true,
+        twoFAEnabled: false,
+      }
+    })
+
+    revalidatePath('/hrd/employees')
+    return { success: true, data: newUser }
+  } catch (error) {
+    console.error('Error creating employee:', error)
+    return { success: false, error: 'Gagal membuat karyawan baru.' }
+  }
+}
+
+export async function getUniquePositions() {
+  try {
+    const users = await prisma.user.findMany({
+      select: { positionName: true },
+      distinct: ['positionName']
+    })
+    return users.map(u => u.positionName).filter(Boolean) as string[]
+  } catch {
+    return []
+  }
+}

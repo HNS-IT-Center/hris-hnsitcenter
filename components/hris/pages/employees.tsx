@@ -31,14 +31,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2, Eye, EyeOff, ArrowUpDown } from "lucide-react"
+import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2, Eye, EyeOff, ArrowUpDown, Phone } from "lucide-react"
 import { format, addDays } from "date-fns"
 import { id } from "date-fns/locale"
 import { type DateRange } from "react-day-picker"
 
-import { updateEmployee } from "@/app/actions/employee"
+import { updateEmployee, createEmployee } from "@/app/actions/employee"
 import { compressToWebP } from "@/lib/utils/file"
 import { DatePickerWithRange } from "@/components/hris/shared/date-range-picker"
+import { useTransition } from "react"
 
 type User = any
 type Store = any
@@ -69,7 +70,7 @@ function StatusBadge({ active }: { active: boolean }) {
   )
 }
 
-export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmployees: User[], stores: Store[], shifts: Shift[] }) {
+export function EmployeesPage({ initialEmployees, stores, shifts, positions }: { initialEmployees: User[], stores: Store[], shifts: Shift[], positions: string[] }) {
   const [q, setQ] = useState("")
   const [deptFilter, setDeptFilter] = useState("Semua")
   const [storeFilter, setStoreFilter] = useState("Semua")
@@ -82,6 +83,12 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
   const [hideInactive, setHideInactive] = useState(true)
   const [sortField, setSortField] = useState<"name" | "joinDate">("name")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isPending, startTransition] = useTransition()
+  
+  const [newEmp, setNewEmp] = useState({
+    name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: ""
+  })
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
@@ -129,6 +136,42 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
       halfDays: e.halfDays || [],
       shiftCycle: e.shiftCycle || [],
       leaveQuotaRemaining: e.leaveQuotaRemaining ?? 12,
+      phoneNumber: e.phoneNumber || "",
+    })
+  }
+
+  async function handleAddEmployee() {
+    if (!newEmp.name || !newEmp.email || !newEmp.departmentName || !newEmp.positionName) {
+      toast.error("Mohon lengkapi Nama, Email, Departemen, dan Posisi")
+      return
+    }
+
+    startTransition(async () => {
+      let phone = newEmp.phoneNumber.trim()
+      if (phone.startsWith('0')) {
+        phone = '+62' + phone.slice(1)
+      } else if (phone.startsWith('62')) {
+        phone = '+' + phone
+      }
+
+      const res = await createEmployee({
+        name: newEmp.name,
+        email: newEmp.email,
+        departmentName: newEmp.departmentName,
+        positionName: newEmp.positionName,
+        storeId: newEmp.storeId === "none" ? null : newEmp.storeId,
+        shiftId: newEmp.shiftId === "none" ? null : newEmp.shiftId,
+        phoneNumber: phone || null
+      })
+
+      if (res.success && res.data) {
+        setEmployees(prev => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)))
+        setIsAddOpen(false)
+        setNewEmp({ name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: "" })
+        toast.success("Karyawan berhasil ditambahkan")
+      } else {
+        toast.error(res.error || "Gagal menambahkan karyawan")
+      }
     })
   }
 
@@ -267,6 +310,10 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
               </div>
             </PopoverContent>
           </Popover>
+          <Button onClick={() => setIsAddOpen(true)} className="gap-1.5 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
+            <Plus className="h-4 w-4" />
+            Tambah Karyawan
+          </Button>
           <Button 
             variant="ghost" 
             size="icon" 
@@ -384,6 +431,90 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
         )}
       </GlassCard>
 
+      {/* Add Employee Dialog */}
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden max-w-lg w-[calc(100vw-2rem)] sm:w-full">
+          <DialogHeader>
+            <DialogTitle>Tambah Karyawan Baru</DialogTitle>
+            <DialogDescription>
+              Karyawan yang ditambahkan di sini akan secara otomatis tersinkronisasi saat mereka login via SSO menggunakan email yang sama.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label>Nama Lengkap</Label>
+              <Input placeholder="John Doe" value={newEmp.name} onChange={e => setNewEmp({...newEmp, name: e.target.value})} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Email SSO</Label>
+              <Input type="email" placeholder="john.doe@hnsitcenter.id" value={newEmp.email} onChange={e => setNewEmp({...newEmp, email: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Departemen</Label>
+                <div className="flex flex-col gap-2">
+                  <Select value={departments.includes(newEmp.departmentName) ? newEmp.departmentName : ""} onValueChange={v => setNewEmp({...newEmp, departmentName: v})}>
+                    <SelectTrigger className="w-full bg-input">
+                      <SelectValue placeholder="Pilih..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input placeholder="Atau ketik departemen baru" value={newEmp.departmentName} onChange={e => setNewEmp({...newEmp, departmentName: e.target.value})} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Posisi</Label>
+                <div className="flex flex-col gap-2">
+                  <Select value={positions.includes(newEmp.positionName) ? newEmp.positionName : ""} onValueChange={v => setNewEmp({...newEmp, positionName: v})}>
+                    <SelectTrigger className="w-full bg-input">
+                      <SelectValue placeholder="Pilih..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {positions.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <Input placeholder="Atau ketik posisi baru" value={newEmp.positionName} onChange={e => setNewEmp({...newEmp, positionName: e.target.value})} />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Nomor Telepon (opsional)</Label>
+              <Input placeholder="08..." value={newEmp.phoneNumber} onChange={e => setNewEmp({...newEmp, phoneNumber: e.target.value})} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Penugasan Toko</Label>
+                <Select value={newEmp.storeId} onValueChange={v => setNewEmp({...newEmp, storeId: v})}>
+                  <SelectTrigger className="w-full bg-input"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Pusat / Tidak Ada</SelectItem>
+                    {stores.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Penugasan Shift</Label>
+                <Select value={newEmp.shiftId} onValueChange={v => setNewEmp({...newEmp, shiftId: v})}>
+                  <SelectTrigger className="w-full bg-input"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Belum ditentukan</SelectItem>
+                    {shifts.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Batal</Button>
+            <Button onClick={handleAddEmployee} disabled={isPending}>
+              {isPending ? "Menyimpan..." : "Simpan Karyawan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Detail / Edit dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden max-w-2xl w-[calc(100vw-2rem)] sm:w-full">
@@ -419,6 +550,20 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                     <Label>Departemen (Dari SSO)</Label>
                     <Input value={draft.departmentName || '-'} disabled className="bg-muted" />
                   </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Nomor Telepon (WhatsApp)</Label>
+                  <div className="flex gap-2">
+                    <Input value={draft.phoneNumber || 'Belum diisi'} disabled className="bg-muted flex-1" />
+                    {draft.phoneNumber && (
+                      <Button variant="outline" className="gap-2 shrink-0 border-success text-success hover:bg-success hover:text-white" onClick={() => window.open(`https://wa.me/${draft.phoneNumber.replace('+', '')}`, '_blank')}>
+                        <Phone className="h-4 w-4" />
+                        Chat WA
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Karyawan dapat mengubah nomor ini dari menu Profil mereka.</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

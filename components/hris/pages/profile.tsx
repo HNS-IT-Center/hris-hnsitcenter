@@ -1,8 +1,13 @@
 "use client"
 
 import { GlassCard } from "@/components/hris/shared"
-import { Briefcase, Building2, Clock, IdCard, Mail, MapPin } from "lucide-react"
+import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X } from "lucide-react"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
+import { useState, useTransition } from "react"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { toast } from "sonner"
+import { updateProfilePhoneNumber } from "@/app/actions/profile"
 
 type LeaveQuota = Awaited<ReturnType<typeof getMyLeaveQuota>>
 
@@ -19,6 +24,7 @@ type UserProfile = {
   store?: { name: string } | null
   shift?: { name: string } | null
   department?: { name: string } | null
+  phoneNumber?: string | null
 }
 
 function getInitials(name: string) {
@@ -43,6 +49,25 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
     month: "long",
     year: "numeric",
   })
+
+  const [isEditingPhone, setIsEditingPhone] = useState(false)
+  const [phoneInput, setPhoneInput] = useState(user.phoneNumber ?? "")
+  const [currentPhone, setCurrentPhone] = useState(user.phoneNumber ?? "")
+  const [isPending, startTransition] = useTransition()
+
+  async function handleSavePhone() {
+    startTransition(async () => {
+      const res = await updateProfilePhoneNumber(phoneInput)
+      if (res.success && res.formattedNumber) {
+        setCurrentPhone(res.formattedNumber)
+        setPhoneInput(res.formattedNumber)
+        setIsEditingPhone(false)
+        toast.success("Nomor telepon berhasil diperbarui")
+      } else {
+        toast.error(res.error || "Gagal menyimpan nomor telepon")
+      }
+    })
+  }
 
   const workInfo = [
     { label: "ID Karyawan", value: user.username ?? user.id.slice(0, 8).toUpperCase(), icon: IdCard },
@@ -94,6 +119,42 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
                 </div>
               )
             })}
+          </div>
+
+          <div className="mt-6 border-t border-border pt-6">
+            <h4 className="mb-4 text-sm font-semibold text-foreground">Kontak Darurat / WhatsApp</h4>
+            <div className="flex items-center gap-3 max-w-sm">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Phone className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">Nomor Telepon</p>
+                {isEditingPhone ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input 
+                      value={phoneInput} 
+                      onChange={(e) => setPhoneInput(e.target.value)} 
+                      placeholder="0812..." 
+                      className="h-8 text-sm"
+                      disabled={isPending}
+                    />
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-success hover:text-success/80 shrink-0" onClick={handleSavePhone} disabled={isPending}>
+                      {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground shrink-0" onClick={() => { setIsEditingPhone(false); setPhoneInput(currentPhone) }} disabled={isPending}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-medium text-foreground">{currentPhone || "Belum diatur"}</p>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => setIsEditingPhone(true)}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </GlassCard>
 

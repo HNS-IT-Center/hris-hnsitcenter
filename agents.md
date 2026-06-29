@@ -80,16 +80,27 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
   - Uses HTML5 Geolocation to check proximity to assigned `Store`.
   - Uses HTML5 Camera API to capture selfies.
   - **Permission UX:** Checks permissions on mount. Prompts users visually if permissions are denied, preventing silent failures.
+- **Fraud Prevention & Fingerprinting:**
+  - Implemented Device ID tracking on login (persisted via `UserDevice` table).
+  - HRD can block specific devices from specific accounts to prevent check-in fraud.
+  - Check-In boundaries enforced: Early Check-in (max 30 mins before), Late Check-in (allowed but marked late), and Check-Out limit (max 55 mins after shift).
 - **HRD Logs (`/hrd/attendance`):** 
   - Central log for HRD to monitor the entire roster on a specific date.
-  - Displays statuses: Present, Late, Alpha, On Leave, and **Belum Absen** (for users who have no record yet).
+  - Displays statuses: Present, Late, Alpha, On Leave, and Belum Absen.
+  - Automatically maps "Belum Absen" to `ON_LEAVE` if the user has an approved leave request on that date.
+  - Includes a "Lihat Detail" modal that surfaces Check-In/Out selfies and clickable Google Maps links for GPS coordinates.
 
 ### Phase 4: Leave & Overtime Approvals (Status: PARTIALLY COMPLETED)
 - **Leave Requests (COMPLETED):**
   - Employees can submit requests via Server Action (`submitLeaveRequest`). Quota validation is enforced.
   - HRD can approve/reject via `/hrd/leave` using `approveLeaveRequest`.
   - Quotas (`Total`, `Used`, `Remaining`) dynamically update based on approved requests.
+- **Calendar Integration (COMPLETED):**
+  - `CalendarEvent` database model powers dynamic company events (Town Halls, Holidays).
+  - HRD Calendar Manager (`/hrd/calendar`) fetches dynamic audiences (Departments, Stores, Shifts) directly from the database instead of hardcoded lists.
+  - Employee Performance view (`/performance`) renders calendar dots for company events and auto-injects approved Izin/Cuti as "ON_LEAVE" pseudo-events.
 - **Overtime Requests (NOT STARTED):** Need to implement logic for submitting and approving overtime hours in the `/performance` module.
+
 
 ### Phase 5: Notifications & Automation (Status: NOT STARTED)
 - **Web Push (VAPID):** Ask for notification permissions, store subscriptions, and push alerts for Leave Approvals.
