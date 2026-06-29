@@ -330,7 +330,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
 
       {/* Detail / Edit dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl w-[95vw] sm:w-full">
+        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden max-w-2xl w-[calc(100vw-2rem)] sm:w-full">
           {draft && (
             <>
               <DialogHeader>

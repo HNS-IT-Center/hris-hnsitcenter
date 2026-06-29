@@ -57,16 +57,20 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Role Switcher (if authorized) */}
         {canSwitch && (
           <Link
             href={isHrdMode ? "/dashboard" : "/hrd/dashboard"}
-            className="flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent/30 transition-colors mr-1"
+            className={cn(
+              "flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all mr-1",
+              isHrdMode 
+                ? "border-primary/50 bg-primary/10 text-primary shadow-sm" 
+                : "border-border bg-muted/60 text-muted-foreground hover:bg-accent/30"
+            )}
             title={isHrdMode ? "Beralih ke mode Karyawan" : "Beralih ke mode HRD"}
           >
-            <UserCog className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline-block">
-              {isHrdMode ? "HRD" : "Karyawan"}
+            <UserCog className={cn("h-4 w-4", isHrdMode && "text-primary")} />
+            <span className="hidden sm:inline-block font-semibold">
+              {isHrdMode ? "Mode HRD" : "Mode Karyawan"}
             </span>
           </Link>
         )}
