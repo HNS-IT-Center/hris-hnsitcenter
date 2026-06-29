@@ -35,6 +35,13 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
     return () => stopCamera()
   }, [])
 
+  // Bind stream to video element once it's mounted
+  useEffect(() => {
+    if (permState === 'granted' && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current
+    }
+  }, [permState])
+
   const stopCamera = () => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop())
@@ -81,8 +88,8 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
                 setLiveDistance(dist)
               }
             },
-            (err) => console.error("Watch position error:", err),
-            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+            (err) => console.warn("Watch position error (non-critical):", err),
+            { enableHighAccuracy: true }
           )
         },
         (err) => {
