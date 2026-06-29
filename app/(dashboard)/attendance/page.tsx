@@ -14,11 +14,27 @@ export default async function Page() {
 
   // Fetch full user and store
   const user = await prisma.user.findUnique({
-    where: { id: userId },
+    where: { ssoId: userId },
     include: { store: true }
   })
 
-  if (!user) return null
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-xl text-center space-y-4 pt-10">
+        <h2 className="text-2xl font-bold text-destructive">Akses Ditolak</h2>
+        <p className="text-muted-foreground">Akun Anda belum terdaftar di database HRIS. Silakan hubungi HRD.</p>
+      </div>
+    )
+  }
+
+  if (!user.store) {
+    return (
+      <div className="mx-auto max-w-xl text-center space-y-4 pt-10">
+        <h2 className="text-2xl font-bold text-destructive">Toko Belum Diatur</h2>
+        <p className="text-muted-foreground">Anda belum ditugaskan ke lokasi/toko manapun. Silakan hubungi HRD untuk pengaturan lokasi absensi Anda.</p>
+      </div>
+    )
+  }
 
   // Fetch today's attendance record
   const todayRecord = await getTodayAttendance(user.id)
