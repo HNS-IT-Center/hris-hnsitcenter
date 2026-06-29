@@ -27,6 +27,18 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
 
+  // Prevent body scroll when mobile sidebar is open
+  React.useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'auto'
+    }
+    return () => {
+      document.body.style.overflow = 'auto'
+    }
+  }, [mobileOpen])
+
   // Derive role for sidebar — based on URL path!
   const isHrdAuthorized = user.role === "HRD" || user.role === "BOSS"
   const isHrdRoute = pathname?.startsWith('/hrd')
