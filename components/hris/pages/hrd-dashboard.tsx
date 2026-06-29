@@ -63,7 +63,7 @@ export function HrdDashboard({ data }: { data: HrdData }) {
           </div>
           <div className="space-y-3">
             {unresolvedFlags.length === 0 ? (
-              <p className="text-center text-sm text-muted-foreground py-4">Tidak ada flag yang perlu diperhatikan. 🎉</p>
+              <p className="text-center text-sm text-muted-foreground py-4">Tidak ada flag yang perlu diperhatikan.</p>
             ) : (
               unresolvedFlags.map((flag) => (
                 <div

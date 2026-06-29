@@ -31,5 +31,12 @@ export default async function Page({
     orderBy: { date: "asc" },
   })
 
-  return <PerformancePage attendanceRecords={attendanceRecords} year={year} month={month} />
+  // Fetch events. Normally we'd filter by scope, but let's grab all for the month to filter on the client.
+  const events = await prisma.calendarEvent.findMany({
+    where: {
+      date: { gte: startOfMonth, lte: endOfMonth },
+    }
+  })
+
+  return <PerformancePage attendanceRecords={attendanceRecords} events={events} year={year} month={month} />
 }

@@ -13,7 +13,17 @@ import {
   LogOut,
   MapPin,
   UserX,
+  Search,
+  Map
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import type { getHrdAttendanceLogs } from "@/app/actions/dashboard"
 
 type LogData = Awaited<ReturnType<typeof getHrdAttendanceLogs>>
@@ -65,6 +75,8 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
   const router = useRouter()
   const [, startTransition] = useTransition()
   const [tab, setTab] = useState("all")
+  const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
   const [date, setDate] = useState(() => {
     const d = new Date(initialData.date)
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
@@ -170,15 +182,108 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
                   <p className="text-sm font-medium text-foreground">{formatTime(attendance?.checkOutTime)}</p>
                 </div>
 
-                {/* Status badge */}
-                <div className="shrink-0">
-                  <StatusBadge status={displayStatus as DisplayStatus} />
+                {/* Status badge and Action */}
+                <div className="flex items-center gap-3 shrink-0">
+                  <div className="hidden sm:block">
+                    <StatusBadge status={displayStatus as DisplayStatus} />
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      setSelectedLog(entry)
+                      setModalOpen(true)
+                    }}
+                    className="h-8 w-8 p-0"
+                    title="Lihat Detail"
+                  >
+                    <Search className="h-4 w-4" />
+                  </Button>
                 </div>
               </GlassCard>
             )
           })}
         </div>
       )}
+
+      {/* Details Modal */}
+      <Dialog open={modalOpen} onOpenChange={(open) => {
+        setModalOpen(open)
+        if (!open) setSelectedLog(null)
+      }}>
+        <DialogContent className="max-w-md w-full sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detail Absensi</DialogTitle>
+            <DialogDescription>
+              {selectedLog?.employee.name} - {selectedLog?.employee.shift?.name}
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedLog && (
+            <div className="space-y-6">
+              {/* Check-In Details */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm">Check-In</h4>
+                {selectedLog.attendance?.checkInTime ? (
+                  <div className="rounded-lg border bg-muted/20 p-3 flex gap-4 items-start">
+                    {selectedLog.attendance.checkInPhotoUrl ? (
+                      <img src={selectedLog.attendance.checkInPhotoUrl} alt="Check-in" className="h-20 w-16 object-cover rounded bg-muted" />
+                    ) : (
+                      <div className="h-20 w-16 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground text-center p-1">No Photo</div>
+                    )}
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{formatTime(selectedLog.attendance.checkInTime)}</p>
+                      {selectedLog.attendance.checkInLat && selectedLog.attendance.checkInLng && (
+                        <a 
+                          href={`https://maps.google.com/?q=${selectedLog.attendance.checkInLat},${selectedLog.attendance.checkInLng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                        >
+                          <Map className="h-3 w-3" />
+                          Lihat di Peta
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Belum Check-In</p>
+                )}
+              </div>
+
+              {/* Check-Out Details */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm">Check-Out</h4>
+                {selectedLog.attendance?.checkOutTime ? (
+                  <div className="rounded-lg border bg-muted/20 p-3 flex gap-4 items-start">
+                    {selectedLog.attendance.checkOutPhotoUrl ? (
+                      <img src={selectedLog.attendance.checkOutPhotoUrl} alt="Check-out" className="h-20 w-16 object-cover rounded bg-muted" />
+                    ) : (
+                      <div className="h-20 w-16 bg-muted rounded flex items-center justify-center text-xs text-muted-foreground text-center p-1">No Photo</div>
+                    )}
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">{formatTime(selectedLog.attendance.checkOutTime)}</p>
+                      {selectedLog.attendance.checkOutLat && selectedLog.attendance.checkOutLng && (
+                        <a 
+                          href={`https://maps.google.com/?q=${selectedLog.attendance.checkOutLat},${selectedLog.attendance.checkOutLng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                        >
+                          <Map className="h-3 w-3" />
+                          Lihat di Peta
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Belum Check-Out</p>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

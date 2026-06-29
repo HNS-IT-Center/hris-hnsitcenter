@@ -3,8 +3,15 @@
 import { useState } from "react"
 import { GlassCard } from "@/components/hris/shared"
 import { cn } from "@/lib/utils"
-import { AlarmClock, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Plane, XCircle } from "lucide-react"
+import { AlarmClock, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Plane, XCircle, Info } from "lucide-react"
 import { useRouter } from "next/navigation"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 const DAYS = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"]
 
@@ -36,10 +43,12 @@ type AttendanceRecord = {
 
 export function PerformancePage({
   attendanceRecords,
+  events = [],
   year,
   month,
 }: {
   attendanceRecords: AttendanceRecord[]
+  events?: any[]
   year: number
   month: number // 1-indexed
 }) {
@@ -51,6 +60,17 @@ export function PerformancePage({
     const d = new Date(r.date)
     statusByDay.set(d.getUTCDate(), r.status)
   }
+
+  const eventsByDay = new Map<number, any[]>()
+  for (const e of events) {
+    const d = new Date(e.date)
+    const day = d.getUTCDate()
+    if (!eventsByDay.has(day)) eventsByDay.set(day, [])
+    eventsByDay.get(day)!.push(e)
+  }
+
+  const [selectedEvents, setSelectedEvents] = useState<any[]>([])
+  const [modalOpen, setModalOpen] = useState(false)
 
   // Month display info
   const monthDate = new Date(year, month - 1, 1)
@@ -124,15 +144,29 @@ export function PerformancePage({
           ))}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const status = statusByDay.get(day)
+            const dayEvents = eventsByDay.get(day) || []
             return (
-              <div
+              <button
                 key={day}
                 title={status ? STATUS_LABEL[status] : undefined}
-                className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card/40 text-sm text-foreground"
+                onClick={() => {
+                  if (dayEvents.length > 0) {
+                    setSelectedEvents(dayEvents)
+                    setModalOpen(true)
+                  }
+                }}
+                className={cn(
+                  "flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card/40 text-sm text-foreground transition-colors",
+                  dayEvents.length > 0 && "hover:bg-muted/60 cursor-pointer",
+                  dayEvents.length === 0 && "cursor-default"
+                )}
               >
                 <span>{day}</span>
-                {status && <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_COLORS[status] ?? "bg-muted")} />}
-              </div>
+                <div className="flex gap-1">
+                  {status && <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_COLORS[status] ?? "bg-muted")} />}
+                  {dayEvents.length > 0 && <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />}
+                </div>
+              </button>
             )
           })}
         </div>
@@ -145,8 +179,33 @@ export function PerformancePage({
               {label}
             </span>
           ))}
+          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500" />
+            Event/Acara
+          </span>
         </div>
       </GlassCard>
+
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Detail Acara</DialogTitle>
+            <DialogDescription>Acara yang berlangsung pada tanggal tersebut.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedEvents.map((ev) => (
+              <div key={ev.id} className="rounded-lg border bg-muted/40 p-3">
+                <h4 className="font-semibold">{ev.title}</h4>
+                {ev.note && <p className="mt-1 text-sm text-muted-foreground">{ev.note}</p>}
+                <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Info className="h-3 w-3" />
+                  Tipe: {ev.type}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Summary */}
       <div>

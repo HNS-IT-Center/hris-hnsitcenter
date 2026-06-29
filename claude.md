@@ -1,54 +1,106 @@
-# HNS IT Center HRIS - Project Context & Documentation
+# HNS IT Center HRIS - Comprehensive Developer & Agent Documentation
 
-This file documents the architectural decisions, environment setup, database commands, and completed work for the HNS IT Center HRIS application. **Agents should read this file to understand the current state of the project before making changes.**
+This file serves as the ultimate source of truth for the HNS IT Center HRIS application. It documents the architectural decisions, environment setup, database commands, and a detailed breakdown of all completed phases. **Agents MUST read this file in its entirety to understand the current state of the project before making any changes.**
 
-## 1. What Has Been Built (Phase 1)
-- **Framework & Infrastructure:** 
-  - Next.js 16 (App Router)
-  - PWA configured (Manifest & Offline Fallback page at `/offline`)
-  - Cloudflare R2 utilities for file storage (`lib/utils/storage.ts`) with client-side WebP image compression (`lib/utils/file.ts`).
-  - Supabase client integration (`lib/supabase/client.ts` & `lib/supabase/server.ts`).
-- **SSO Authentication:** 
-  - Integrated with `sso.hnsitcenter.id` via Cross-Domain JWT Cookies.
-  - Implemented `proxy.ts` (Next.js 16 Middleware) that decodes the `sso_token` (HS256) and injects headers (`x-user-id`, `x-user-role`, etc.) into Server Components.
-  - Added a **Local Development Bypass**: If running on `localhost:3000` (`NODE_ENV === 'development'`), the proxy automatically injects a mock HRD user (`dev@hnsitcenter.id`) to prevent infinite redirect loops caused by the browser blocking `.hnsitcenter.id` cookies on localhost.
-- **Database (Prisma 7 + Supabase):** 
-  - Full schema matching the 15 project brief markdowns is in `prisma/schema.prisma`.
-  - Configured for Prisma 7 using `prisma.config.ts` (with `@prisma/adapter-pg` driver).
-- **Route Wrappers:** 
-  - Wired existing React UI components from `components/hris/pages/` into Next.js routes under `app/(dashboard)/*` (e.g. `/dashboard`, `/hrd/dashboard`, `/attendance`).
+---
+
+## 1. Architecture & Tech Stack
+- **Framework:** Next.js 16 (App Router)
+- **Styling:** Tailwind CSS + shadcn/ui (Accessible, customizable components)
+- **Database:** Prisma ORM 7 + Supabase PostgreSQL
+- **Storage:** Cloudflare R2 for file storage (Profile Pictures, Attendance Selfies)
+- **State Management:** React `useState`, `useTransition` for Server Actions, and URL Search Params for shareable state (e.g., month navigation).
+
+### Data Fetching Pattern (Crucial for Agents)
+We employ a strict **Server-to-Client separation** for data fetching:
+1. **Server Components (`app/(dashboard)/*/page.tsx`)**: Fetch data securely using Prisma and `getServerUser()`.
+2. **Client Components (`components/hris/pages/*.tsx`)**: Accept the fetched data as `props`. These components handle interactivity, hooks, and UI rendering.
+*Rule: Do NOT fetch database records directly inside Client Components. Do NOT use hardcoded data (`lib/hris-data.ts`).*
+
+### Authentication (SSO Proxy Flow)
+The app does not use NextAuth. It relies on a central SSO server (`sso.hnsitcenter.id`).
+1. Users log in at the SSO portal and receive an `sso_token` (JWT Cookie).
+2. The `middleware.ts` (Proxy) intercepts requests, decodes the JWT using `HS256`, and injects headers (`x-user-id`, `x-user-role`, `x-user-email`) into the request.
+3. Server Components read these headers via `lib/auth.ts` -> `getServerUser()`.
+4. **Local Dev Bypass**: If running on `localhost:3000`, the proxy automatically injects a mock HRD user (`dev@hnsitcenter.id`) to bypass browser cross-domain cookie restrictions.
+
+---
 
 ## 2. Environment Variables (.env)
-Your `.env` file should look exactly like `.env.example`. 
-**CRITICAL NOTE FOR AGENTS:** Do not leak or log the `SUPABASE_SERVICE_ROLE_KEY`.
+Your `.env` file must match `.env.example`. 
+**CRITICAL NOTE:** Never log or expose the `SUPABASE_SERVICE_ROLE_KEY` to the client.
+
+---
 
 ## 3. Database Management & Seeding
 
-The database uses Prisma ORM connected to Supabase PostgreSQL. A seeder script (`prisma/seed.ts`) is configured to generate default test data (Departments, Stores, Shifts, and Test Users).
-
-### How to Sync Schema (Push)
-If you update `prisma/schema.prisma`, you need to push the changes to Supabase:
+### Syncing Schema
+When modifying `prisma/schema.prisma`, sync it to Supabase:
 ```bash
 npx prisma generate
 npx prisma db push
 ```
 
-### How to Seed Data
-If the database is empty, run the seeder to populate default test data:
+### Seeding Data
+Run the seeder to populate default Test Users, Departments, Stores, and Shifts:
 ```bash
 npx prisma db seed
 ```
-*Note: The seed command is mapped to `npx tsx prisma/seed.ts` via `prisma.config.ts`.*
+*(Mapped to `npx tsx prisma/seed.ts` via `prisma.config.ts`)*
 
-### How to Reset the Database
-If you need a fresh start (wiping all data), you can reset the database and re-seed it in one command:
+### Reset Database
+To completely wipe and re-seed the database:
 ```bash
 npx prisma migrate reset
 ```
-*(This will drop the database, recreate it from the schema, and automatically run the seed script!)*
 
-## 4. Next Steps (Phase 2 & Beyond)
-- **Phase 2:** Employee Management & Shift Assignments
-- **Phase 3:** Attendance Module (Geofencing, Photo Check-in)
-- **Phase 4:** Leave & Overtime Approvals
-- **Phase 5:** Notifications (VAPID/Web Push, Resend) & Cron Jobs
+### ⚠️ Known Issue: Prisma Schema Cache (P2022 Error)
+If you rename or delete a column (e.g., `shiftPattern`), Next.js/Prisma might aggressively cache the old schema during `npm run build`, causing a `P2022: Column does not exist` error.
+**Fix:** Run the following command in PowerShell to purge caches:
+```powershell
+Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item -Recurse -Force "node_modules\.prisma" -ErrorAction SilentlyContinue ; npx prisma generate
+```
+
+---
+
+## 4. Phase Completion Status & Implementation Details
+
+### Phase 1: Core Setup & Dashboard (Status: COMPLETED)
+- **Dynamic Dashboards:** Both Employee and HRD dashboards fetch live summary data.
+- **Attention Flags:** System generates flags for unusual activity (e.g., missed checkout). HRD can resolve these flags via `resolveAttentionFlag` Server Action.
+
+### Phase 2: Employee & Shift Management (Status: NOT STARTED)
+- **Objective:** Allow HRD to CRUD user accounts, roles, departments, stores, and shifts.
+- **To-Do:** Wire up UI in `/app/(dashboard)/hrd/employees` and `/app/(dashboard)/hrd/shifts`.
+- **Media Upload:** Implement Cloudflare R2 upload for employee avatars in `EmployeeForm`. Compress to WebP client-side via `lib/utils/file.ts`.
+
+### Phase 3: Attendance Module (Status: COMPLETED)
+- **PWA Capabilities:** App is installable via `manifest.webmanifest`. Offline fallback page (`/offline`) is configured.
+- **Geofencing & Selfie (`/attendance`):** 
+  - Uses HTML5 Geolocation to check proximity to assigned `Store`.
+  - Uses HTML5 Camera API to capture selfies.
+  - **Permission UX:** Checks permissions on mount. Prompts users visually if permissions are denied, preventing silent failures.
+- **HRD Logs (`/hrd/attendance`):** 
+  - Central log for HRD to monitor the entire roster on a specific date.
+  - Displays statuses: Present, Late, Alpha, On Leave, and **Belum Absen** (for users who have no record yet).
+
+### Phase 4: Leave & Overtime Approvals (Status: PARTIALLY COMPLETED)
+- **Leave Requests (COMPLETED):**
+  - Employees can submit requests via Server Action (`submitLeaveRequest`). Quota validation is enforced.
+  - HRD can approve/reject via `/hrd/leave` using `approveLeaveRequest`.
+  - Quotas (`Total`, `Used`, `Remaining`) dynamically update based on approved requests.
+- **Overtime Requests (NOT STARTED):** Need to implement logic for submitting and approving overtime hours in the `/performance` module.
+
+### Phase 5: Notifications & Automation (Status: NOT STARTED)
+- **Web Push (VAPID):** Ask for notification permissions, store subscriptions, and push alerts for Leave Approvals.
+- **Email (Resend):** Send critical email alerts to HRD for new requests.
+- **Cron Jobs (Vercel Cron):** Setup `/api/cron/auto-checkout` to run at 23:59 to automatically check out users who forgot to clock out, marking them as `FORGOT_CHECKOUT` and generating an `AttentionFlag`.
+
+---
+
+## 5. UI/UX Guidelines for Agents
+- **Icons:** Use `lucide-react` consistently.
+- **NO EMOJIS:** Absolutely no emojis (🚀, 🎉, etc.) anywhere in the UI or codebase. This is a strict rule.
+- **Loading States:** Always use `useTransition` when calling Server Actions from buttons to provide immediate visual feedback (e.g., "Mengirim...").
+- **Error Handling:** Use `toast.error()` (from `sonner`) for user-facing errors returned by Server Actions.
+- **Design Language:** Use `GlassCard` wrapper for standard UI blocks to maintain the "glassmorphism" aesthetic.

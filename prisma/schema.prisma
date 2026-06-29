@@ -127,6 +127,7 @@ model Shift {
   startTime         String   // HH:mm WIB
   endTime           String   // HH:mm WIB
   checkinWindowMin  Int      @default(15) // minutes before startTime check-in opens
+  checkinWindowEndMin Int    @default(240) // minutes after startTime check-in closes
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -195,6 +196,20 @@ model User {
   recruitmentCreated  Recruitment[]
   broadcastsCreated   Broadcast[]
   broadcastFilters    BroadcastFilterUser[]
+  userDevices         UserDevice[]
+}
+
+model UserDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  deviceId   String
+  userAgent  String?
+  lastUsedAt DateTime @default(now())
+  isBlocked  Boolean  @default(false)
+
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([userId, deviceId])
 }
 
 // ============================================================
@@ -331,6 +346,17 @@ model OvertimeRequest {
 // ============================================================
 // CALENDAR
 // ============================================================
+
+model CalendarEvent {
+  id         String   @id @default(cuid())
+  date       DateTime // Midnight UTC for the WIB calendar day
+  title      String
+  type       String   // e.g. "event", "holiday", "rainy", "urgent"
+  scope      String   // e.g. "all", "department", "shift", "store", "individual"
+  scopeValue String?  // Stores the target, e.g. "IT", "Morning Shift", "User Name"
+  note       String?
+  createdAt  DateTime @default(now())
+}
 
 model HolidayMarker {
   id          String   @id @default(cuid())

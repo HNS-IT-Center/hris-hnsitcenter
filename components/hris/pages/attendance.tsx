@@ -7,10 +7,12 @@ import { GlassCard } from "@/components/hris/shared"
 import { Camera, CheckCircle2, MapPin, RotateCcw, Send, AlertTriangle } from "lucide-react"
 import { getDistanceInMeters } from "@/lib/utils/geo"
 import { submitAttendance } from "@/app/actions/attendance"
-
+import { generateFingerprint } from "@/lib/utils/fingerprint"
+import { useRouter } from "next/navigation"
 type PermissionState = "idle" | "requesting" | "granted" | "denied"
 
 export function AttendancePage({ user, store, todayRecord }: { user: any, store: any, todayRecord: any }) {
+  const router = useRouter()
   const [permState, setPermState] = useState<PermissionState>("idle")
   
   // Geo State
@@ -150,6 +152,9 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
       // Small artificial delay to prevent freezing UX
       await new Promise(r => setTimeout(r, 500))
       
+      const deviceId = await generateFingerprint()
+      const userAgent = navigator.userAgent
+
       // Upload to R2 (Mock for now until API is ready)
       const formData = new FormData()
       formData.append("file", capturedBlob)
@@ -164,11 +169,14 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
         storeId: store?.id,
         lat: liveLocation.lat,
         lng: liveLocation.lng,
-        photoUrl: mockPhotoUrl
+        photoUrl: mockPhotoUrl,
+        deviceId,
+        userAgent
       })
 
       if (res.success) {
         toast.success(`Berhasil Check-${res.type === 'check-in' ? 'In' : 'Out'}!`)
+        router.push('/dashboard')
       } else {
         toast.error(res.error)
       }

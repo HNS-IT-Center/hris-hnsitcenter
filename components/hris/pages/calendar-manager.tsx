@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,17 +28,27 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { GlassCard, SectionTitle } from "@/components/hris/shared"
 import {
-  CALENDAR_EVENTS,
   CALENDAR_EVENT_TYPES,
   DEPARTMENTS,
   EMPLOYEES,
   SHIFTS,
   STORES,
   type AudienceScope,
-  type CalendarEvent,
   type CalendarEventType,
 } from "@/lib/hris-data"
-import { Check, ChevronLeft, ChevronRight, Plus, Trash2, Users, X } from "lucide-react"
+import { getCalendarEvents, createCalendarEvent, deleteCalendarEvent } from "@/app/actions/calendar"
+import { Check, ChevronLeft, ChevronRight, Plus, Trash2, Users, X, Loader2 } from "lucide-react"
+
+// Types since we removed them from hris-data
+export type CalendarEvent = {
+  id: string
+  date: string
+  title: string
+  type: CalendarEventType | string
+  scope: AudienceScope | string
+  scopeValue?: string | null
+  note?: string | null
+}
 
 const MONTH_NAMES = [
   "Januari", "Februari", "Maret", "April", "Mei", "Juni",
@@ -163,6 +173,8 @@ function EventForm({
   const [scopeValue, setScopeValue] = useState("")
   const [people, setPeople] = useState<string[]>([])
   const [note, setNote] = useState("")
+
+  const [isPending, startTransition] = useTransition()
 
   const scopeChoices = useMemo(() => {
     switch (scope) {
@@ -291,10 +303,15 @@ function EventForm({
             }
             const resolvedValue =
               scope === "all" ? undefined : scope === "individual" ? people.join(", ") : scopeValue
-            onSave({ date, title, type, scope, scopeValue: resolvedValue, note })
+            
+            startTransition(() => {
+              onSave({ date, title, type, scope, scopeValue: resolvedValue, note })
+            })
           }}
+          disabled={isPending}
           className="bg-primary text-primary-foreground hover:bg-primary/90"
         >
+          {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Simpan Event
         </Button>
       </DialogFooter>
@@ -303,10 +320,22 @@ function EventForm({
 }
 
 export function CalendarManagerPage() {
-  const [events, setEvents] = useState<CalendarEvent[]>(CALENDAR_EVENTS)
-  const [cursor, setCursor] = useState({ year: 2026, month: 6 }) // July 2026
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [cursor, setCursor] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() })
   const [open, setOpen] = useState(false)
   const [presetDate, setPresetDate] = useState<string | undefined>()
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const res = await getCalendarEvents()
+      if (res.success && res.data) {
+        setEvents(res.data)
+      }
+      setIsLoading(false)
+    }
+    load()
+  }, [])
 
   const firstDay = new Date(cursor.year, cursor.month, 1).getDay()
   const daysInMonth = new Date(cursor.year, cursor.month + 1, 0).getDate()
@@ -339,11 +368,24 @@ export function CalendarManagerPage() {
     })
   }
 
-  function addEvent(ev: Omit<CalendarEvent, "id">) {
-    setEvents((prev) => [...prev, { ...ev, id: `CE-${Date.now()}` }])
-    setOpen(false)
-    setPresetDate(undefined)
-    toast.success("Event ditambahkan", { description: `${ev.title} • ${ev.date}` })
+  async function addEvent(ev: Omit<CalendarEvent, "id">) {
+    const res = await createCalendarEvent({
+      date: ev.date,
+      title: ev.title,
+      type: ev.type,
+      scope: ev.scope,
+      scopeValue: ev.scopeValue,
+      note: ev.note
+    })
+
+    if (res.success && res.data) {
+      setEvents((prev) => [...prev, { ...res.data, date: ev.date } as CalendarEvent])
+      setOpen(false)
+      setPresetDate(undefined)
+      toast.success("Event ditambahkan", { description: `${ev.title} • ${ev.date}` })
+    } else {
+      toast.error(res.error || "Gagal menyimpan event")
+    }
   }
 
   function openForDate(date: string) {
@@ -351,9 +393,14 @@ export function CalendarManagerPage() {
     setOpen(true)
   }
 
-  function removeEvent(id: string) {
-    setEvents((prev) => prev.filter((e) => e.id !== id))
-    toast.success("Event dihapus")
+  async function removeEvent(id: string) {
+    const res = await deleteCalendarEvent(id)
+    if (res.success) {
+      setEvents((prev) => prev.filter((e) => e.id !== id))
+      toast.success("Event dihapus")
+    } else {
+      toast.error(res.error || "Gagal menghapus event")
+    }
   }
 
   const cells: (number | null)[] = [
