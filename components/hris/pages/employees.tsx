@@ -31,7 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2 } from "lucide-react"
+import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2, Eye, EyeOff, ArrowUpDown } from "lucide-react"
 import { format, addDays } from "date-fns"
 import { id } from "date-fns/locale"
 import { type DateRange } from "react-day-picker"
@@ -79,6 +79,10 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
   const [draft, setDraft] = useState<any | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [hideInactive, setHideInactive] = useState(true)
+  const [sortField, setSortField] = useState<"name" | "joinDate">("name")
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
     to: addDays(new Date(), 30),
@@ -87,12 +91,33 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
   // Unique departments for filter
   const departments = Array.from(new Set(employees.map(e => e.departmentName).filter(Boolean))) as string[]
 
-  const filtered = employees.filter(
+  let filtered = employees.filter(
     (e) =>
       e.name.toLowerCase().includes(q.toLowerCase()) &&
       (deptFilter === "Semua" || e.departmentName === deptFilter) &&
-      (storeFilter === "Semua" || e.storeId === storeFilter),
+      (storeFilter === "Semua" || e.storeId === storeFilter) &&
+      (!hideInactive || e.isActive),
   )
+
+  // Sorting
+  filtered = filtered.sort((a, b) => {
+    if (sortField === "name") {
+      return sortOrder === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+    } else {
+      const dateA = new Date(a.joinDate || 0).getTime()
+      const dateB = new Date(b.joinDate || 0).getTime()
+      return sortOrder === "asc" ? dateA - dateB : dateB - dateA
+    }
+  })
+
+  function toggleSort(field: "name" | "joinDate") {
+    if (sortField === field) {
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
+    } else {
+      setSortField(field)
+      setSortOrder("asc")
+    }
+  }
 
   function openDetail(e: User) {
     setSelected(e)
@@ -242,8 +267,35 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
               </div>
             </PopoverContent>
           </Popover>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            title={hideInactive ? "Tampilkan Nonaktif" : "Sembunyikan Nonaktif"}
+            onClick={() => setHideInactive(!hideInactive)}
+            className="shrink-0 hidden sm:flex"
+          >
+            {hideInactive ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-primary" />}
+          </Button>
         </div>
       </GlassCard>
+
+      {/* Mobile Actions Header */}
+      <div className="flex items-center justify-between lg:hidden px-1">
+        <Button 
+          variant="ghost" size="sm" 
+          onClick={() => toggleSort("name")}
+          className="text-xs text-muted-foreground gap-1"
+        >
+          Urutkan Nama <ArrowUpDown className="h-3 w-3" />
+        </Button>
+        <Button 
+          variant="ghost" size="sm" 
+          onClick={() => setHideInactive(!hideInactive)}
+          className="text-xs text-muted-foreground gap-1"
+        >
+          {hideInactive ? <><EyeOff className="h-3 w-3" /> Sembunyikan Nonaktif</> : <><Eye className="h-3 w-3" /> Tampilkan Semua</>}
+        </Button>
+      </div>
 
       {/* Mobile: cards */}
       <div className="grid gap-3 lg:hidden">
@@ -289,11 +341,15 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Karyawan</TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => toggleSort("name")}>
+                  <div className="flex items-center gap-1">Karyawan <ArrowUpDown className="h-3 w-3" /></div>
+                </TableHead>
                 <TableHead>Departemen</TableHead>
                 <TableHead>Posisi</TableHead>
                 <TableHead>Toko</TableHead>
-                <TableHead>Bergabung</TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => toggleSort("joinDate")}>
+                  <div className="flex items-center gap-1">Bergabung <ArrowUpDown className="h-3 w-3" /></div>
+                </TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -410,18 +466,18 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                     </AlertDialog>
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 col-span-1 sm:col-span-2">
                     <Label>Sisa Kuota Cuti</Label>
-                    <div className="flex gap-2">
-                      <Input value={draft.leaveQuotaRemaining} disabled className="bg-muted w-20" />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input value={draft.leaveQuotaRemaining} disabled className="bg-muted w-full sm:w-20" />
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="outline" className="w-full gap-2">
+                          <Button variant="outline" className="w-full sm:w-auto gap-2">
                             <Lock className="h-4 w-4 text-muted-foreground" />
                             Ubah Manual
                           </Button>
                         </AlertDialogTrigger>
-                        <AlertDialogContent>
+                        <AlertDialogContent className="w-[calc(100vw-2rem)] max-w-sm rounded-lg">
                           <AlertDialogHeader>
                             <AlertDialogTitle>Ubah Sisa Kuota Cuti?</AlertDialogTitle>
                             <AlertDialogDescription>
