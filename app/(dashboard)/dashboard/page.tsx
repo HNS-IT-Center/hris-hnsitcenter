@@ -6,9 +6,9 @@ import { getEmployeeDashboardData } from "@/app/actions/dashboard"
 export default async function DashboardPage() {
   const ssoUser = await getServerUser()
 
-  // Resolve the real DB user from ssoId
+  // Resolve the real DB user from email
   const dbUser = await prisma.user.findUnique({
-    where: { ssoId: ssoUser.id },
+    where: { email: ssoUser.email },
     select: { id: true },
   })
 

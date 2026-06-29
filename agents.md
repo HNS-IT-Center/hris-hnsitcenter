@@ -69,9 +69,13 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
 - **Dynamic Dashboards:** Both Employee and HRD dashboards fetch live summary data.
 - **Attention Flags:** System generates flags for unusual activity (e.g., missed checkout). HRD can resolve these flags via `resolveAttentionFlag` Server Action.
 
-### Phase 2: Employee & Shift Management (Status: NOT STARTED)
-- **Objective:** Allow HRD to CRUD user accounts, roles, departments, stores, and shifts.
-- **To-Do:** Wire up UI in `/app/(dashboard)/hrd/employees` and `/app/(dashboard)/hrd/shifts`.
+### Phase 2: Employee & Shift Management (Status: PARTIALLY COMPLETED)
+- **Employee Management (COMPLETED):**
+  - HRD can view list of employees, update profiles, and assign roles/departments.
+  - Added `phoneNumber` field to User profile with WhatsApp direct message integration.
+  - New SSO users are automatically provisioned if they bypass HRD pre-registration.
+- **Shift Management (NOT STARTED):**
+  - Need to wire up UI in `/app/(dashboard)/hrd/shifts`.
 - **Media Upload:** Implement Cloudflare R2 upload for employee avatars in `EmployeeForm`. Compress to WebP client-side via `lib/utils/file.ts`.
 
 ### Phase 3: Attendance Module (Status: COMPLETED)
@@ -99,6 +103,7 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
   - `CalendarEvent` database model powers dynamic company events (Town Halls, Holidays).
   - HRD Calendar Manager (`/hrd/calendar`) fetches dynamic audiences (Departments, Stores, Shifts) directly from the database instead of hardcoded lists.
   - Employee Performance view (`/performance`) renders calendar dots for company events and auto-injects approved Izin/Cuti as "ON_LEAVE" pseudo-events.
+  - **NEW:** Attendance logs automatically inject Leave Requests (Izin/Cuti) into the HRD Daily Log.
 - **Overtime Requests (NOT STARTED):** Need to implement logic for submitting and approving overtime hours in the `/performance` module.
 
 

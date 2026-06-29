@@ -18,9 +18,12 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; redirectUrl?: string }>
 }) {
-  // If the user already has the SSO token, bypass login entirely!
+  // If the user already has the SSO token and no error, bypass login entirely!
   const cookieStore = await cookies()
-  if (cookieStore.has('sso_token')) {
+  const params = await searchParams
+  const error = params.error
+
+  if (cookieStore.has('sso_token') && !error) {
     redirect('/dashboard')
   }
 
@@ -30,8 +33,6 @@ export default async function LoginPage({
   const protocol = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
   const dynamicAppUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`
 
-  const params = await searchParams
-  const error = params.error
   const returnTo = params.redirectUrl ?? `${dynamicAppUrl}/dashboard`
 
   // Direct to Google OAuth on the SSO server to avoid the intermediate SSO login page

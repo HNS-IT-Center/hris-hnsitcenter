@@ -36,7 +36,7 @@ export default async function DashboardLayout({
   await syncUserFromSSO(ssoUser)
 
   const dbUser = await prisma.user.findUnique({
-    where: { ssoId: ssoUser.id },
+    where: { email: ssoUser.email },
     select: {
       id: true,
       name: true,
