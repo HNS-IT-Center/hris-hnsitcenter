@@ -13,7 +13,6 @@ const _jetbrainsMono = JetBrains_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: 'HRIS - HNS IT Center',
   description: 'Human Resource Information System — Absensi, Izin & Cuti, Performa, dan Rekrutmen HNS IT Center.',
-  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
