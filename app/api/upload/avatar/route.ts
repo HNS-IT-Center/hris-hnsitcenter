@@ -6,7 +6,7 @@ import { generateStoragePath } from '@/lib/utils/file'
 export async function POST(req: NextRequest) {
   try {
     const user = await getServerUser()
-    if (!user || user.role !== 'HRD' && user.role !== 'ADMIN') {
+    if (!user || !['HRD', 'ADMIN', 'BOSS'].includes(user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

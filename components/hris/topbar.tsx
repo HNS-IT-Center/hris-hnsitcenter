@@ -53,7 +53,9 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
         >
           <Menu className="h-5 w-5" />
         </button>
-        <h1 className="text-lg font-semibold text-foreground sm:text-xl">{title}</h1>
+        <Link href={isHrdMode ? "/hrd/dashboard" : "/dashboard"} className="hover:opacity-80 transition-opacity">
+          <h1 className="text-lg font-semibold text-foreground sm:text-xl">{title}</h1>
+        </Link>
       </div>
 
       <div className="flex items-center gap-2">
@@ -70,7 +72,7 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
           >
             <UserCog className={cn("h-4 w-4", isHrdMode && "text-primary")} />
             <span className="hidden sm:inline-block font-semibold">
-              {isHrdMode ? "Mode HRD" : "Mode Karyawan"}
+              {isHrdMode ? `Mode ${user?.role === "BOSS" ? "Boss" : "HRD"}` : "Mode Karyawan"}
             </span>
           </Link>
         )}
