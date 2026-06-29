@@ -16,69 +16,89 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { GlassCard, SectionTitle } from "@/components/hris/shared"
-import { STORES } from "@/lib/hris-data"
-import { Clock, MapPin, Plus, Radius, Users } from "lucide-react"
+import { Clock, MapPin, Plus, Radius, Users, Edit2, Trash2 } from "lucide-react"
 
-function StoreForm({ onDone }: { onDone: () => void }) {
-  const [radius, setRadius] = useState([150])
-  return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label htmlFor="store-name">Nama Toko</Label>
-        <Input id="store-name" placeholder="cth. HNS Pusat" className="bg-input" />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="address">Alamat</Label>
-        <Input id="address" placeholder="Alamat lengkap toko" className="bg-input" />
-      </div>
-      <div className="space-y-1.5">
-        <Label>Lokasi Pin</Label>
-        <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 text-muted-foreground">
-          <MapPin className="h-6 w-6" />
-          <p className="text-xs">Placeholder peta — ketuk untuk menjatuhkan pin lokasi</p>
-        </div>
-      </div>
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label>Radius Absensi</Label>
-          <span className="text-sm font-semibold text-foreground">{radius[0]} m</span>
-        </div>
-        <Slider value={radius} onValueChange={setRadius} min={50} max={1000} step={10} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label htmlFor="open">Jam Buka</Label>
-          <Input id="open" type="time" className="bg-input" />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="close">Jam Tutup</Label>
-          <Input id="close" type="time" className="bg-input" />
-        </div>
-      </div>
-      <DialogFooter>
-        <Button
-          onClick={() => {
-            toast.success("Toko disimpan")
-            onDone()
-          }}
-          className="bg-primary text-primary-foreground hover:bg-primary/90"
-        >
-          Simpan Toko
-        </Button>
-      </DialogFooter>
-    </div>
-  )
-}
+import { createStore, updateStore, deleteStore } from "@/app/actions/store"
 
-export function StoresPage() {
-  const [open, setOpen] = useState(false)
+type Store = any
+
+export function StoresPage({ initialStores }: { initialStores: Store[] }) {
+  const [stores, setStores] = useState<Store[]>(initialStores)
+  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [draft, setDraft] = useState({ name: "", address: "", openTime: "08:00", closeTime: "21:00", radiusMeters: 150 })
+
+  const [editTarget, setEditTarget] = useState<Store | null>(null)
+
+  async function handleCreate() {
+    if (!draft.name) return toast.error("Nama toko wajib diisi")
+    
+    const promise = createStore(draft)
+    toast.promise(promise, {
+      loading: "Menyimpan toko...",
+      success: (res) => {
+        if (res.success) {
+          setStores(prev => [...prev, res.data])
+          setIsAddOpen(false)
+          setDraft({ name: "", address: "", openTime: "08:00", closeTime: "21:00", radiusMeters: 150 })
+          return "Toko berhasil ditambahkan"
+        } else {
+          throw new Error(res.error)
+        }
+      },
+      error: (err) => err.message
+    })
+  }
+
+  async function handleUpdate() {
+    if (!editTarget) return
+    const promise = updateStore(editTarget.id, {
+      name: editTarget.name,
+      address: editTarget.address,
+      openTime: editTarget.openTime,
+      closeTime: editTarget.closeTime,
+      radiusMeters: editTarget.radiusMeters
+    })
+    
+    toast.promise(promise, {
+      loading: "Memperbarui toko...",
+      success: (res) => {
+        if (res.success) {
+          setStores(prev => prev.map(s => s.id === editTarget.id ? res.data : s))
+          setEditTarget(null)
+          return "Toko berhasil diperbarui"
+        } else {
+          throw new Error(res.error)
+        }
+      },
+      error: (err) => err.message
+    })
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Apakah Anda yakin ingin menghapus toko ini?")) return
+    
+    const promise = deleteStore(id)
+    toast.promise(promise, {
+      loading: "Menghapus toko...",
+      success: (res) => {
+        if (res.success) {
+          setStores(prev => prev.filter(s => s.id !== id))
+          return "Toko berhasil dihapus"
+        } else {
+          throw new Error(res.error)
+        }
+      },
+      error: (err) => err.message
+    })
+  }
+
   return (
     <div className="space-y-5">
       <SectionTitle
         title="Kelola Toko"
         desc="Atur lokasi, radius absensi, dan jam operasional toko."
         action={
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
             <DialogTrigger asChild>
               <Button className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
                 <Plus className="h-4 w-4" />
@@ -90,15 +110,81 @@ export function StoresPage() {
                 <DialogTitle>Tambah Toko</DialogTitle>
                 <DialogDescription>Lengkapi detail lokasi toko.</DialogDescription>
               </DialogHeader>
-              <StoreForm onDone={() => setOpen(false)} />
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="store-name">Nama Toko</Label>
+                  <Input 
+                    id="store-name" 
+                    placeholder="cth. HNS Pusat" 
+                    className="bg-input" 
+                    value={draft.name}
+                    onChange={(e) => setDraft({...draft, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="address">Alamat</Label>
+                  <Input 
+                    id="address" 
+                    placeholder="Alamat lengkap toko" 
+                    className="bg-input" 
+                    value={draft.address}
+                    onChange={(e) => setDraft({...draft, address: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1.5 opacity-50 pointer-events-none">
+                  <Label>Lokasi Pin</Label>
+                  <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 text-muted-foreground">
+                    <MapPin className="h-6 w-6" />
+                    <p className="text-xs">Placeholder peta — ketuk untuk menjatuhkan pin lokasi</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Radius Absensi</Label>
+                    <span className="text-sm font-semibold text-foreground">{draft.radiusMeters} m</span>
+                  </div>
+                  <Slider 
+                    value={[draft.radiusMeters]} 
+                    onValueChange={(val) => setDraft({...draft, radiusMeters: val[0]})} 
+                    min={50} max={1000} step={10} 
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="open">Jam Buka</Label>
+                    <Input 
+                      id="open" 
+                      type="time" 
+                      className="bg-input" 
+                      value={draft.openTime}
+                      onChange={(e) => setDraft({...draft, openTime: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="close">Jam Tutup</Label>
+                    <Input 
+                      id="close" 
+                      type="time" 
+                      className="bg-input" 
+                      value={draft.closeTime}
+                      onChange={(e) => setDraft({...draft, closeTime: e.target.value})}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreate} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                    Simpan Toko
+                  </Button>
+                </DialogFooter>
+              </div>
             </DialogContent>
           </Dialog>
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {STORES.map((s) => (
-          <GlassCard key={s.id}>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {stores.map((s) => (
+          <GlassCard key={s.id} className="group relative">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/30 text-accent-foreground">
@@ -106,25 +192,108 @@ export function StoresPage() {
                 </div>
                 <h3 className="font-semibold text-foreground">{s.name}</h3>
               </div>
-              <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Users className="h-3.5 w-3.5" />
-                {s.employees}
-              </span>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setEditTarget(s)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-secondary/20 rounded-md text-muted-foreground"
+                >
+                  <Edit2 className="h-4 w-4" />
+                </button>
+                <button 
+                  onClick={() => handleDelete(s.id)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-destructive/20 text-destructive rounded-md"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <p className="mt-2 text-sm text-muted-foreground">{s.address}</p>
+            <p className="mt-2 text-sm text-muted-foreground">{s.address || "Belum ada alamat"}</p>
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Radius className="h-3.5 w-3.5" />
-                {s.radius} m
+                {s.radiusMeters} m
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="h-3.5 w-3.5" />
-                {s.hours}
+                {s.openTime} - {s.closeTime}
               </span>
             </div>
           </GlassCard>
         ))}
+        {stores.length === 0 && (
+          <div className="col-span-full py-10 text-center text-muted-foreground text-sm">
+            Belum ada toko yang ditambahkan
+          </div>
+        )}
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          {editTarget && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit Toko</DialogTitle>
+                <DialogDescription>Ubah detail toko.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5">
+                  <Label>Nama Toko</Label>
+                  <Input 
+                    className="bg-input" 
+                    value={editTarget.name}
+                    onChange={(e) => setEditTarget({...editTarget, name: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Alamat</Label>
+                  <Input 
+                    className="bg-input" 
+                    value={editTarget.address || ''}
+                    onChange={(e) => setEditTarget({...editTarget, address: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Radius Absensi</Label>
+                    <span className="text-sm font-semibold text-foreground">{editTarget.radiusMeters} m</span>
+                  </div>
+                  <Slider 
+                    value={[editTarget.radiusMeters]} 
+                    onValueChange={(val) => setEditTarget({...editTarget, radiusMeters: val[0]})} 
+                    min={50} max={1000} step={10} 
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Jam Buka</Label>
+                    <Input 
+                      type="time" 
+                      className="bg-input" 
+                      value={editTarget.openTime}
+                      onChange={(e) => setEditTarget({...editTarget, openTime: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Jam Tutup</Label>
+                    <Input 
+                      type="time" 
+                      className="bg-input" 
+                      value={editTarget.closeTime}
+                      onChange={(e) => setEditTarget({...editTarget, closeTime: e.target.value})}
+                    />
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleUpdate} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  Simpan Perubahan
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

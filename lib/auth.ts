@@ -5,17 +5,18 @@ export interface SSOUser {
   email: string
   name: string
   globalRole: string
-  role: string       // Computed local role? We can just pass globalRole for now
+  role: string
   departmentId: string | null
   departmentName: string | null
   positionId: string | null
+  positionName: string | null
 }
 
 /**
  * Read the current SSO user from injected request headers.
  * Safe to call from any Server Component or Server Action.
  *
- * The middleware (middleware.ts) verifies the sso_token JWT and injects
+ * The middleware (proxy.ts) verifies the sso_token JWT and injects
  * these headers for every authenticated request.
  *
  * @throws Error if called from a non-authenticated route (no headers present)
@@ -26,9 +27,10 @@ export async function getServerUser(): Promise<SSOUser> {
   const email = h.get('x-user-email')
   const name = h.get('x-user-name') ?? email?.split('@')[0] ?? ''
   const globalRole = h.get('x-user-role') ?? 'EMPLOYEE'
-  const departmentId = h.get('x-user-dept')
+  const departmentId = h.get('x-user-dept-id')
   const departmentName = h.get('x-user-dept-name')
-  const positionId = h.get('x-user-position')
+  const positionId = h.get('x-user-position-id')
+  const positionName = h.get('x-user-position-name')
 
   if (!id || !email) {
     throw new Error('No authenticated user found in request headers. Is this route protected by middleware?')
@@ -43,6 +45,7 @@ export async function getServerUser(): Promise<SSOUser> {
     departmentId: departmentId || null,
     departmentName: departmentName || null,
     positionId: positionId || null,
+    positionName: positionName || null,
   }
 }
 

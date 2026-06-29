@@ -148,8 +148,18 @@ model User {
   username        String?   @unique
   avatarUrl       String?
   role            Role      @default(EMPLOYEE)
-  position        String?
+  
+  // Synced from SSO (Read-Only in HRIS)
+  ssoPositionId   String?
+  positionName    String?
+  ssoDepartmentId String?
+  departmentName  String?
+
+  // HRIS Settings
   joinDate        DateTime  @default(now())
+  weeklyOffDays   Int[]     // 0=Sun, 1=Mon, etc. Default empty means no specific weekly off.
+  shiftPattern    String?   // "MORNING_ONLY", "WEEKLY_ALTERNATING", etc.
+  
   isActive        Boolean   @default(true)
   notifEnabled    Boolean   @default(true)
   twoFAEnabled    Boolean   @default(false)

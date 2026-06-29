@@ -55,33 +55,33 @@ export function EmployeeDashboard({ onNavigate }: { onNavigate: (id: NavId) => v
   return (
     <div className="space-y-6">
       {/* Status Absensi */}
-      <GlassCard className="overflow-hidden bg-primary text-primary-foreground">
+      <div className="overflow-hidden rounded-2xl border border-border bg-primary p-5 text-primary-foreground shadow-sm">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm" style={{ color: "rgb(91, 101, 115)" }}>Halo, {CURRENT_USER.name.split(" ")[0]}</p>
-            <p className="mt-1 text-2xl font-bold" style={{ color: "rgb(237, 237, 237)" }}>{statusText}</p>
+            <p className="text-sm text-primary-foreground/80">Halo, {CURRENT_USER.name.split(" ")[0]}</p>
+            <p className="mt-1 text-2xl font-bold text-primary-foreground">{statusText}</p>
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-              <span className="flex items-center gap-1.5" style={{ color: "rgb(91, 101, 115)" }}>
+              <span className="flex items-center gap-1.5 text-primary-foreground/80">
                 <Clock className="h-4 w-4" />
                 {CURRENT_USER.shift}
               </span>
-              <span className="flex items-center gap-1.5" style={{ color: "rgb(91, 101, 115)" }}>
+              <span className="flex items-center gap-1.5 text-primary-foreground/80">
                 <MapPin className="h-4 w-4" />
                 {CURRENT_USER.store}
               </span>
             </div>
           </div>
           <Button
-            onClick={handleCheck}
+            onClick={() => onNavigate("attendance")}
             disabled={status === "done"}
             size="lg"
-            className="h-14 gap-2 bg-primary-foreground px-8 text-base font-semibold text-primary hover:bg-primary-foreground/90 disabled:opacity-60"
+            className="h-14 gap-2 bg-primary-foreground px-8 text-base font-semibold text-primary transition-all hover:bg-primary-foreground/90 hover:scale-105 active:scale-95 disabled:opacity-60"
           >
             {status === "before" ? <LogIn className="h-5 w-5" /> : <LogOut className="h-5 w-5" />}
             {status === "before" ? "Absen Masuk" : status === "in" ? "Absen Pulang" : "Hari Selesai"}
           </Button>
         </div>
-      </GlassCard>
+      </div>
 
       {/* Monthly summary */}
       <div>

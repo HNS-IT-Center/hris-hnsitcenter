@@ -37,8 +37,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       devHeaders.set('x-user-id', 'dev-user-id')
       devHeaders.set('x-user-email', 'dev@hnsitcenter.id')
       devHeaders.set('x-user-role', 'HRD')
-      devHeaders.set('x-user-position', 'HR Manager')
-      devHeaders.set('x-user-dept', 'HR Department')
+      devHeaders.set('x-user-position-id', 'dev-pos-id')
+      devHeaders.set('x-user-position-name', 'HR Manager')
+      devHeaders.set('x-user-dept-id', 'dev-dept-id')
+      devHeaders.set('x-user-dept-name', 'HR Department')
       return NextResponse.next({ request: { headers: devHeaders } })
     }
 
@@ -60,8 +62,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const userEmail = (payload.email as string) ?? ''
     const userName = (payload.name as string) ?? ''
     const userRole = (payload.globalRole as string) ?? 'EMPLOYEE'
-    const userPosition = (payload.positionId as string) ?? ''
-    const userDept = (payload.departmentId as string) ?? ''
+    const userPositionId = (payload.positionId as string) ?? ''
+    const userPositionName = (payload.positionName as string) ?? ''
+    const userDeptId = (payload.departmentId as string) ?? ''
     const userDeptName = (payload.departmentName as string) ?? ''
 
     // Clone and inject headers so Server Components can read user identity
@@ -70,8 +73,9 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     requestHeaders.set('x-user-email', userEmail)
     requestHeaders.set('x-user-name', userName)
     requestHeaders.set('x-user-role', userRole)
-    requestHeaders.set('x-user-position', userPosition)
-    requestHeaders.set('x-user-dept', userDept)
+    requestHeaders.set('x-user-position-id', userPositionId)
+    requestHeaders.set('x-user-position-name', userPositionName)
+    requestHeaders.set('x-user-dept-id', userDeptId)
     requestHeaders.set('x-user-dept-name', userDeptName)
 
     return NextResponse.next({

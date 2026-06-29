@@ -1,14 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { Role } from '@prisma/client'
 
-export async function syncUserFromSSO(payload: {
-  id: string
-  email: string
-  name: string
-  globalRole: string
-  departmentName: string | null
-}) {
-  const { id, email, name, globalRole, departmentName } = payload
+import { SSOUser } from '@/lib/auth'
+
+export async function syncUserFromSSO(payload: SSOUser) {
+  const { id, email, name, globalRole, departmentName, departmentId: ssoDepartmentId, positionId: ssoPositionId, positionName } = payload
 
   // 1. Resolve Department
   let departmentId: string | null = null
@@ -49,7 +45,11 @@ export async function syncUserFromSSO(payload: {
       ssoId: id,
       name,
       role,
-      departmentId
+      departmentId,
+      ssoDepartmentId,
+      departmentName,
+      ssoPositionId,
+      positionName
     },
     create: {
       ssoId: id,
@@ -57,6 +57,10 @@ export async function syncUserFromSSO(payload: {
       name,
       role,
       departmentId,
+      ssoDepartmentId,
+      departmentName,
+      ssoPositionId,
+      positionName,
       isActive: true, // Auto-activate
       notifEnabled: true,
       twoFAEnabled: false

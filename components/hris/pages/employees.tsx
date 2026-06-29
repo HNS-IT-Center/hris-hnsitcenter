@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -16,60 +16,149 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { EMPLOYEES, type Employee } from "@/lib/hris-data"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Briefcase, CalendarDays, ChevronRight, Clock, Download, MapPin, Search } from "lucide-react"
+import { Briefcase, CalendarDays, ChevronRight, Clock, Download, MapPin, Search, CalendarIcon, Upload, ImageIcon } from "lucide-react"
+import { format } from "date-fns"
+import { id } from "date-fns/locale"
 
-const DEPARTMENTS = ["Semua", "Engineering", "Sales", "Operations", "Finance"]
-const STORE_OPTS = ["Semua", "HNS Pusat", "HNS Mall Kelapa Gading", "HNS Bandung", "HNS Surabaya"]
-const DEPT_OPTS = ["Engineering", "Sales", "Operations", "Finance", "HR"]
-const STORE_EDIT = ["HNS Pusat", "HNS Mall Kelapa Gading", "HNS Bandung", "HNS Surabaya"]
-const SHIFT_OPTS = ["Pagi", "Siang", "Malam"]
+import { updateEmployee } from "@/app/actions/employee"
+import { compressToWebP } from "@/lib/utils/file"
 
-function StatusBadge({ status }: { status: Employee["status"] }) {
+// Types based on Prisma schema
+type User = any
+type Store = any
+type Shift = any
+
+const WEEKDAYS = [
+  { id: 1, label: "Senin" },
+  { id: 2, label: "Selasa" },
+  { id: 3, label: "Rabu" },
+  { id: 4, label: "Kamis" },
+  { id: 5, label: "Jumat" },
+  { id: 6, label: "Sabtu" },
+  { id: 0, label: "Minggu" },
+]
+
+const SHIFT_PATTERNS = [
+  { id: "MORNING_ONLY", label: "Pagi Saja" },
+  { id: "WEEKLY_ALTERNATING", label: "Rotasi Mingguan" },
+  { id: "BIWEEKLY_ALTERNATING", label: "Rotasi 2 Mingguan" },
+]
+
+function StatusBadge({ active }: { active: boolean }) {
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
-        status === "active"
+        active
           ? "border-success/30 bg-success/15 text-success"
           : "border-muted-foreground/30 bg-muted text-muted-foreground",
       )}
     >
-      {status === "active" ? "Aktif" : "Nonaktif"}
+      {active ? "Aktif" : "Nonaktif"}
     </span>
   )
 }
 
-export function EmployeesPage() {
+export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmployees: User[], stores: Store[], shifts: Shift[] }) {
   const [q, setQ] = useState("")
-  const [dept, setDept] = useState("Semua")
-  const [store, setStore] = useState("Semua")
-  const [employees, setEmployees] = useState<Employee[]>(EMPLOYEES)
-  const [selected, setSelected] = useState<Employee | null>(null)
-  const [draft, setDraft] = useState<Employee | null>(null)
+  const [deptFilter, setDeptFilter] = useState("Semua")
+  const [storeFilter, setStoreFilter] = useState("Semua")
+  
+  const [employees, setEmployees] = useState<User[]>(initialEmployees)
+  const [selected, setSelected] = useState<User | null>(null)
+  const [draft, setDraft] = useState<any | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Unique departments for filter
+  const departments = Array.from(new Set(employees.map(e => e.departmentName).filter(Boolean))) as string[]
 
   const filtered = employees.filter(
     (e) =>
       e.name.toLowerCase().includes(q.toLowerCase()) &&
-      (dept === "Semua" || e.department === dept) &&
-      (store === "Semua" || e.store === store),
+      (deptFilter === "Semua" || e.departmentName === deptFilter) &&
+      (storeFilter === "Semua" || e.storeId === storeFilter),
   )
 
-  function openDetail(e: Employee) {
+  function openDetail(e: User) {
     setSelected(e)
-    setDraft({ ...e })
+    setDraft({ 
+      ...e,
+      joinDate: new Date(e.joinDate),
+      weeklyOffDays: e.weeklyOffDays || [],
+    })
   }
 
-  function save() {
-    if (!draft) return
-    if (!draft.name.trim()) {
-      toast.error("Nama wajib diisi")
-      return
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !draft) return
+    
+    setIsUploading(true)
+    try {
+      const compressed = await compressToWebP(file, 0.90)
+      const formData = new FormData()
+      formData.append('file', compressed)
+      formData.append('userId', draft.id)
+      
+      const res = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.url) {
+        setDraft({ ...draft, avatarUrl: data.url })
+        toast.success("Foto profil berhasil diunggah")
+      } else {
+        toast.error("Gagal mengunggah foto profil", { description: data.error })
+      }
+    } catch (err) {
+      toast.error("Terjadi kesalahan saat mengunggah foto")
+    } finally {
+      setIsUploading(false)
     }
-    setEmployees((prev) => prev.map((e) => (e.id === draft.id ? draft : e)))
-    toast.success("Data karyawan diperbarui", { description: draft.name })
-    setSelected(null)
+  }
+
+  async function save() {
+    if (!draft) return
+    const promise = updateEmployee(draft.id, {
+      joinDate: draft.joinDate,
+      weeklyOffDays: draft.weeklyOffDays,
+      shiftPattern: draft.shiftPattern,
+      storeId: draft.storeId,
+      shiftId: draft.shiftId,
+      isActive: draft.isActive,
+      avatarUrl: draft.avatarUrl,
+    })
+
+    toast.promise(promise, {
+      loading: 'Menyimpan perubahan...',
+      success: (res) => {
+        if (res.success) {
+          // Update local state
+          setEmployees(prev => prev.map(e => e.id === draft.id ? { ...e, ...draft } : e))
+          setSelected(null)
+          return `Data ${draft.name} diperbarui`
+        } else {
+          throw new Error(res.error)
+        }
+      },
+      error: (err) => err.message
+    })
+  }
+
+  function toggleOffDay(dayId: number) {
+    if (!draft) return
+    const current = draft.weeklyOffDays as number[]
+    if (current.includes(dayId)) {
+      setDraft({ ...draft, weeklyOffDays: current.filter(d => d !== dayId) })
+    } else {
+      setDraft({ ...draft, weeklyOffDays: [...current, dayId] })
+    }
   }
 
   return (
@@ -81,26 +170,28 @@ export function EmployeesPage() {
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari karyawan..." className="pl-9 bg-input" />
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
-          <Select value={dept} onValueChange={setDept}>
+          <Select value={deptFilter} onValueChange={setDeptFilter}>
             <SelectTrigger className="w-full bg-input sm:w-40">
               <SelectValue placeholder="Departemen" />
             </SelectTrigger>
             <SelectContent>
-              {DEPARTMENTS.map((d) => (
+              <SelectItem value="Semua">Semua Dept</SelectItem>
+              {departments.map((d) => (
                 <SelectItem key={d} value={d}>
                   {d}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <Select value={store} onValueChange={setStore}>
+          <Select value={storeFilter} onValueChange={setStoreFilter}>
             <SelectTrigger className="w-full bg-input sm:w-44">
               <SelectValue placeholder="Toko" />
             </SelectTrigger>
             <SelectContent>
-              {STORE_OPTS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
+              <SelectItem value="Semua">Semua Toko</SelectItem>
+              {stores.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -117,29 +208,25 @@ export function EmployeesPage() {
         {filtered.map((e) => (
           <GlassCard key={e.id} className="p-4">
             <button onClick={() => openDetail(e)} className="flex w-full items-center gap-3 text-left">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary/15 text-sm font-semibold text-secondary">
-                {e.initials}
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary/15 text-sm font-semibold text-secondary overflow-hidden">
+                {e.avatarUrl ? <img src={e.avatarUrl} alt={e.name} className="h-full w-full object-cover" /> : e.name.charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate font-semibold text-foreground">{e.name}</p>
-                  <StatusBadge status={e.status} />
+                  <StatusBadge active={e.isActive} />
                 </div>
                 <p className="truncate text-xs text-muted-foreground">
-                  {e.position} • {e.id}
+                  {e.positionName} • {e.ssoId || e.id}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Briefcase className="h-3 w-3" />
-                    {e.department}
+                    {e.departmentName || '-'}
                   </span>
                   <span className="flex items-center gap-1">
                     <MapPin className="h-3 w-3" />
-                    {e.store}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {e.shift}
+                    {stores.find(s => s.id === e.storeId)?.name || 'Pusat'}
                   </span>
                 </div>
               </div>
@@ -164,7 +251,6 @@ export function EmployeesPage() {
                 <TableHead>Departemen</TableHead>
                 <TableHead>Posisi</TableHead>
                 <TableHead>Toko</TableHead>
-                <TableHead>Shift</TableHead>
                 <TableHead>Bergabung</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -174,22 +260,21 @@ export function EmployeesPage() {
                 <TableRow key={e.id} className="cursor-pointer" onClick={() => openDetail(e)}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/15 text-xs font-semibold text-secondary">
-                        {e.initials}
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/15 text-xs font-semibold text-secondary overflow-hidden">
+                        {e.avatarUrl ? <img src={e.avatarUrl} alt={e.name} className="h-full w-full object-cover" /> : e.name.charAt(0)}
                       </div>
                       <div>
                         <p className="font-medium text-foreground">{e.name}</p>
-                        <p className="text-xs text-muted-foreground">{e.id}</p>
+                        <p className="text-xs text-muted-foreground">{e.email}</p>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{e.department}</TableCell>
-                  <TableCell className="text-muted-foreground">{e.position}</TableCell>
-                  <TableCell className="text-muted-foreground">{e.store}</TableCell>
-                  <TableCell className="text-muted-foreground">{e.shift}</TableCell>
-                  <TableCell className="text-muted-foreground">{e.joinDate}</TableCell>
+                  <TableCell className="text-muted-foreground">{e.departmentName || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground">{e.positionName || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground">{stores.find(s => s.id === e.storeId)?.name || '-'}</TableCell>
+                  <TableCell className="text-muted-foreground">{format(new Date(e.joinDate), 'dd MMM yyyy', { locale: id })}</TableCell>
                   <TableCell>
-                    <StatusBadge status={e.status} />
+                    <StatusBadge active={e.isActive} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -203,107 +288,73 @@ export function EmployeesPage() {
 
       {/* Detail / Edit dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl">
           {draft && (
             <>
               <DialogHeader>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary/15 text-base font-semibold text-secondary">
-                    {draft.initials}
+                <div className="flex items-center gap-4">
+                  <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/15 text-xl font-semibold text-secondary overflow-hidden relative">
+                      {draft.avatarUrl ? <img src={draft.avatarUrl} alt={draft.name} className="h-full w-full object-cover" /> : draft.name.charAt(0)}
+                      <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Upload className="h-5 w-5 text-white" />
+                      </div>
+                    </div>
+                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
                   </div>
                   <div>
                     <DialogTitle>{draft.name}</DialogTitle>
                     <DialogDescription>
-                      {draft.id} • Edit detail karyawan
+                      Edit profil dan jadwal karyawan
                     </DialogDescription>
                   </div>
                 </div>
               </DialogHeader>
 
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="emp-name">Nama Lengkap</Label>
-                  <Input
-                    id="emp-name"
-                    value={draft.name}
-                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-                    className="bg-input"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="emp-pos">Posisi</Label>
-                  <Input
-                    id="emp-pos"
-                    value={draft.position}
-                    onChange={(e) => setDraft({ ...draft, position: e.target.value })}
-                    className="bg-input"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-6 py-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Departemen</Label>
-                    <Select value={draft.department} onValueChange={(v) => setDraft({ ...draft, department: v })}>
-                      <SelectTrigger className="w-full bg-input">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DEPT_OPTS.map((d) => (
-                          <SelectItem key={d} value={d}>
-                            {d}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Posisi (Dari SSO)</Label>
+                    <Input value={draft.positionName || '-'} disabled className="bg-muted" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Shift</Label>
-                    <Select value={draft.shift} onValueChange={(v) => setDraft({ ...draft, shift: v })}>
-                      <SelectTrigger className="w-full bg-input">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SHIFT_OPTS.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label>Departemen (Dari SSO)</Label>
+                    <Input value={draft.departmentName || '-'} disabled className="bg-muted" />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label>Toko</Label>
-                  <Select value={draft.store} onValueChange={(v) => setDraft({ ...draft, store: v })}>
-                    <SelectTrigger className="w-full bg-input">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STORE_EDIT.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="emp-join" className="flex items-center gap-1.5">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      Bergabung
-                    </Label>
-                    <Input
-                      id="emp-join"
-                      value={draft.joinDate}
-                      onChange={(e) => setDraft({ ...draft, joinDate: e.target.value })}
-                      className="bg-input"
-                    />
+                    <Label>Tanggal Bergabung</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal bg-input",
+                            !draft.joinDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {draft.joinDate ? format(draft.joinDate, "PPP", { locale: id }) : <span>Pilih tanggal</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={draft.joinDate}
+                          onSelect={(d) => d && setDraft({ ...draft, joinDate: d })}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
+
                   <div className="space-y-1.5">
-                    <Label>Status</Label>
+                    <Label>Status Karyawan</Label>
                     <Select
-                      value={draft.status}
-                      onValueChange={(v) => setDraft({ ...draft, status: v as Employee["status"] })}
+                      value={draft.isActive ? "active" : "inactive"}
+                      onValueChange={(v) => setDraft({ ...draft, isActive: v === "active" })}
                     >
                       <SelectTrigger className="w-full bg-input">
                         <SelectValue />
@@ -315,14 +366,77 @@ export function EmployeesPage() {
                     </Select>
                   </div>
                 </div>
+
+                <div className="h-px bg-border my-2" />
+                <h4 className="text-sm font-medium text-foreground">Pengaturan Jadwal & Lokasi</h4>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Lokasi Toko/Cabang</Label>
+                    <Select value={draft.storeId || "none"} onValueChange={(v) => setDraft({ ...draft, storeId: v === "none" ? null : v })}>
+                      <SelectTrigger className="w-full bg-input">
+                        <SelectValue placeholder="Pilih lokasi" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Belum Ditentukan</SelectItem>
+                        {stores.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label>Pola Rotasi Shift</Label>
+                    <Select value={draft.shiftPattern || "none"} onValueChange={(v) => setDraft({ ...draft, shiftPattern: v === "none" ? null : v })}>
+                      <SelectTrigger className="w-full bg-input">
+                        <SelectValue placeholder="Pilih pola" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Tidak Ada / Manual</SelectItem>
+                        {SHIFT_PATTERNS.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Hari Libur Rutin (Weekly Off)</Label>
+                  <div className="flex flex-wrap gap-4 pt-2">
+                    {WEEKDAYS.map((day) => (
+                      <div key={day.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`day-${day.id}`}
+                          checked={draft.weeklyOffDays.includes(day.id)}
+                          onCheckedChange={() => toggleOffDay(day.id)}
+                        />
+                        <label
+                          htmlFor={`day-${day.id}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          {day.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Pilih hari dimana karyawan ini libur secara rutin (misal: Office libur Sabtu/Minggu).
+                  </p>
+                </div>
               </div>
 
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter className="gap-2 sm:gap-0 mt-4">
                 <Button variant="outline" onClick={() => setSelected(null)}>
                   Batal
                 </Button>
-                <Button onClick={save} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                  Simpan Perubahan
+                <Button onClick={save} disabled={isUploading} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  {isUploading ? "Mengunggah..." : "Simpan Perubahan"}
                 </Button>
               </DialogFooter>
             </>
