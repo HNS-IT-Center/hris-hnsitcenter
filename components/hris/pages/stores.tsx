@@ -28,15 +28,22 @@ import {
 } from "@/components/ui/alert-dialog"
 import { GlassCard, SectionTitle } from "@/components/hris/shared"
 import { Clock, MapPin, Plus, Radius, Users, Edit2, Trash2 } from "lucide-react"
+import dynamic from "next/dynamic"
 
 import { createStore, updateStore, deleteStore } from "@/app/actions/store"
+
+const MapPicker = dynamic(() => import("@/components/hris/shared/map-picker"), { 
+  ssr: false, 
+  loading: () => <div className="h-full w-full bg-muted animate-pulse rounded-md flex items-center justify-center text-xs text-muted-foreground">Memuat Peta...</div> 
+})
 
 type Store = any
 
 export function StoresPage({ initialStores }: { initialStores: Store[] }) {
   const [stores, setStores] = useState<Store[]>(initialStores)
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [draft, setDraft] = useState({ name: "", address: "", openTime: "08:00", closeTime: "21:00", radiusMeters: 150 })
+  // Default coordinates to somewhere central (e.g., Jakarta)
+  const [draft, setDraft] = useState({ name: "", address: "", openTime: "08:00", closeTime: "21:00", radiusMeters: 150, lat: -6.200000, lng: 106.816666 })
 
   const [editTarget, setEditTarget] = useState<Store | null>(null)
 
@@ -50,7 +57,7 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
         if (res.success) {
           setStores(prev => [...prev, res.data])
           setIsAddOpen(false)
-          setDraft({ name: "", address: "", openTime: "08:00", closeTime: "21:00", radiusMeters: 150 })
+          setDraft({ name: "", address: "", openTime: "08:00", closeTime: "21:00", radiusMeters: 150, lat: -6.200000, lng: 106.816666 })
           return "Toko berhasil ditambahkan"
         } else {
           throw new Error(res.error)
@@ -67,7 +74,9 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
       address: editTarget.address,
       openTime: editTarget.openTime,
       closeTime: editTarget.closeTime,
-      radiusMeters: editTarget.radiusMeters
+      radiusMeters: editTarget.radiusMeters,
+      latitude: editTarget.latitude || editTarget.lat,
+      longitude: editTarget.longitude || editTarget.lng
     })
     
     toast.promise(promise, {
@@ -140,12 +149,16 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
                     onChange={(e) => setDraft({...draft, address: e.target.value})}
                   />
                 </div>
-                <div className="space-y-1.5 opacity-50 pointer-events-none">
+                <div className="space-y-1.5">
                   <Label>Lokasi Pin</Label>
-                  <div className="flex h-32 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/40 text-muted-foreground">
-                    <MapPin className="h-6 w-6" />
-                    <p className="text-xs">Placeholder peta — ketuk untuk menjatuhkan pin lokasi</p>
+                  <div className="h-[200px] w-full rounded-md relative z-0">
+                    <MapPicker 
+                      position={[draft.lat, draft.lng]} 
+                      setPosition={(p) => setDraft({...draft, lat: p[0], lng: p[1]})} 
+                      radiusMeters={draft.radiusMeters} 
+                    />
                   </div>
+                  <p className="text-xs text-muted-foreground">Ketuk peta untuk memindahkan pin. Area biru menunjukkan radius yang valid.</p>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -274,6 +287,16 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
                     value={editTarget.address || ''}
                     onChange={(e) => setEditTarget({...editTarget, address: e.target.value})}
                   />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Lokasi Pin</Label>
+                  <div className="h-[200px] w-full rounded-md relative z-0">
+                    <MapPicker 
+                      position={[editTarget.latitude || editTarget.lat || -6.2, editTarget.longitude || editTarget.lng || 106.8]} 
+                      setPosition={(p) => setEditTarget({...editTarget, latitude: p[0], longitude: p[1]})} 
+                      radiusMeters={editTarget.radiusMeters} 
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">

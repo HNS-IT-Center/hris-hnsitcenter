@@ -1,80 +1,273 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/hris/shared"
-import { CURRENT_USER } from "@/lib/hris-data"
-import { Camera, CheckCircle2, MapPin, RotateCcw, Send } from "lucide-react"
+import { Camera, CheckCircle2, MapPin, RotateCcw, Send, AlertTriangle } from "lucide-react"
+import { getDistanceInMeters } from "@/lib/utils/geo"
+import { submitAttendance } from "@/app/actions/attendance"
 
-export function AttendancePage() {
-  const [captured, setCaptured] = useState(false)
-  const distance = 10
+type PermissionState = "idle" | "requesting" | "granted" | "denied"
+
+export function AttendancePage({ user, store, todayRecord }: { user: any, store: any, todayRecord: any }) {
+  const [permState, setPermState] = useState<PermissionState>("idle")
+  
+  // Geo State
+  const [liveLocation, setLiveLocation] = useState<{lat: number, lng: number} | null>(null)
+  const [liveDistance, setLiveDistance] = useState<number | null>(null)
+  const geoWatchId = useRef<number | null>(null)
+  
+  // Camera State
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [capturedBlob, setCapturedBlob] = useState<Blob | null>(null)
+  const [capturedUrl, setCapturedUrl] = useState<string | null>(null)
+  
+  // Submit State
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  const isCompleted = todayRecord?.checkInTime && todayRecord?.checkOutTime
+
+  // Stop camera stream when unmounting
+  useEffect(() => {
+    return () => stopCamera()
+  }, [])
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current = null
+    }
+  }
+
+  const startCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+      }
+    } catch (err) {
+      console.error(err)
+      throw err
+    }
+  }
+
+  const requestPermissions = async () => {
+    setPermState("requesting")
+    
+    try {
+      // 1. Request Camera
+      await startCamera()
+      
+      // 2. Request Location
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          // Both granted
+          setPermState("granted")
+          
+          // Start watching position
+          if (geoWatchId.current) navigator.geolocation.clearWatch(geoWatchId.current)
+          geoWatchId.current = navigator.geolocation.watchPosition(
+            (watchPos) => {
+              const lat = watchPos.coords.latitude
+              const lng = watchPos.coords.longitude
+              setLiveLocation({ lat, lng })
+              
+              if (store) {
+                const dist = getDistanceInMeters(lat, lng, store.latitude, store.longitude)
+                setLiveDistance(dist)
+              }
+            },
+            (err) => console.error("Watch position error:", err),
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+          )
+        },
+        (err) => {
+          console.error("Geolocation error", err)
+          setPermState("denied")
+          stopCamera()
+        },
+        { enableHighAccuracy: true }
+      )
+    } catch (err) {
+      console.error("Permissions error", err)
+      setPermState("denied")
+    }
+  }
 
   const handleCapture = () => {
-    setCaptured(true)
-    toast.success("Foto berhasil diambil")
+    if (!videoRef.current || !canvasRef.current) return
+    const video = videoRef.current
+    const canvas = canvasRef.current
+    
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    
+    // Draw current frame
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    
+    // Compress to WebP (0.8 quality)
+    canvas.toBlob((blob) => {
+      if (blob) {
+        setCapturedBlob(blob)
+        setCapturedUrl(URL.createObjectURL(blob))
+        stopCamera()
+      }
+    }, "image/webp", 0.8)
   }
 
-  const handleSubmit = () => {
-    toast.success("Absensi terkirim", { description: "Lokasi & foto terverifikasi. Terima kasih!" })
-    setCaptured(false)
+  const handleRetake = async () => {
+    setCapturedBlob(null)
+    if (capturedUrl) URL.revokeObjectURL(capturedUrl)
+    setCapturedUrl(null)
+    await startCamera()
   }
+
+  const handleSubmit = async () => {
+    if (!liveLocation) return toast.error("Lokasi belum didapatkan. Harap tunggu.")
+    if (!capturedBlob) return toast.error("Silakan ambil foto terlebih dahulu.")
+    
+    if (store && liveDistance !== null && liveDistance > store.radiusMeters) {
+      return toast.error(`Anda berada di luar radius toko (${store.radiusMeters} meter).`)
+    }
+
+    setIsSubmitting(true)
+    
+    try {
+      // Small artificial delay to prevent freezing UX
+      await new Promise(r => setTimeout(r, 500))
+      
+      // Upload to R2 (Mock for now until API is ready)
+      const formData = new FormData()
+      formData.append("file", capturedBlob)
+      
+      // Normally we fetch `/api/upload/attendance` here...
+      // For now, we mock a URL:
+      const mockPhotoUrl = "https://example.com/mock-attendance.webp"
+
+      // Send to server
+      const res = await submitAttendance({
+        userId: user.id,
+        storeId: store?.id,
+        lat: liveLocation.lat,
+        lng: liveLocation.lng,
+        photoUrl: mockPhotoUrl
+      })
+
+      if (res.success) {
+        toast.success(`Berhasil Check-${res.type === 'check-in' ? 'In' : 'Out'}!`)
+      } else {
+        toast.error(res.error)
+      }
+    } catch (err) {
+      toast.error("Gagal mengirim absensi.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  if (isCompleted) {
+    return (
+      <div className="mx-auto max-w-xl text-center space-y-4 pt-10">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success/20">
+          <CheckCircle2 className="h-10 w-10 text-success" />
+        </div>
+        <h2 className="text-2xl font-bold">Absensi Selesai</h2>
+        <p className="text-muted-foreground">Anda sudah melakukan Check-in dan Check-out hari ini. Terima kasih!</p>
+      </div>
+    )
+  }
+
+  if (permState === "idle" || permState === "denied") {
+    return (
+      <div className="mx-auto max-w-xl text-center space-y-4 pt-10">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+          <AlertTriangle className="h-10 w-10" />
+        </div>
+        <h2 className="text-2xl font-bold">Izin Diperlukan</h2>
+        <p className="text-muted-foreground">
+          Untuk melakukan absensi, izinkan akses Kamera dan Lokasi. Sistem tidak dapat memproses absensi tanpa memverifikasi posisi Anda.
+        </p>
+        <Button onClick={requestPermissions} size="lg" className="w-full sm:w-auto">
+          {permState === "denied" ? "Coba Minta Izin Lagi" : "Berikan Izin Akses"}
+        </Button>
+      </div>
+    )
+  }
+
+  if (permState === "requesting") {
+    return (
+      <div className="mx-auto max-w-xl text-center space-y-4 pt-10">
+        <p className="text-muted-foreground animate-pulse">Meminta izin kamera dan lokasi...</p>
+      </div>
+    )
+  }
+
+  const isOutOfRange = store && liveDistance !== null && liveDistance > store.radiusMeters
+  const actionText = !todayRecord ? "Check-in" : "Check-out"
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
       <GlassCard>
-        <div className="flex items-center justify-between rounded-xl border border-success/30 bg-success/10 px-4 py-3">
-          <span className="flex items-center gap-2 text-sm font-medium text-success">
+        <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3">
+          <span className="flex items-center gap-2 text-sm font-medium">
             <MapPin className="h-4 w-4" />
-            Jarak ke {CURRENT_USER.store}
+            Jarak ke {store?.name || "Pusat"}
           </span>
-          <span className="text-sm font-semibold text-success">{distance} meter</span>
+          <span className={`text-sm font-semibold ${isOutOfRange ? 'text-destructive' : 'text-success'}`}>
+            {liveDistance !== null ? `${liveDistance} meter` : "Mencari..."}
+          </span>
         </div>
+        {isOutOfRange && (
+          <p className="mt-2 text-xs text-destructive text-center">
+            Anda berada di luar radius yang diizinkan ({store.radiusMeters} meter). Mendekatlah ke lokasi toko.
+          </p>
+        )}
 
         {/* Camera / preview area */}
         <div className="relative mt-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted">
-          {captured ? (
-            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
-                <CheckCircle2 className="h-8 w-8 text-success" />
-              </div>
-              <p className="text-sm">Pratinjau foto selfie</p>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-              <Camera className="h-12 w-12" />
-              <p className="text-sm">Kamera aktif - posisikan wajah Anda</p>
-            </div>
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            playsInline 
+            muted 
+            className={`h-full w-full object-cover ${capturedUrl ? 'hidden' : 'block'}`}
+          />
+          {capturedUrl && (
+            <img src={capturedUrl} alt="Selfie" className="h-full w-full object-cover" />
           )}
+          <canvas ref={canvasRef} className="hidden" />
+
           <span className="absolute left-3 top-3 rounded-full bg-foreground/70 px-2.5 py-1 text-xs font-medium text-background">
-            {captured ? "Pratinjau" : "Live"}
+            {capturedUrl ? "Pratinjau" : "Live"}
           </span>
         </div>
 
         {/* Controls */}
-        {captured ? (
+        {capturedUrl ? (
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <Button variant="outline" onClick={() => setCaptured(false)} className="gap-2">
+            <Button variant="outline" onClick={handleRetake} className="gap-2" disabled={isSubmitting}>
               <RotateCcw className="h-4 w-4" />
               Ulangi Foto
             </Button>
-            <Button onClick={handleSubmit} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button onClick={handleSubmit} disabled={isSubmitting || isOutOfRange} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
               <Send className="h-4 w-4" />
-              Submit
+              {isSubmitting ? "Mengirim..." : `Kirim ${actionText}`}
             </Button>
           </div>
         ) : (
           <Button onClick={handleCapture} className="mt-4 h-12 w-full gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90">
             <Camera className="h-5 w-5" />
-            Ambil Foto
+            Ambil Foto {actionText}
           </Button>
         )}
       </GlassCard>
-
-      <p className="text-center text-xs text-muted-foreground text-pretty">
-        Pastikan GPS aktif dan Anda berada dalam radius toko untuk dapat melakukan absensi.
-      </p>
     </div>
   )
 }
