@@ -23,6 +23,38 @@ export async function getCalendarEvents() {
   }
 }
 
+export async function getCalendarAudienceOptions() {
+  try {
+    const [users, shifts, stores] = await Promise.all([
+      prisma.user.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, departmentName: true }
+      }),
+      prisma.shift.findMany({
+        select: { id: true, name: true }
+      }),
+      prisma.store.findMany({
+        select: { id: true, name: true }
+      })
+    ])
+
+    const departments = Array.from(new Set(users.map(u => u.departmentName).filter(Boolean))) as string[]
+
+    return {
+      success: true,
+      data: {
+        employees: users,
+        departments,
+        shifts,
+        stores
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching audience options', err)
+    return { success: false, error: 'Failed to fetch audience options' }
+  }
+}
+
 export async function createCalendarEvent(data: {
   date: string
   title: string

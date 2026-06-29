@@ -143,8 +143,14 @@ export function PerformancePage({
             <div key={`pad-${i}`} />
           ))}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-            const status = statusByDay.get(day)
+            let status = statusByDay.get(day)
             const dayEvents = eventsByDay.get(day) || []
+
+            // If there's an ON_LEAVE event and no attendance record, show the day as ON_LEAVE
+            if (!status && dayEvents.some(e => e.type === 'ON_LEAVE')) {
+              status = 'ON_LEAVE'
+            }
+
             return (
               <button
                 key={day}

@@ -162,7 +162,7 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
     Date.UTC(target.getFullYear(), target.getMonth(), target.getDate())
   )
 
-  const [employees, attendances] = await Promise.all([
+  const [employees, attendances, leaves] = await Promise.all([
     prisma.user.findMany({
       where: { isActive: true },
       select: {
@@ -188,21 +188,38 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
         lateMinutes: true,
       },
     }),
+
+    prisma.leaveRequest.findMany({
+      where: {
+        status: 'APPROVED',
+        startDate: { lte: day },
+        endDate: { gte: day }
+      }
+    })
   ])
 
-  // Build lookup map attendance by userId
+  // Build lookup maps
   const attendanceMap = new Map(attendances.map((a) => [a.userId, a]))
+  const leaveMap = new Map(leaves.map((l) => [l.userId, l]))
 
   // Merge: every employee gets an attendance record or null
   const logs = employees.map((emp) => {
     const record = attendanceMap.get(emp.id) ?? null
+    const leave = leaveMap.get(emp.id) ?? null
+
+    let displayStatus = 'BELUM_ABSEN' as string
+
+    if (record) {
+      displayStatus = record.status
+    } else if (leave) {
+      displayStatus = 'ON_LEAVE'
+    }
+
     return {
       employee: emp,
       attendance: record,
-      // Derived display status
-      displayStatus: record
-        ? record.status
-        : ('BELUM_ABSEN' as const),
+      leave: leave,
+      displayStatus,
     }
   })
 

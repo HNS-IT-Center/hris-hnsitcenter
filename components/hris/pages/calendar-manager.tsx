@@ -29,14 +29,10 @@ import { cn } from "@/lib/utils"
 import { GlassCard, SectionTitle } from "@/components/hris/shared"
 import {
   CALENDAR_EVENT_TYPES,
-  DEPARTMENTS,
-  EMPLOYEES,
-  SHIFTS,
-  STORES,
   type AudienceScope,
   type CalendarEventType,
 } from "@/lib/hris-data"
-import { getCalendarEvents, createCalendarEvent, deleteCalendarEvent } from "@/app/actions/calendar"
+import { getCalendarEvents, createCalendarEvent, deleteCalendarEvent, getCalendarAudienceOptions } from "@/app/actions/calendar"
 import { Check, ChevronLeft, ChevronRight, Plus, Trash2, Users, X, Loader2 } from "lucide-react"
 
 // Types since we removed them from hris-data
@@ -87,9 +83,11 @@ function toISO(year: number, month: number, day: number) {
 function EmployeeMultiSelect({
   selected,
   onChange,
+  employees
 }: {
   selected: string[]
   onChange: (names: string[]) => void
+  employees: { id: string, name: string, departmentName: string | null }[]
 }) {
   const [open, setOpen] = useState(false)
 
@@ -115,7 +113,7 @@ function EmployeeMultiSelect({
             <CommandList>
               <CommandEmpty>Karyawan tidak ditemukan.</CommandEmpty>
               <CommandGroup>
-                {EMPLOYEES.map((e) => {
+                {employees.map((e) => {
                   const isSel = selected.includes(e.name)
                   return (
                     <CommandItem key={e.id} value={e.name} onSelect={() => toggle(e.name)}>
@@ -128,7 +126,7 @@ function EmployeeMultiSelect({
                         {isSel && <Check className="h-3 w-3" />}
                       </span>
                       <span className="flex-1">{e.name}</span>
-                      <span className="text-xs text-muted-foreground">{e.department}</span>
+                      <span className="text-xs text-muted-foreground">{e.departmentName || "-"}</span>
                     </CommandItem>
                   )
                 })}
@@ -162,9 +160,16 @@ function EmployeeMultiSelect({
 function EventForm({
   initialDate,
   onSave,
+  options
 }: {
   initialDate?: string
   onSave: (ev: Omit<CalendarEvent, "id">) => void
+  options: {
+    employees: { id: string, name: string, departmentName: string | null }[]
+    departments: string[]
+    shifts: { id: string, name: string }[]
+    stores: { id: string, name: string }[]
+  }
 }) {
   const [date, setDate] = useState(initialDate ?? "")
   const [title, setTitle] = useState("")
@@ -179,15 +184,15 @@ function EventForm({
   const scopeChoices = useMemo(() => {
     switch (scope) {
       case "department":
-        return DEPARTMENTS
+        return options.departments
       case "shift":
-        return SHIFTS.map((s) => s.name)
+        return options.shifts.map((s) => s.name)
       case "store":
-        return STORES.map((s) => s.name)
+        return options.stores.map((s) => s.name)
       default:
         return []
     }
-  }, [scope])
+  }, [scope, options])
 
   return (
     <div className="space-y-4">
@@ -253,7 +258,7 @@ function EventForm({
       {scope === "individual" && (
         <div className="space-y-1.5">
           <Label>Pilih Karyawan Tertentu</Label>
-          <EmployeeMultiSelect selected={people} onChange={setPeople} />
+          <EmployeeMultiSelect selected={people} onChange={setPeople} employees={options.employees} />
         </div>
       )}
 
@@ -326,12 +331,28 @@ export function CalendarManagerPage() {
   const [presetDate, setPresetDate] = useState<string | undefined>()
   const [isLoading, setIsLoading] = useState(true)
 
+  const [audienceOpts, setAudienceOpts] = useState<{
+    employees: { id: string, name: string, departmentName: string | null }[]
+    departments: string[]
+    shifts: { id: string, name: string }[]
+    stores: { id: string, name: string }[]
+  }>({ employees: [], departments: [], shifts: [], stores: [] })
+
   useEffect(() => {
     async function load() {
-      const res = await getCalendarEvents()
-      if (res.success && res.data) {
-        setEvents(res.data)
+      const [evRes, optsRes] = await Promise.all([
+        getCalendarEvents(),
+        getCalendarAudienceOptions()
+      ])
+      
+      if (evRes.success && evRes.data) {
+        setEvents(evRes.data)
       }
+      
+      if (optsRes.success && optsRes.data) {
+        setAudienceOpts(optsRes.data)
+      }
+      
       setIsLoading(false)
     }
     load()
@@ -432,7 +453,7 @@ export function CalendarManagerPage() {
                 <DialogTitle>Tambah Event Kalender</DialogTitle>
                 <DialogDescription>Tetapkan jenis hari dan audiens yang dapat melihatnya.</DialogDescription>
               </DialogHeader>
-              <EventForm initialDate={presetDate} onSave={addEvent} />
+              <EventForm initialDate={presetDate} onSave={addEvent} options={audienceOpts} />
             </DialogContent>
           </Dialog>
         }

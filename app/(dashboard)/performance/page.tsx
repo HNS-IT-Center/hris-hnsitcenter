@@ -32,11 +32,50 @@ export default async function Page({
   })
 
   // Fetch events. Normally we'd filter by scope, but let's grab all for the month to filter on the client.
-  const events = await prisma.calendarEvent.findMany({
-    where: {
-      date: { gte: startOfMonth, lte: endOfMonth },
+  const [events, leaves] = await Promise.all([
+    prisma.calendarEvent.findMany({
+      where: {
+        date: { gte: startOfMonth, lte: endOfMonth },
+      }
+    }),
+    prisma.leaveRequest.findMany({
+      where: {
+        userId: dbUser.id,
+        status: 'APPROVED',
+        startDate: { lte: endOfMonth },
+        endDate: { gte: startOfMonth }
+      }
+    })
+  ])
+
+  // Convert LeaveRequests into pseudo CalendarEvents
+  const leaveEvents = leaves.flatMap(leave => {
+    // Generate an event for each day of the leave
+    const days = []
+    let curr = new Date(leave.startDate)
+    // Make sure we only generate events within this month's bounds
+    const end = new Date(leave.endDate)
+    while (curr <= end) {
+      if (curr >= startOfMonth && curr <= endOfMonth) {
+        days.push({
+          id: `leave-${leave.id}-${curr.toISOString()}`,
+          date: curr.toISOString().split('T')[0],
+          title: `Izin/Cuti: ${leave.type}`,
+          type: 'ON_LEAVE',
+          scope: 'individual',
+          note: leave.reason
+        })
+      }
+      curr.setDate(curr.getDate() + 1)
     }
+    return days
   })
 
-  return <PerformancePage attendanceRecords={attendanceRecords} events={events} year={year} month={month} />
+  // We can pass combined events to PerformancePage
+  const combinedEvents = [...events.map(e => ({
+    ...e,
+    date: e.date.toISOString().split('T')[0]
+  })), ...leaveEvents]
+
+  return <PerformancePage attendanceRecords={attendanceRecords} events={combinedEvents} year={year} month={month} />
 }
