@@ -34,8 +34,11 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
 
   // Stop camera stream when unmounting
   useEffect(() => {
+    if (!isCompleted && permState === 'idle') {
+      requestPermissions()
+    }
     return () => stopCamera()
-  }, [])
+  }, [isCompleted, permState])
 
   // Bind stream to video element once it's mounted
   useEffect(() => {

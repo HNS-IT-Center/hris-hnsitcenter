@@ -186,6 +186,12 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
         checkOutTime: true,
         checkInDistance: true,
         lateMinutes: true,
+        checkInPhotoUrl: true,
+        checkOutPhotoUrl: true,
+        checkInLat: true,
+        checkInLng: true,
+        checkOutLat: true,
+        checkOutLng: true,
       },
     }),
 

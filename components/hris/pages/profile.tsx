@@ -80,7 +80,7 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
 
   return (
     <div className="space-y-6">
-      <GlassCard className="bg-primary text-primary-foreground">
+      <div className="rounded-2xl border border-primary/20 bg-primary p-6 shadow-sm text-primary-foreground">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
           {user.avatarUrl ? (
             <img
@@ -99,7 +99,7 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
             <p className="mt-1 text-sm text-primary-foreground/60">{user.email}</p>
           </div>
         </div>
-      </GlassCard>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <GlassCard className="lg:col-span-2">
