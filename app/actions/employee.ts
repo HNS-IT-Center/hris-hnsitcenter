@@ -30,10 +30,12 @@ export async function getEmployee(id: string) {
 export async function updateEmployee(id: string, data: {
   joinDate?: Date
   weeklyOffDays?: number[]
-  shiftPattern?: string | null
+  halfDays?: number[]
+  shiftCycle?: string[]
+  cycleStartDate?: Date | null
   storeId?: string | null
   shiftId?: string | null
-  secondaryShiftId?: string | null
+  leaveQuotaRemaining?: number
   isActive?: boolean
   avatarUrl?: string | null
 }) {
@@ -43,10 +45,12 @@ export async function updateEmployee(id: string, data: {
       data: {
         joinDate: data.joinDate,
         weeklyOffDays: data.weeklyOffDays,
-        shiftPattern: data.shiftPattern,
+        halfDays: data.halfDays,
+        shiftCycle: data.shiftCycle,
+        cycleStartDate: data.cycleStartDate,
         storeId: data.storeId,
         shiftId: data.shiftId,
-        secondaryShiftId: data.secondaryShiftId,
+        leaveQuotaRemaining: data.leaveQuotaRemaining,
         isActive: data.isActive,
         avatarUrl: data.avatarUrl,
       },

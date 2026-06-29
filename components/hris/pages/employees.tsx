@@ -31,7 +31,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Briefcase, CalendarDays, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock } from "lucide-react"
+import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2 } from "lucide-react"
 import { format, addDays } from "date-fns"
 import { id } from "date-fns/locale"
 import { type DateRange } from "react-day-picker"
@@ -52,11 +52,6 @@ const WEEKDAYS = [
   { id: 5, label: "Jumat" },
   { id: 6, label: "Sabtu" },
   { id: 0, label: "Minggu" },
-]
-
-const SHIFT_PATTERNS = [
-  { id: "MORNING_ONLY", label: "Shift Tetap (Pilih 1 Shift)" },
-  { id: "WEEKLY_ALTERNATING", label: "Rotasi Mingguan (Shift 1 & 2)" },
 ]
 
 function StatusBadge({ active }: { active: boolean }) {
@@ -103,8 +98,12 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
     setSelected(e)
     setDraft({ 
       ...e,
-      joinDate: new Date(e.joinDate),
+      joinDate: e.joinDate ? new Date(e.joinDate) : undefined,
+      cycleStartDate: e.cycleStartDate ? new Date(e.cycleStartDate) : undefined,
       weeklyOffDays: e.weeklyOffDays || [],
+      halfDays: e.halfDays || [],
+      shiftCycle: e.shiftCycle || [],
+      leaveQuotaRemaining: e.leaveQuotaRemaining ?? 12,
     })
   }
 
@@ -143,10 +142,12 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
     const promise = updateEmployee(draft.id, {
       joinDate: draft.joinDate,
       weeklyOffDays: draft.weeklyOffDays,
-      shiftPattern: draft.shiftPattern,
+      halfDays: draft.halfDays,
+      shiftCycle: draft.shiftCycle,
+      cycleStartDate: draft.cycleStartDate,
       storeId: draft.storeId,
       shiftId: draft.shiftId,
-      secondaryShiftId: draft.shiftPattern === 'WEEKLY_ALTERNATING' ? draft.secondaryShiftId : null,
+      leaveQuotaRemaining: draft.leaveQuotaRemaining,
       isActive: draft.isActive,
       avatarUrl: draft.avatarUrl,
     })
@@ -173,6 +174,16 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
       setDraft({ ...draft, weeklyOffDays: current.filter(d => d !== dayId) })
     } else {
       setDraft({ ...draft, weeklyOffDays: [...current, dayId] })
+    }
+  }
+
+  function toggleHalfDay(dayId: number) {
+    if (!draft) return
+    const current = draft.halfDays as number[]
+    if (current.includes(dayId)) {
+      setDraft({ ...draft, halfDays: current.filter(d => d !== dayId) })
+    } else {
+      setDraft({ ...draft, halfDays: [...current, dayId] })
     }
   }
 
@@ -373,44 +384,82 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                           <Lock className="h-3 w-3 text-muted-foreground" />
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="w-[90vw] max-w-md p-6">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Ubah Tanggal Bergabung?</AlertDialogTitle>
                           <AlertDialogDescription>
                             Mengubah tanggal bergabung karyawan ini berpotensi me-reset dan menghitung ulang periode kuota cuti tahunannya. Apakah Anda yakin ingin melanjutkannya?
                           </AlertDialogDescription>
                         </AlertDialogHeader>
-                        <div className="flex justify-center p-4">
+                        <div className="flex justify-center py-4">
                           <Calendar
                             mode="single"
                             selected={draft.joinDate}
                             onSelect={(d) => d && setDraft({ ...draft, joinDate: d })}
                             initialFocus
+                            captionLayout="dropdown-buttons"
+                            fromYear={1990}
+                            toYear={2030}
                             className="rounded-md border"
                           />
                         </div>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Selesai</AlertDialogCancel>
+                          <AlertDialogCancel>Batal (Tutup)</AlertDialogCancel>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label>Status Karyawan</Label>
-                    <Select
-                      value={draft.isActive ? "active" : "inactive"}
-                      onValueChange={(v) => setDraft({ ...draft, isActive: v === "active" })}
-                    >
-                      <SelectTrigger className="w-full bg-input">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Aktif</SelectItem>
-                        <SelectItem value="inactive">Nonaktif</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Sisa Kuota Cuti</Label>
+                    <div className="flex gap-2">
+                      <Input value={draft.leaveQuotaRemaining} disabled className="bg-muted w-20" />
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" className="w-full gap-2">
+                            <Lock className="h-4 w-4 text-muted-foreground" />
+                            Ubah Manual
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Ubah Sisa Kuota Cuti?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Mengubah sisa kuota cuti secara manual akan menimpa perhitungan sistem yang ada. Masukkan jumlah sisa cuti saat ini:
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <div className="py-4">
+                            <Label>Jumlah Sisa Cuti</Label>
+                            <Input 
+                              type="number" 
+                              value={draft.leaveQuotaRemaining} 
+                              onChange={(e) => setDraft({...draft, leaveQuotaRemaining: parseInt(e.target.value) || 0})}
+                              className="mt-2"
+                            />
+                          </div>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Tutup</AlertDialogCancel>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <Label>Status Karyawan</Label>
+                  <Select
+                    value={draft.isActive ? "active" : "inactive"}
+                    onValueChange={(v) => setDraft({ ...draft, isActive: v === "active" })}
+                  >
+                    <SelectTrigger className="w-full bg-input">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Aktif</SelectItem>
+                      <SelectItem value="inactive">Nonaktif</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="h-px bg-border my-2" />
@@ -435,77 +484,97 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
 
                 <div className="space-y-4 rounded-lg border border-border p-4 bg-muted/20">
                   <div className="space-y-1.5">
-                    <Label>Pola Rotasi Shift</Label>
-                    <Select value={draft.shiftPattern || "none"} onValueChange={(v) => setDraft({ ...draft, shiftPattern: v === "none" ? null : v })}>
+                    <Label>Shift Tetap / Utama</Label>
+                    <Select value={draft.shiftId || "none"} onValueChange={(v) => setDraft({ ...draft, shiftId: v === "none" ? null : v })}>
                       <SelectTrigger className="w-full bg-input">
-                        <SelectValue placeholder="Pilih pola" />
+                        <SelectValue placeholder="Pilih shift utama" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Manual / Tidak Ada</SelectItem>
-                        {SHIFT_PATTERNS.map((s) => (
+                        <SelectItem value="none">Belum Ditentukan</SelectItem>
+                        {shifts.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
-                            {s.label}
+                            {s.name} ({s.startTime}-{s.endTime})
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
 
-                  {draft.shiftPattern === "MORNING_ONLY" && (
-                    <div className="space-y-1.5 pt-2">
-                      <Label>Pilih Shift</Label>
-                      <Select value={draft.shiftId || "none"} onValueChange={(v) => setDraft({ ...draft, shiftId: v === "none" ? null : v })}>
-                        <SelectTrigger className="w-full bg-input">
-                          <SelectValue placeholder="Pilih shift utama" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Belum Ditentukan</SelectItem>
-                          {shifts.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name} ({s.startTime}-{s.endTime})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-2 pt-4 border-t border-border mt-4">
+                    <div className="flex items-center justify-between">
+                      <Label>Siklus Rotasi (Opsi Tambahan)</Label>
+                      <Button 
+                        size="sm" variant="outline" 
+                        onClick={() => setDraft({...draft, shiftCycle: [...draft.shiftCycle, "none"]})}
+                        className="h-8 gap-1"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Tambah Minggu
+                      </Button>
                     </div>
-                  )}
-
-                  {draft.shiftPattern === "WEEKLY_ALTERNATING" && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border mt-2">
-                      <div className="space-y-1.5">
-                        <Label>Shift 1 (Minggu Ganjil)</Label>
-                        <Select value={draft.shiftId || "none"} onValueChange={(v) => setDraft({ ...draft, shiftId: v === "none" ? null : v })}>
-                          <SelectTrigger className="w-full bg-input">
-                            <SelectValue placeholder="Pilih shift pertama" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Belum Ditentukan</SelectItem>
-                            {shifts.map((s) => (
-                              <SelectItem key={s.id} value={s.id}>
-                                {s.name} ({s.startTime}-{s.endTime})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    {draft.shiftCycle.length > 0 && (
+                      <div className="space-y-3">
+                        {draft.shiftCycle.map((cycleShiftId: string, idx: number) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <Label className="w-20">Minggu {idx + 1}</Label>
+                            <Select 
+                              value={cycleShiftId || "none"} 
+                              onValueChange={(v) => {
+                                const newCycle = [...draft.shiftCycle]
+                                newCycle[idx] = v
+                                setDraft({...draft, shiftCycle: newCycle})
+                              }}
+                            >
+                              <SelectTrigger className="w-full bg-input">
+                                <SelectValue placeholder="Pilih Shift" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Tidak ada</SelectItem>
+                                {shifts.map((s) => (
+                                  <SelectItem key={s.id} value={s.id}>
+                                    {s.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button 
+                              variant="ghost" size="icon" className="text-destructive shrink-0"
+                              onClick={() => {
+                                const newCycle = [...draft.shiftCycle]
+                                newCycle.splice(idx, 1)
+                                setDraft({...draft, shiftCycle: newCycle})
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                        
+                        <div className="space-y-1.5 pt-2">
+                          <Label>Tanggal Mulai Siklus (Anchor)</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant={"outline"}
+                                className={cn("w-full justify-start text-left font-normal bg-input")}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {draft.cycleStartDate ? format(draft.cycleStartDate, "PPP", { locale: id }) : <span>Pilih tanggal (Senin)</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={draft.cycleStartDate}
+                                onSelect={(d) => d && setDraft({ ...draft, cycleStartDate: d })}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <p className="text-xs text-muted-foreground">Tanggal ini akan menjadi indeks ke-0 (Minggu 1) dalam perhitungan rotasi.</p>
+                        </div>
                       </div>
-                      <div className="space-y-1.5">
-                        <Label>Shift 2 (Minggu Genap)</Label>
-                        <Select value={draft.secondaryShiftId || "none"} onValueChange={(v) => setDraft({ ...draft, secondaryShiftId: v === "none" ? null : v })}>
-                          <SelectTrigger className="w-full bg-input">
-                            <SelectValue placeholder="Pilih shift kedua" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">Belum Ditentukan</SelectItem>
-                            {shifts.map((s) => (
-                              <SelectItem key={s.id} value={s.id}>
-                                {s.name} ({s.startTime}-{s.endTime})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -514,22 +583,42 @@ export function EmployeesPage({ initialEmployees, stores, shifts }: { initialEmp
                     {WEEKDAYS.map((day) => (
                       <div key={day.id} className="flex items-center space-x-2">
                         <Checkbox
-                          id={`day-${day.id}`}
+                          id={`off-${day.id}`}
                           checked={draft.weeklyOffDays.includes(day.id)}
                           onCheckedChange={() => toggleOffDay(day.id)}
+                          className={!draft.weeklyOffDays.includes(day.id) ? "bg-input" : ""}
                         />
                         <label
-                          htmlFor={`day-${day.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          htmlFor={`off-${day.id}`}
+                          className="text-sm font-medium leading-none cursor-pointer"
                         >
                           {day.label}
                         </label>
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Pilih hari dimana karyawan ini libur secara rutin. Jika rotasi shift memiliki libur yang berubah-ubah, biarkan kosong dan atur dari Kalender Shift.
-                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Hari Half Day (Setengah Hari)</Label>
+                  <div className="flex flex-wrap gap-4 pt-2">
+                    {WEEKDAYS.map((day) => (
+                      <div key={day.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`half-${day.id}`}
+                          checked={draft.halfDays.includes(day.id)}
+                          onCheckedChange={() => toggleHalfDay(day.id)}
+                          className={!draft.halfDays.includes(day.id) ? "bg-input" : ""}
+                        />
+                        <label
+                          htmlFor={`half-${day.id}`}
+                          className="text-sm font-medium leading-none cursor-pointer"
+                        >
+                          {day.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 

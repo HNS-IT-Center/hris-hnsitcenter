@@ -2,6 +2,8 @@
 
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { Role } from "@/lib/hris-data"
 import type { DashboardUser } from "@/components/hris/dashboard-shell"
@@ -33,8 +35,13 @@ interface TopbarProps {
 export function Topbar({ title, role, onMenu, user }: TopbarProps) {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const pathname = usePathname()
+  
   useEffect(() => setMounted(true), [])
   const unread = NOTIFICATIONS.filter((n) => n.unread).length
+
+  const isHrdMode = pathname?.startsWith('/hrd')
+  const canSwitch = user?.role === "HRD" || user?.role === "BOSS"
 
   return (
     <header className="glass-strong sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border px-4 sm:px-6">
@@ -50,11 +57,19 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Role badge (read-only, driven by SSO) */}
-        <div className="hidden items-center rounded-full border border-border bg-muted/60 px-3 py-1.5 text-xs font-medium text-muted-foreground sm:flex gap-1.5">
-          <UserCog className="h-3.5 w-3.5" />
-          {role === "hrd" ? "HRD / Boss" : "Karyawan"}
-        </div>
+        {/* Role Switcher (if authorized) */}
+        {canSwitch && (
+          <Link
+            href={isHrdMode ? "/dashboard" : "/hrd/dashboard"}
+            className="flex items-center gap-2 rounded-lg border border-border bg-muted/60 px-2 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent/30 transition-colors mr-1"
+            title={isHrdMode ? "Beralih ke mode Karyawan" : "Beralih ke mode HRD"}
+          >
+            <UserCog className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline-block">
+              {isHrdMode ? "HRD" : "Karyawan"}
+            </span>
+          </Link>
+        )}
 
         {/* Theme toggle */}
         <button

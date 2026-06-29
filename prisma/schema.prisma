@@ -132,7 +132,6 @@ model Shift {
   updatedAt         DateTime @updatedAt
 
   usersPrimary      User[]            @relation("PrimaryShift")
-  usersSecondary    User[]            @relation("SecondaryShift")
   shiftAssignments  ShiftAssignment[]
   shiftOverrides    ShiftOverride[]
   shiftSwapsA       ShiftSwap[]       @relation("ShiftSwapShiftA")
@@ -157,9 +156,8 @@ model User {
   departmentName  String?
 
   // HRIS Settings
-  joinDate        DateTime  @default(now())
-  weeklyOffDays   Int[]     // 0=Sun, 1=Mon, etc. Default empty means no specific weekly off.
-  shiftPattern    String?   // "MORNING_ONLY", "WEEKLY_ALTERNATING", etc.
+  joinDate        DateTime @default(now())
+  weeklyOffDays   Int[]    @default([0]) // Array of days (0=Sun, 1=Mon... 6=Sat)
   
   isActive        Boolean   @default(true)
   notifEnabled    Boolean   @default(true)
@@ -171,12 +169,15 @@ model User {
   departmentId    String?
   storeId         String?
   shiftId         String?
-  secondaryShiftId String? // For weekly rotating shift pattern
+
+  shiftCycle      String[]    // Array of Shift IDs for N-week rotation
+  cycleStartDate  DateTime?   // Anchor date (Monday) where index 0 starts
+  halfDays        Int[]       @default([]) // e.g. [6] for Saturday
+  leaveQuotaRemaining Int     @default(12) // Sisa Cuti
 
   department      Department?         @relation(fields: [departmentId], references: [id])
   store           Store?              @relation(fields: [storeId], references: [id])
   shift           Shift?              @relation("PrimaryShift", fields: [shiftId], references: [id])
-  secondaryShift  Shift?              @relation("SecondaryShift", fields: [secondaryShiftId], references: [id])
 
   attendances         Attendance[]
   leaveRequests       LeaveRequest[]
