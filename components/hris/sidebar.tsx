@@ -68,9 +68,11 @@ interface SidebarProps {
   onMobileClose: () => void
   onLogout: () => void
   user?: DashboardUser
+  swipeOffset?: number
+  isSwiping?: boolean
 }
 
-export function Sidebar({ role, active, onSelect, mobileOpen, onMobileClose, onLogout, user }: SidebarProps) {
+export function Sidebar({ role, active, onSelect, mobileOpen, onMobileClose, onLogout, user, swipeOffset = 0, isSwiping = false }: SidebarProps) {
   const pathname = usePathname()
   const items = role === "hrd" ? HRD_NAV : EMPLOYEE_NAV
 
@@ -92,9 +94,18 @@ export function Sidebar({ role, active, onSelect, mobileOpen, onMobileClose, onL
 
       <aside
         className={cn(
-          "glass fixed left-0 top-0 z-50 flex h-[100dvh] w-[260px] flex-col border-r border-sidebar-border transition-transform duration-300 lg:translate-x-0",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "glass fixed left-0 top-0 z-50 flex h-[100dvh] w-[260px] flex-col border-r border-sidebar-border lg:translate-x-0 lg:!transform-none",
+          // When swiping, we remove transition duration for immediate tracking
+          isSwiping ? "transition-none" : "transition-transform duration-300",
+          !mobileOpen && !isSwiping ? "-translate-x-full" : ""
         )}
+        style={{
+          transform: isSwiping && !mobileOpen && swipeOffset > 0 
+            ? `translateX(${swipeOffset - 260}px)` 
+            : isSwiping && mobileOpen && swipeOffset < 0
+            ? `translateX(${swipeOffset}px)`
+            : mobileOpen ? 'translateX(0)' : undefined
+        }}
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-5">
