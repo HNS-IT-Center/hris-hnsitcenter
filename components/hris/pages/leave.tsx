@@ -51,6 +51,8 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
   const [reason, setReason] = useState("")
+  const [halfDayType, setHalfDayType] = useState<"LATE_IN" | "EARLY_OUT">("LATE_IN")
+  const [halfDayTime, setHalfDayTime] = useState("")
   const [isPending, startTransition] = useTransition()
 
   const handleSubmit = () => {
@@ -58,6 +60,7 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
     const start = new Date(startDate)
     const end = new Date(endDate)
     if (end < start) return toast.error("Tanggal selesai tidak boleh lebih awal dari tanggal mulai.")
+    if (type === "HALF_DAY" && !halfDayTime) return toast.error("Pilih waktu untuk izin setengah hari.")
 
     const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
@@ -69,6 +72,8 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
         endDate: end,
         totalDays: diffDays,
         reason,
+        halfDayType: type === "HALF_DAY" ? halfDayType : undefined,
+        halfDayTime: type === "HALF_DAY" ? halfDayTime : undefined,
       })
       if (res.success) {
         toast.success("Pengajuan terkirim", { description: "Menunggu persetujuan HRD." })
@@ -109,6 +114,32 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
           <Input id="to" type="date" className="bg-input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
         </div>
       </div>
+      
+      {type === "HALF_DAY" && (
+        <div className="grid gap-3 sm:grid-cols-2 p-3 rounded-xl border border-primary/20 bg-primary/5">
+          <div className="space-y-1.5">
+            <Label>Tipe Izin Setengah Hari</Label>
+            <select
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              value={halfDayType}
+              onChange={(e) => setHalfDayType(e.target.value as any)}
+            >
+              <option value="LATE_IN">Setengah Hari Masuk (Telat Datang)</option>
+              <option value="EARLY_OUT">Setengah Hari Pulang (Pulang Cepat)</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Jam (WIB)</Label>
+            <Input 
+              type="time" 
+              className="bg-input" 
+              value={halfDayTime} 
+              onChange={(e) => setHalfDayTime(e.target.value)} 
+            />
+          </div>
+        </div>
+      )}
+
       <div className="space-y-1.5">
         <Label htmlFor="reason">Alasan</Label>
         <Textarea id="reason" placeholder="Jelaskan alasan pengajuan Anda..." className="bg-input" value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -140,6 +171,20 @@ function HrdView({ pendingRequests }: { pendingRequests: PendingRequest[] }) {
     })
   }
 
+  const handleVerify = (id: string, name: string) => {
+    startTransition(async () => {
+      // @ts-ignore
+      const res = await import('@/app/actions/leave').then(m => m.verifySickLeave(id, true))
+      if (res.success) {
+        toast.success("Surat sakit terverifikasi", {
+          description: `Izin sakit ${name} sekarang berstatus Paid Leave.`,
+        })
+      } else {
+        toast.error(res.error)
+      }
+    })
+  }
+
   return (
     <div className="space-y-5">
       <h2 className="text-lg font-semibold text-foreground">Approval Izin & Cuti</h2>
@@ -164,23 +209,37 @@ function HrdView({ pendingRequests }: { pendingRequests: PendingRequest[] }) {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 text-destructive hover:text-destructive"
-                  disabled={isPending}
-                  onClick={() => handleApprove(r.id, false, r.user.name)}
-                >
-                  <X className="h-4 w-4" /> Tolak
-                </Button>
-                <Button
-                  size="sm"
-                  className="gap-1.5 bg-success text-primary-foreground hover:bg-success/90"
-                  disabled={isPending}
-                  onClick={() => handleApprove(r.id, true, r.user.name)}
-                >
-                  <Check className="h-4 w-4" /> Setujui
-                </Button>
+                {r.status === 'APPROVED' && r.type === 'SICK' ? (
+                  <Button
+                    size="sm"
+                    className="gap-1.5 bg-success text-primary-foreground hover:bg-success/90"
+                    disabled={isPending || !(r as any).sickNoteUrl}
+                    onClick={() => handleVerify(r.id, r.user.name)}
+                    title={!(r as any).sickNoteUrl ? "Menunggu karyawan upload surat" : "Verifikasi"}
+                  >
+                    <Check className="h-4 w-4" /> Verifikasi Surat
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-destructive hover:text-destructive"
+                      disabled={isPending}
+                      onClick={() => handleApprove(r.id, false, r.user.name)}
+                    >
+                      <X className="h-4 w-4" /> Tolak
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-success text-primary-foreground hover:bg-success/90"
+                      disabled={isPending}
+                      onClick={() => handleApprove(r.id, true, r.user.name)}
+                    >
+                      <Check className="h-4 w-4" /> Setujui
+                    </Button>
+                  </>
+                )}
               </div>
             </GlassCard>
           ))}
@@ -199,6 +258,34 @@ function EmployeeView({ userId, leaveRequests, leaveQuota }: {
 }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<StatusFilter>("all")
+  const [isUploading, setIsUploading] = useState(false)
+  
+  const handleUpload = async (id: string, file: File) => {
+    setIsUploading(true)
+    const reader = new FileReader()
+    reader.onload = async () => {
+      try {
+        const res = await fetch('/api/upload/sick-note', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileBase64: reader.result, userId })
+        })
+        const data = await res.json()
+        if (data.url) {
+          const m = await import('@/app/actions/leave')
+          await m.uploadSickNote(id, data.url, file.name)
+          toast.success("Surat sakit berhasil diunggah")
+        } else {
+          toast.error(data.error || "Gagal unggah")
+        }
+      } catch (err) {
+        toast.error("Gagal menghubungi server")
+      } finally {
+        setIsUploading(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   const filtered = tab === "all" ? leaveRequests : leaveRequests.filter((r) => r.status === tab)
 
@@ -217,9 +304,9 @@ function EmployeeView({ userId, leaveRequests, leaveQuota }: {
         ))}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
-        <Tabs value={tab} onValueChange={(v) => setTab(v as StatusFilter)}>
-          <TabsList>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as StatusFilter)} className="w-full sm:w-auto">
+          <TabsList className="w-full sm:w-auto">
             <TabsTrigger value="all">Semua</TabsTrigger>
             <TabsTrigger value="PENDING">Pending</TabsTrigger>
             <TabsTrigger value="APPROVED">Disetujui</TabsTrigger>
@@ -228,7 +315,7 @@ function EmployeeView({ userId, leaveRequests, leaveQuota }: {
         </Tabs>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button className="hidden gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 sm:flex">
+            <Button className="gap-1.5 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
               <Plus className="h-4 w-4" /> Ajukan Izin
             </Button>
           </DialogTrigger>
@@ -260,20 +347,39 @@ function EmployeeView({ userId, leaveRequests, leaveQuota }: {
                   {r.reason && <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{r.reason}</p>}
                 </div>
               </div>
-              <StatusBadge status={r.status.toLowerCase() as any} />
+              <div className="flex flex-col items-end gap-2">
+                <StatusBadge status={r.status.toLowerCase() as any} />
+                {r.type === 'SICK' && r.status === 'APPROVED' && !(r as any).isPaid && !(r as any).sickNoteUrl && (
+                  <div>
+                    <input 
+                      type="file" 
+                      id={`file-${r.id}`} 
+                      className="hidden" 
+                      accept="image/*,.pdf" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleUpload(r.id, file)
+                      }} 
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="text-xs h-7 px-2 border-primary text-primary"
+                      disabled={isUploading}
+                      onClick={() => document.getElementById(`file-${r.id}`)?.click()}
+                    >
+                      {isUploading ? "Mengunggah..." : "Unggah Surat Sakit"}
+                    </Button>
+                  </div>
+                )}
+                {r.type === 'SICK' && (r as any).sickNoteUrl && (
+                  <span className="text-[10px] bg-success/10 text-success px-2 py-0.5 rounded-full font-medium">Surat Terlampir</span>
+                )}
+              </div>
             </GlassCard>
           ))}
         </div>
       )}
-
-      {/* Mobile FAB */}
-      <Button
-        onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-20 h-14 w-14 rounded-full bg-primary p-0 text-primary-foreground shadow-lg shadow-primary/30 hover:bg-primary/90 sm:hidden"
-        aria-label="Ajukan Izin"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
     </div>
   )
 }

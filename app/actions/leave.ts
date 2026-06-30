@@ -40,6 +40,9 @@ export async function submitLeaveRequest(data: {
   totalDays: number
   reason?: string
   sickNoteUrl?: string
+  sickNoteFileName?: string
+  halfDayType?: string
+  halfDayTime?: string
 }) {
   try {
     const record = await prisma.leaveRequest.create({
@@ -52,6 +55,10 @@ export async function submitLeaveRequest(data: {
         totalDays: data.totalDays,
         reason: data.reason,
         sickNoteUrl: data.sickNoteUrl,
+        sickNoteFileName: data.sickNoteFileName,
+        halfDayType: data.halfDayType,
+        halfDayTime: data.halfDayTime,
+        isPaid: data.type === 'SICK' && !data.sickNoteUrl ? false : true,
       },
     })
     revalidatePath('/leave')
@@ -68,7 +75,12 @@ export async function submitLeaveRequest(data: {
  */
 export async function getPendingLeaveRequests() {
   return await prisma.leaveRequest.findMany({
-    where: { status: 'PENDING' },
+    where: {
+      OR: [
+        { status: 'PENDING' },
+        { type: 'SICK', status: 'APPROVED', isPaid: false },
+      ],
+    },
     include: {
       user: {
         select: { id: true, name: true, avatarUrl: true, departmentName: true, positionName: true },
@@ -117,5 +129,41 @@ export async function approveLeaveRequest(
   } catch (error) {
     console.error('Error approving leave request:', error)
     return { success: false, error: 'Gagal memproses pengajuan.' }
+  }
+}
+
+/**
+ * For HRD: Verify sick leave letter and mark as Paid.
+ */
+export async function verifySickLeave(id: string, isPaid: boolean) {
+  try {
+    await prisma.leaveRequest.update({
+      where: { id },
+      data: { isPaid },
+    })
+    revalidatePath('/hrd/leave')
+    revalidatePath('/leave')
+    return { success: true }
+  } catch (error) {
+    console.error('Error verifying sick leave:', error)
+    return { success: false, error: 'Gagal memverifikasi surat sakit.' }
+  }
+}
+
+/**
+ * For Employee: Upload sick note later for an existing sick leave request.
+ */
+export async function uploadSickNote(id: string, sickNoteUrl: string, sickNoteFileName: string) {
+  try {
+    await prisma.leaveRequest.update({
+      where: { id },
+      data: { sickNoteUrl, sickNoteFileName },
+    })
+    revalidatePath('/leave')
+    revalidatePath('/hrd/leave')
+    return { success: true }
+  } catch (error) {
+    console.error('Error uploading sick note:', error)
+    return { success: false, error: 'Gagal mengunggah surat sakit.' }
   }
 }

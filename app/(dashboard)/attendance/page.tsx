@@ -39,11 +39,24 @@ export default async function Page() {
   // Fetch today's attendance record
   const todayRecord = await getTodayAttendance(user.id)
 
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+  const todayDate = new Date(`${today}T00:00:00Z`)
+
+  const approvedLeave = await prisma.leaveRequest.findFirst({
+    where: {
+      userId: user.id,
+      status: 'APPROVED',
+      startDate: { lte: todayDate },
+      endDate: { gte: todayDate }
+    }
+  })
+
   return (
     <AttendancePage 
-      user={user}
+      user={user as any}
       store={user.store}
       todayRecord={todayRecord}
+      approvedLeave={approvedLeave as any}
     />
   )
 }

@@ -4,14 +4,24 @@ import { useState, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/hris/shared"
-import { Camera, CheckCircle2, MapPin, RotateCcw, Send, AlertTriangle } from "lucide-react"
+import { Camera, CheckCircle2, MapPin, RotateCcw, Send, AlertTriangle, ClipboardList } from "lucide-react"
 import { getDistanceInMeters } from "@/lib/utils/geo"
 import { submitAttendance } from "@/app/actions/attendance"
 import { generateFingerprint } from "@/lib/utils/fingerprint"
 import { useRouter } from "next/navigation"
+import { DashboardUser } from "@/components/hris/dashboard-shell"
+import Swal from 'sweetalert2'
+
 type PermissionState = "idle" | "requesting" | "granted" | "denied"
 
-export function AttendancePage({ user, store, todayRecord }: { user: any, store: any, todayRecord: any }) {
+interface AttendancePageProps {
+  user: DashboardUser & { shift?: { startTime: string; endTime: string; checkinWindowMin: number; checkinWindowEndMin: number } }
+  store?: { id: string; name: string; latitude: number; longitude: number; radiusMeters: number }
+  todayRecord: any
+  approvedLeave?: any
+}
+
+export function AttendancePage({ user, store, todayRecord, approvedLeave }: AttendancePageProps) {
   const router = useRouter()
   const [permState, setPermState] = useState<PermissionState>("idle")
   
@@ -146,6 +156,31 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
       return toast.error(`Anda berada di luar radius toko (${store.radiusMeters} meter).`)
     }
 
+    // Client-side Early Check-out Warning
+    if (actionText === "Check-out" && user.shift) {
+      let shiftEndStr = user.shift.endTime
+      if (approvedLeave?.type === 'HALF_DAY' && approvedLeave?.halfDayType === 'EARLY_OUT' && approvedLeave?.halfDayTime) {
+        shiftEndStr = approvedLeave.halfDayTime
+      }
+      const [eh, em] = shiftEndStr.split(':')
+      const shiftEndDate = new Date()
+      shiftEndDate.setHours(parseInt(eh), parseInt(em), 0, 0)
+      
+      if (new Date() < shiftEndDate) {
+        const result = await Swal.fire({
+          title: 'Perhatian!',
+          text: 'Jam kerja Anda belum berakhir. Apakah Anda yakin ingin absen keluar sekarang?',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#3085d6',
+          cancelButtonColor: '#d33',
+          confirmButtonText: 'Ya, Absen Keluar',
+          cancelButtonText: 'Batal'
+        })
+        if (!result.isConfirmed) return
+      }
+    }
+
     setIsSubmitting(true)
     
     try {
@@ -211,8 +246,37 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
     )
   }
 
+  if (approvedLeave && ['ANNUAL_LEAVE', 'SICK', 'PERSONAL'].includes(approvedLeave.type)) {
+    return (
+      <div className="mx-auto max-w-xl text-center space-y-4 pt-10">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10">
+          <ClipboardList className="h-10 w-10 text-destructive" />
+        </div>
+        <h2 className="text-2xl font-bold text-destructive">Absensi Terkunci</h2>
+        <p className="text-muted-foreground">Anda tidak bisa absen karena Anda sedang Izin/Cuti/Sakit.</p>
+      </div>
+    )
+  }
+
+  let actionText = !todayRecord ? "Check-in" : "Check-out"
+
+  // Auto-skip Check-in if missed window
+  if (!todayRecord && user.shift) {
+    let shiftStartStr = user.shift.startTime
+    if (approvedLeave?.type === 'HALF_DAY' && approvedLeave?.halfDayType === 'LATE_IN' && approvedLeave?.halfDayTime) {
+      shiftStartStr = approvedLeave.halfDayTime
+    }
+    const [h, m] = shiftStartStr.split(':')
+    const checkinCloseTime = new Date()
+    checkinCloseTime.setHours(parseInt(h), parseInt(m), 0, 0)
+    checkinCloseTime.setMinutes(checkinCloseTime.getMinutes() + (user.shift.checkinWindowEndMin || 0))
+    
+    if (new Date() > checkinCloseTime) {
+      actionText = "Absen Keluar"
+    }
+  }
+
   const isOutOfRange = store && liveDistance !== null && liveDistance > store.radiusMeters
-  const actionText = !todayRecord ? "Check-in" : "Check-out"
 
   if (permState === "idle" || permState === "denied") {
     return (

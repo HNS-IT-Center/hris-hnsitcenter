@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type React from "react"
 import { usePathname } from "next/navigation"
 import { Sidebar } from "@/components/hris/sidebar"
@@ -50,8 +50,31 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     window.location.href = '/api/auth/logout'
   }
 
+  const touchStartX = useRef<number>(0)
+  const touchEndX = useRef<number>(0)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.changedTouches[0].screenX
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.changedTouches[0].screenX
+  }
+
+  const handleTouchEnd = () => {
+    if (touchEndX.current - touchStartX.current > 100) {
+      // Swiped right -> open sidebar
+      setMobileOpen(true)
+    }
+  }
+
   return (
-    <div className="min-h-[100dvh] bg-background">
+    <div 
+      className="min-h-[100dvh] bg-background"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       <Sidebar
         role={sidebarRole}
         active={activeNavId}

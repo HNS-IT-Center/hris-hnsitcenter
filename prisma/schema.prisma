@@ -318,6 +318,11 @@ model LeaveRequest {
   sickNoteUrl   String?
   sickNoteFileName String?
   rejectReason  String?
+  // For HALF_DAY type
+  halfDayType   String?     // 'LATE_IN' or 'EARLY_OUT'
+  halfDayTime   String?     // e.g. '13:00'
+  // For SICK type (2-step verification)
+  isPaid        Boolean     @default(true)
   // For OVERTIME type
   overtimeStart DateTime?
   overtimeEnd   DateTime?

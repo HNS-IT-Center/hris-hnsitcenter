@@ -139,9 +139,40 @@ export async function submitAttendance(data: {
       return { success: false, error: 'Shift Anda tidak ditemukan. Hubungi HRD.' }
     }
 
-    const shift = user.shift
-    const shiftStart = parseTimeStr(shift.startTime, now)
-    const shiftEnd = parseTimeStr(shift.endTime, now)
+    let shiftStart = parseTimeStr(shift.startTime, now)
+    let shiftEnd = parseTimeStr(shift.endTime, now)
+
+    // 4. Check for Approved Leaves today
+    const approvedLeave = await prisma.leaveRequest.findFirst({
+      where: {
+        userId: data.userId,
+        status: 'APPROVED',
+        startDate: { lte: today },
+        endDate: { gte: today }
+      }
+    })
+
+    if (approvedLeave) {
+      if (['ANNUAL_LEAVE', 'SICK', 'PERSONAL'].includes(approvedLeave.type)) {
+        return { success: false, error: `Anda tidak bisa absen karena Anda sedang Izin/Cuti/Sakit.` }
+      }
+      if (approvedLeave.type === 'HALF_DAY') {
+        if (approvedLeave.halfDayType === 'LATE_IN' && approvedLeave.halfDayTime) {
+          shiftStart = parseTimeStr(approvedLeave.halfDayTime, now)
+        } else if (approvedLeave.halfDayType === 'EARLY_OUT' && approvedLeave.halfDayTime) {
+          shiftEnd = parseTimeStr(approvedLeave.halfDayTime, now)
+        }
+      }
+    }
+
+    // 5. Check for Approved Overtime today
+    const approvedOvertime = await prisma.overtimeRequest.findFirst({
+      where: {
+        userId: data.userId,
+        status: 'APPROVED',
+        overtimeDate: today
+      }
+    })
 
     // Check existing record
     const existing = await prisma.attendance.findFirst({
@@ -214,12 +245,18 @@ export async function submitAttendance(data: {
 
     } else if (!existing.checkOutTime) {
       // --- CHECK-OUT LOGIC ---
-      const checkoutCloseTime = new Date(shiftEnd.getTime() + 55 * 60000) // Max 55 mins pass end time
-      const earlyCheckoutThreshold = new Date(shiftEnd.getTime() - 30 * 60000) // 30 mins before end
+      let checkoutCloseTime = new Date(shiftEnd.getTime() + 55 * 60000) // Max 55 mins pass end time
+      if (approvedOvertime && approvedOvertime.endTime) {
+        // Extend max checkout time if overtime exists
+        checkoutCloseTime = new Date(approvedOvertime.endTime.getTime() + 55 * 60000)
+      }
 
       if (now > checkoutCloseTime) {
-        return { success: false, error: 'Batas waktu check-out telah lewat (maksimal 55 menit setelah shift).' }
+        return { success: false, error: 'Batas waktu check-out telah lewat (maksimal 55 menit setelah shift berakhir atau lembur usai).' }
       }
+
+      // We enforce the early checkout warning in the UI, but we still allow it on the server (logged as anomaly)
+      const earlyCheckoutThreshold = new Date(shiftEnd.getTime()) // Warning if before exact shift end
 
       let isAnomaly = existing.isAnomaly
       let anomalyNote = existing.anomalyNote
