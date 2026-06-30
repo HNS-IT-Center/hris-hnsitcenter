@@ -100,14 +100,14 @@ export async function submitAttendance(data: {
     // 3. Fetch User's Shift
     const user = await prisma.user.findUnique({
       where: { id: data.userId },
-      include: { primaryShift: true }
+      include: { shift: true }
     })
 
-    if (!user || !user.primaryShift) {
+    if (!user || !user.shift) {
       return { success: false, error: 'Shift Anda tidak ditemukan. Hubungi HRD.' }
     }
 
-    const shift = user.primaryShift
+    const shift = user.shift
     const shiftStart = parseTimeStr(shift.startTime, now)
     const shiftEnd = parseTimeStr(shift.endTime, now)
 
