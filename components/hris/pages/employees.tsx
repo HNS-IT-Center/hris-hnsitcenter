@@ -183,13 +183,12 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
     setIsUploading(true)
     try {
       const compressed = await compressToWebP(file, 0.90)
-      const formData = new FormData()
-      formData.append('file', compressed)
-      formData.append('userId', draft.id)
+      const base64 = await fileToBase64(compressed)
       
       const res = await fetch('/api/upload/avatar', {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileBase64: base64, userId: draft.id })
       })
       const data = await res.json()
       

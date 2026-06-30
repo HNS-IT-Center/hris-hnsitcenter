@@ -155,14 +155,17 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
       const deviceId = await generateFingerprint()
       const userAgent = navigator.userAgent
 
-      // Upload to R2
-      const formData = new FormData()
-      formData.append("file", capturedBlob, "photo.webp")
-      formData.append("userId", user.id)
+      // Convert to Base64 to avoid Next.js FormData parsing issues
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.readAsDataURL(capturedBlob)
+      })
       
       const uploadRes = await fetch('/api/upload/attendance', {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileBase64: base64, userId: user.id })
       })
       const uploadData = await uploadRes.json()
 

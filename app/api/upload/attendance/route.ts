@@ -13,24 +13,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const formData = await req.formData()
-    const file = formData.get("file") as File
-    const userId = formData.get("userId") as string
+    const { fileBase64, userId } = await req.json()
 
-    if (!file || !userId) {
+    if (!fileBase64 || !userId) {
       return NextResponse.json({ error: "File and userId are required" }, { status: 400 })
     }
 
-    // Convert file to buffer
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    const base64Data = fileBase64.split(',')[1]
+    const buffer = Buffer.from(base64Data, 'base64')
+    const type = fileBase64.match(/:(.*?);/)?.[1] || 'image/webp'
     
-    const ext = file.name.split('.').pop() || 'webp'
+    const ext = type.split('/')[1] || 'webp'
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substring(2, 8)
     const path = `attendance/${userId}/${timestamp}-${randomId}.${ext}`
 
-    const uploadResult = await uploadToR2(path, buffer, file.type)
+    const uploadResult = await uploadToR2(path, buffer, type)
 
     if (uploadResult.success) {
       return NextResponse.json({ url: uploadResult.url })

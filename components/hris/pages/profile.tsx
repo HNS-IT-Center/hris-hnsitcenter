@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { updateProfilePhoneNumber, updateProfileAvatar } from "@/app/actions/profile"
-import { compressToWebP } from "@/lib/utils/file"
+import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
 
 type LeaveQuota = Awaited<ReturnType<typeof getMyLeaveQuota>>
 
@@ -66,13 +66,12 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
     setIsUploading(true)
     try {
       const compressed = await compressToWebP(file, 0.90)
-      const formData = new FormData()
-      formData.append('file', compressed)
-      formData.append('userId', user.id)
+      const base64 = await fileToBase64(compressed)
       
       const res = await fetch('/api/upload/avatar', {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileBase64: base64, userId: user.id })
       })
       const data = await res.json()
       

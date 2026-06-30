@@ -6,28 +6,26 @@ import { generateStoragePath } from '@/lib/utils/file'
 export async function POST(req: NextRequest) {
   try {
     const user = await getServerUser()
-    const formData = await req.formData()
-    const targetUserId = formData.get('userId') as string | null
+    const { fileBase64, userId: targetUserId } = await req.json()
 
     if (!user || (!['HRD', 'ADMIN', 'BOSS'].includes(user.role) && targetUserId !== user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const file = formData.get('file') as File | null
-
-    if (!file || !targetUserId) {
+    if (!fileBase64 || !targetUserId) {
       return NextResponse.json({ error: 'File and userId are required' }, { status: 400 })
     }
 
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
+    const base64Data = fileBase64.split(',')[1]
+    const buffer = Buffer.from(base64Data, 'base64')
+    const type = fileBase64.match(/:(.*?);/)?.[1] || 'image/webp'
     
-    const ext = file.name.split('.').pop() || 'webp'
+    const ext = type.split('/')[1] || 'webp'
     const timestamp = Date.now()
     const randomId = Math.random().toString(36).substring(2, 8)
     const path = `avatars/${targetUserId}/${timestamp}-${randomId}.${ext}`
 
-    const uploadResult = await uploadToR2(path, buffer, file.type)
+    const uploadResult = await uploadToR2(path, buffer, type)
 
     if (uploadResult.success) {
       return NextResponse.json({ url: uploadResult.url })
