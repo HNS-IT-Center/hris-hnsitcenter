@@ -117,6 +117,7 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
 ## 5. UI/UX Guidelines for Agents
 - **Icons:** Use `lucide-react` consistently.
 - **NO EMOJIS:** Absolutely no emojis (🚀, 🎉, etc.) anywhere in the UI or codebase. This is a strict rule.
+- **Date Pickers:** Always use the Shadcn UI `Calendar` & `Popover` (or `DatePickerWithRange`) for date selection. Do NOT use default HTML `<input type="date">`.
 - **Loading States:** Always use `useTransition` when calling Server Actions from buttons to provide immediate visual feedback (e.g., "Mengirim...").
 - **Error Handling:** Use `toast.error()` (from `sonner`) for user-facing errors returned by Server Actions.
 - **Design Language:** Use `GlassCard` wrapper for standard UI blocks to maintain the "glassmorphism" aesthetic.

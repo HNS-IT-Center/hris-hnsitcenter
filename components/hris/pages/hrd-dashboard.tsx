@@ -14,7 +14,12 @@ import {
   Users,
   UserMinus,
   CalendarDays,
+  CalendarIcon,
 } from "lucide-react"
+import { format } from "date-fns"
+import { id } from "date-fns/locale"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
 import type { getHrdDashboardData } from "@/app/actions/dashboard"
 import { resolveAttentionFlag } from "@/app/actions/flags"
 
@@ -22,7 +27,15 @@ type HrdData = Awaited<ReturnType<typeof getHrdDashboardData>>
 
 export function HrdDashboard({ data }: { data: HrdData }) {
   const router = useRouter()
-  const { totalActive, present, late, missing, pendingLeaveCount, unresolvedFlags } = data
+  const { totalActive, present, late, missing, pendingLeaveCount, unresolvedFlags, selectedDate } = data
+  const dateObj = selectedDate ? new Date(selectedDate) : new Date()
+
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      const formatted = format(date, "yyyy-MM-dd")
+      router.push(`/hrd/dashboard?date=${formatted}`)
+    }
+  }
 
   const STATS = [
     { label: "Karyawan Aktif", value: totalActive, icon: Users, color: "text-primary", bg: "bg-primary/10" },
@@ -38,6 +51,34 @@ export function HrdDashboard({ data }: { data: HrdData }) {
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          Dashboard HRD
+        </h1>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-[240px] justify-start text-left font-normal",
+                !dateObj && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateObj ? format(dateObj, "PPP", { locale: id }) : <span>Pilih Tanggal</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={dateObj}
+              onSelect={handleDateChange}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {STATS.map((s) => {

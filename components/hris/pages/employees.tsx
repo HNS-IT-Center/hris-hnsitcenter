@@ -31,12 +31,12 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2, Eye, EyeOff, ArrowUpDown, Phone } from "lucide-react"
+import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2, Eye, EyeOff, ArrowUpDown, Phone, AlertTriangle } from "lucide-react"
 import { format, addDays } from "date-fns"
 import { id } from "date-fns/locale"
 import { type DateRange } from "react-day-picker"
 
-import { updateEmployee, createEmployee } from "@/app/actions/employee"
+import { updateEmployee, createEmployee, toggleDeviceBlock } from "@/app/actions/employee"
 import { compressToWebP } from "@/lib/utils/file"
 import { DatePickerWithRange } from "@/components/hris/shared/date-range-picker"
 import { useTransition } from "react"
@@ -137,6 +137,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
       shiftCycle: e.shiftCycle || [],
       leaveQuotaRemaining: e.leaveQuotaRemaining ?? 12,
       phoneNumber: e.phoneNumber || "",
+      userDevices: e.userDevices || [],
     })
   }
 
@@ -531,9 +532,9 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                     </div>
                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
                   </div>
-                  <div>
-                    <DialogTitle>{draft.name}</DialogTitle>
-                    <DialogDescription>
+                  <div className="min-w-0 flex-1">
+                    <DialogTitle className="break-words leading-tight">{draft.name}</DialogTitle>
+                    <DialogDescription className="truncate">
                       Edit profil dan jadwal karyawan
                     </DialogDescription>
                   </div>
@@ -821,6 +822,53 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                     ))}
                   </div>
                 </div>
+
+                <div className="h-px bg-border my-2" />
+                <h4 className="text-sm font-medium text-foreground">Perangkat Login (User Devices)</h4>
+                {draft.userDevices && draft.userDevices.length > 0 ? (
+                  <div className="space-y-3">
+                    {draft.userDevices.map((device: any) => {
+                      const otherUsers = employees.filter(e => e.id !== draft.id && e.userDevices?.some((d: any) => d.deviceId === device.deviceId))
+                      return (
+                        <div key={device.deviceId} className="rounded-lg border bg-muted/20 p-3 flex flex-col gap-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold truncate text-foreground" title={device.userAgent}>{device.userAgent || 'Unknown Device'}</p>
+                              <p className="text-xs text-muted-foreground font-mono">ID: {device.deviceId.substring(0, 8)}...</p>
+                            </div>
+                            <Button 
+                              variant={device.isBlocked ? "default" : "destructive"} 
+                              size="sm"
+                              className="h-8 shrink-0"
+                              onClick={async () => {
+                                const res = await toggleDeviceBlock(device.deviceId, draft.id, !device.isBlocked)
+                                if (res.success) {
+                                  toast.success(`Perangkat berhasil ${!device.isBlocked ? 'diblokir' : 'diizinkan'}`)
+                                  setDraft({
+                                    ...draft,
+                                    userDevices: draft.userDevices.map((d: any) => d.deviceId === device.deviceId ? { ...d, isBlocked: !device.isBlocked } : d)
+                                  })
+                                } else {
+                                  toast.error(res.error)
+                                }
+                              }}
+                            >
+                              {device.isBlocked ? "Buka Blokir" : "Blokir Perangkat"}
+                            </Button>
+                          </div>
+                          {otherUsers.length > 0 && (
+                            <div className="bg-warning/15 text-warning px-2 py-1.5 rounded text-xs flex items-center gap-1.5 border border-warning/30 group relative">
+                              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                              <span className="truncate">Perhatian: Device ID ini juga digunakan oleh {otherUsers.map(u => u.name).join(', ')}</span>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Belum ada perangkat yang terdaftar.</p>
+                )}
               </div>
 
               <DialogFooter className="gap-2 sm:gap-0 mt-4">

@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation"
 import { GlassCard } from "@/components/hris/shared"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { id } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import {
   CheckCircle2,
@@ -14,7 +18,8 @@ import {
   MapPin,
   UserX,
   Search,
-  Map
+  Map,
+  CalendarIcon
 } from "lucide-react"
 import {
   Dialog,
@@ -105,12 +110,28 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
           <h1 className="text-xl font-bold text-foreground">Log Absensi Karyawan</h1>
           <p className="text-sm text-muted-foreground">Pantau status kehadiran seluruh karyawan.</p>
         </div>
-        <Input
-          type="date"
-          value={date}
-          onChange={(e) => handleDateChange(e.target.value)}
-          className="w-auto bg-input sm:w-48"
-        />
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-[240px] justify-start text-left font-normal bg-input",
+                !date && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(new Date(date), "PPP", { locale: id }) : <span>Pilih Tanggal</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="end">
+            <Calendar
+              mode="single"
+              selected={new Date(date)}
+              onSelect={(d) => d && handleDateChange(format(d, "yyyy-MM-dd"))}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Summary cards */}
@@ -173,13 +194,27 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
                 </div>
 
                 {/* Check-in / Check-out */}
-                <div className="hidden text-center sm:block shrink-0">
-                  <p className="text-xs text-muted-foreground">Masuk</p>
-                  <p className="text-sm font-medium text-foreground">{formatTime(attendance?.checkInTime)}</p>
+                <div className="hidden text-center sm:flex flex-col items-center shrink-0 w-16">
+                  <p className="text-[10px] text-muted-foreground mb-1">Masuk</p>
+                  {attendance?.checkInPhotoUrl ? (
+                    <img src={attendance.checkInPhotoUrl} alt="In" className="h-8 w-8 rounded-full object-cover border" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-muted border flex items-center justify-center">
+                      <UserX className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+                  )}
+                  <p className="text-xs font-medium text-foreground mt-1">{formatTime(attendance?.checkInTime)}</p>
                 </div>
-                <div className="hidden text-center sm:block shrink-0">
-                  <p className="text-xs text-muted-foreground">Pulang</p>
-                  <p className="text-sm font-medium text-foreground">{formatTime(attendance?.checkOutTime)}</p>
+                <div className="hidden text-center sm:flex flex-col items-center shrink-0 w-16">
+                  <p className="text-[10px] text-muted-foreground mb-1">Pulang</p>
+                  {attendance?.checkOutPhotoUrl ? (
+                    <img src={attendance.checkOutPhotoUrl} alt="Out" className="h-8 w-8 rounded-full object-cover border" />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-muted border flex items-center justify-center">
+                      <UserX className="h-4 w-4 text-muted-foreground/40" />
+                    </div>
+                  )}
+                  <p className="text-xs font-medium text-foreground mt-1">{formatTime(attendance?.checkOutTime)}</p>
                 </div>
 
                 {/* Status badge and Action */}

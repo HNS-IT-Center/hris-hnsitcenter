@@ -10,6 +10,7 @@ export async function getEmployees() {
       department: true,
       store: true,
       shift: true,
+      userDevices: true,
     },
     orderBy: {
       name: 'asc'
@@ -127,5 +128,19 @@ export async function getUniquePositions() {
     return users.map(u => u.positionName).filter(Boolean) as string[]
   } catch {
     return []
+  }
+}
+
+export async function toggleDeviceBlock(deviceId: string, userId: string, block: boolean) {
+  try {
+    await prisma.userDevice.update({
+      where: { userId_deviceId: { userId, deviceId } },
+      data: { isBlocked: block },
+    })
+    revalidatePath('/hrd/employees')
+    return { success: true }
+  } catch (err) {
+    console.error('Error toggling device block:', err)
+    return { success: false, error: 'Gagal memblokir/membuka blokir perangkat.' }
   }
 }

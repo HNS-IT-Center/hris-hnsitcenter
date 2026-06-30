@@ -34,18 +34,15 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
 
   // Stop camera stream when unmounting
   useEffect(() => {
-    if (!isCompleted && permState === 'idle') {
-      requestPermissions()
-    }
     return () => stopCamera()
-  }, [isCompleted, permState])
+  }, [])
 
   // Bind stream to video element once it's mounted
   useEffect(() => {
     if (permState === 'granted' && videoRef.current && streamRef.current) {
       videoRef.current.srcObject = streamRef.current
     }
-  }, [permState])
+  }, [permState, videoRef.current])
 
   const stopCamera = () => {
     if (streamRef.current) {
@@ -202,33 +199,41 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
     )
   }
 
+  const isOutOfRange = store && liveDistance !== null && liveDistance > store.radiusMeters
+  const actionText = !todayRecord ? "Check-in" : "Check-out"
+
   if (permState === "idle" || permState === "denied") {
     return (
-      <div className="mx-auto max-w-xl text-center space-y-4 pt-10">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
-          <AlertTriangle className="h-10 w-10" />
-        </div>
-        <h2 className="text-2xl font-bold">Izin Diperlukan</h2>
-        <p className="text-muted-foreground">
-          Untuk melakukan absensi, izinkan akses Kamera dan Lokasi. Sistem tidak dapat memproses absensi tanpa memverifikasi posisi Anda.
-        </p>
-        <Button onClick={requestPermissions} size="lg" className="w-full sm:w-auto">
-          {permState === "denied" ? "Coba Minta Izin Lagi" : "Berikan Izin Akses"}
-        </Button>
+      <div className="mx-auto max-w-xl space-y-5">
+        <GlassCard>
+          <div className="text-center space-y-4 py-6">
+            <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+              <AlertTriangle className="h-10 w-10" />
+            </div>
+            <h2 className="text-2xl font-bold">Izin Diperlukan</h2>
+            <p className="text-muted-foreground text-sm px-4">
+              Untuk melakukan absensi, sistem memerlukan akses ke <b>Kamera</b> dan <b>Lokasi (GPS)</b>.
+            </p>
+            <Button onClick={requestPermissions} size="lg" className="w-full sm:w-auto mt-4">
+              {permState === "denied" ? "Coba Minta Izin Lagi" : "Berikan Izin Akses"}
+            </Button>
+          </div>
+        </GlassCard>
       </div>
     )
   }
 
   if (permState === "requesting") {
     return (
-      <div className="mx-auto max-w-xl text-center space-y-4 pt-10">
-        <p className="text-muted-foreground animate-pulse">Meminta izin kamera dan lokasi...</p>
+      <div className="mx-auto max-w-xl space-y-5">
+        <GlassCard>
+          <div className="text-center space-y-4 py-10">
+            <p className="text-muted-foreground animate-pulse font-medium">Meminta izin kamera dan lokasi...</p>
+          </div>
+        </GlassCard>
       </div>
     )
   }
-
-  const isOutOfRange = store && liveDistance !== null && liveDistance > store.radiusMeters
-  const actionText = !todayRecord ? "Check-in" : "Check-out"
 
   return (
     <div className="mx-auto max-w-xl space-y-5">

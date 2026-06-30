@@ -103,20 +103,20 @@ export async function getEmployeeDashboardData(userId: string) {
 /**
  * Fetches all data needed for the HRD Dashboard.
  */
-export async function getHrdDashboardData() {
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
+export async function getHrdDashboardData(dateStr?: string) {
+  const target = dateStr ? new Date(dateStr) : new Date()
+  const day = new Date(Date.UTC(target.getFullYear(), target.getMonth(), target.getDate()))
 
   const [
     totalActive,
-    todayAttendances,
+    dayAttendances,
     pendingLeaveCount,
     unresolvedFlags,
   ] = await Promise.all([
     prisma.user.count({ where: { isActive: true, role: 'EMPLOYEE' } }),
 
     prisma.attendance.findMany({
-      where: { date: today },
+      where: { date: day },
       select: { status: true, checkInTime: true, checkOutTime: true },
     }),
 
@@ -132,10 +132,10 @@ export async function getHrdDashboardData() {
     }),
   ])
 
-  const present = todayAttendances.filter(
+  const present = dayAttendances.filter(
     (a) => a.status === 'PRESENT' || a.status === 'LATE'
   ).length
-  const late = todayAttendances.filter((a) => a.status === 'LATE').length
+  const late = dayAttendances.filter((a) => a.status === 'LATE').length
   // "Missing" = active employees who have no check-in record yet today
   const missing = Math.max(0, totalActive - present)
 
@@ -146,6 +146,7 @@ export async function getHrdDashboardData() {
     missing,
     pendingLeaveCount,
     unresolvedFlags,
+    selectedDate: day.toISOString(),
   }
 }
 
