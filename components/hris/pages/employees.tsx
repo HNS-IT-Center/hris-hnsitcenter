@@ -350,7 +350,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
           <GlassCard key={e.id} className="p-4 w-full overflow-hidden break-words">
             <button onClick={() => openDetail(e)} className="flex w-full items-center gap-3 text-left">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary/15 text-sm font-semibold text-secondary overflow-hidden">
-                {e.avatarUrl ? <img src={e.avatarUrl} alt={e.name} className="h-full w-full object-cover" /> : e.name.charAt(0)}
+                {e.avatarUrl ? <img src={e.avatarUrl} alt="" className="h-full w-full object-cover" /> : e.name.charAt(0)}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-2">
@@ -406,7 +406,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary/15 text-xs font-semibold text-secondary overflow-hidden shrink-0">
-                        {e.avatarUrl ? <img src={e.avatarUrl} alt={e.name} className="h-full w-full object-cover" /> : e.name.charAt(0)}
+                        {e.avatarUrl ? <img src={e.avatarUrl} alt="" className="h-full w-full object-cover" /> : e.name.charAt(0)}
                       </div>
                       <div className="min-w-0">
                         <p className="font-medium text-foreground truncate max-w-[200px]">{e.name}</p>
@@ -524,7 +524,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                 <div className="flex items-center gap-4">
                   <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/15 text-xl font-semibold text-secondary overflow-hidden relative shrink-0">
-                      {draft.avatarUrl ? <img src={draft.avatarUrl} alt={draft.name} className="h-full w-full object-cover" /> : draft.name.charAt(0)}
+                      {draft.avatarUrl ? <img src={draft.avatarUrl} alt="" className="h-full w-full object-cover" /> : draft.name.charAt(0)}
                       <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
                         <Upload className="h-5 w-5 text-white" />
                       </div>

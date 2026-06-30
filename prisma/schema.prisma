@@ -126,7 +126,7 @@ model Shift {
   name              String
   startTime         String   // HH:mm WIB
   endTime           String   // HH:mm WIB
-  checkinWindowMin  Int      @default(15) // minutes before startTime check-in opens
+  checkinWindowMin  Int      @default(30) // minutes before startTime check-in opens
   checkinWindowEndMin Int    @default(240) // minutes after startTime check-in closes
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())

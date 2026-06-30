@@ -118,14 +118,41 @@ export async function submitAttendance(data: {
 
     if (!existing) {
       // --- CHECK-IN LOGIC ---
-      const checkinOpenTime = new Date(shiftStart.getTime() - shift.checkinWindowMin * 60000)
+      const checkinWindowMin = shift.checkinWindowMin === 15 ? 30 : shift.checkinWindowMin
+      const checkinOpenTime = new Date(shiftStart.getTime() - checkinWindowMin * 60000)
       const checkinCloseTime = new Date(shiftStart.getTime() + shift.checkinWindowEndMin * 60000)
 
       if (now < checkinOpenTime) {
         return { success: false, error: `Belum waktunya check-in. Check-in dibuka jam ${checkinOpenTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` }
       }
       if (now > checkinCloseTime) {
-        return { success: false, error: 'Waktu check-in telah ditutup.' }
+        // Forgot Check-in -> Convert to Check-out
+        const record = await prisma.attendance.create({
+          data: {
+            userId: data.userId,
+            storeId: data.storeId,
+            date: today,
+            checkOutTime: now,
+            checkOutLat: data.lat,
+            checkOutLng: data.lng,
+            checkOutDistance: distance,
+            checkOutPhotoUrl: data.photoUrl,
+            status: 'FORGOT_CHECKIN',
+            isForgotCheckin: true,
+            lateMinutes: 0
+          }
+        })
+
+        await prisma.attentionFlag.create({
+          data: {
+            userId: data.userId,
+            type: 'forgot_checkin',
+            description: `Karyawan lupa check-in dan baru check-out pada pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`,
+            relatedId: record.id
+          }
+        })
+        revalidatePath('/attendance')
+        return { success: true, data: record, type: 'check-out' }
       }
 
       let status: 'PRESENT' | 'LATE' = 'PRESENT'
@@ -190,7 +217,7 @@ export async function submitAttendance(data: {
             userId: data.userId,
             type: 'anomaly_checkin',
             description: `Karyawan melakukan check-out lebih awal pada pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`,
-            date: today
+            relatedId: existing.id
           }
         })
       }
