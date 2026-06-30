@@ -517,10 +517,10 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
 
       {/* Detail / Edit dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl w-[calc(100vw-2rem)] sm:w-full">
+        <DialogContent className="max-h-[90vh] flex flex-col overflow-hidden max-w-2xl w-[calc(100vw-2rem)] sm:w-full p-0">
           {draft && (
             <>
-              <DialogHeader>
+              <DialogHeader className="p-6 pb-0">
                 <div className="flex items-center gap-4">
                   <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                     <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/15 text-xl font-semibold text-secondary overflow-hidden relative shrink-0">
@@ -540,7 +540,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                 </div>
               </DialogHeader>
 
-              <div className="grid gap-6 py-4">
+              <div className="flex-1 overflow-y-auto p-6 py-4 grid gap-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Posisi (Dari SSO)</Label>
@@ -824,7 +824,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
 
               </div>
 
-              <DialogFooter className="gap-2 sm:gap-0 mt-4">
+              <DialogFooter className="gap-2 sm:gap-0 p-6 pt-0 mt-auto">
                 <Button variant="outline" onClick={() => setSelected(null)}>
                   Batal
                 </Button>
