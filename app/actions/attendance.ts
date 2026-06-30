@@ -4,12 +4,16 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { getDistanceInMeters } from '@/lib/utils/geo'
 
+function getTodayUTCForWIB(): Date {
+  const yyyyMmDd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+  return new Date(`${yyyyMmDd}T00:00:00Z`)
+}
+
 /**
  * Gets today's attendance record for a user.
  */
 export async function getTodayAttendance(userId: string) {
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
+  const today = getTodayUTCForWIB()
 
   const record = await prisma.attendance.findFirst({
     where: {
@@ -22,13 +26,12 @@ export async function getTodayAttendance(userId: string) {
 }
 
 /**
- * Helper to parse HH:mm into a Date object for today
+ * Helper to parse HH:mm into a Date object for today in WIB
  */
 function parseTimeStr(timeStr: string, baseDate: Date): Date {
-  const [hours, minutes] = timeStr.split(':').map(Number)
-  const d = new Date(baseDate)
-  d.setHours(hours, minutes, 0, 0)
-  return d
+  const [hours, minutes] = timeStr.split(':')
+  const yyyyMmDd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(baseDate)
+  return new Date(`${yyyyMmDd}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00+07:00`)
 }
 
 /**
@@ -44,8 +47,7 @@ export async function submitAttendance(data: {
   userAgent?: string
 }) {
   try {
-    const today = new Date()
-    today.setUTCHours(0, 0, 0, 0)
+    const today = getTodayUTCForWIB()
     const now = new Date()
 
     // 1. Device Fingerprinting & Blocking Check
@@ -82,6 +84,36 @@ export async function submitAttendance(data: {
           isBlocked: false
         }
       })
+
+      // Anomaly Check: Is this device used by another user?
+      const otherUsers = await prisma.userDevice.findMany({
+        where: {
+          deviceId: data.deviceId,
+          userId: { not: data.userId }
+        }
+      })
+
+      if (otherUsers.length > 0) {
+        // Prevent spamming by checking if flag already exists today
+        const existingFlag = await prisma.attentionFlag.findFirst({
+          where: {
+            userId: data.userId,
+            type: 'anomaly_checkin',
+            description: { contains: data.deviceId },
+            createdAt: { gte: today }
+          }
+        })
+        
+        if (!existingFlag) {
+          await prisma.attentionFlag.create({
+            data: {
+              userId: data.userId,
+              type: 'anomaly_checkin',
+              description: `PERHATIAN: Karyawan login menggunakan perangkat (Device ID: ${data.deviceId.substring(0, 8)}...) yang juga digunakan oleh pengguna lain. Indikasi titip absen.`,
+            }
+          })
+        }
+      }
     }
 
     // 2. Geofence Check
@@ -123,7 +155,7 @@ export async function submitAttendance(data: {
       const checkinCloseTime = new Date(shiftStart.getTime() + shift.checkinWindowEndMin * 60000)
 
       if (now < checkinOpenTime) {
-        return { success: false, error: `Belum waktunya check-in. Check-in dibuka jam ${checkinOpenTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}` }
+        return { success: false, error: `Belum waktunya check-in. Check-in dibuka jam ${checkinOpenTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })}` }
       }
       if (now > checkinCloseTime) {
         // Forgot Check-in -> Convert to Check-out
@@ -147,7 +179,7 @@ export async function submitAttendance(data: {
           data: {
             userId: data.userId,
             type: 'forgot_checkin',
-            description: `Karyawan lupa check-in dan baru check-out pada pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`,
+            description: `Karyawan lupa check-in dan baru check-out pada pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })}`,
             relatedId: record.id
           }
         })
@@ -216,7 +248,7 @@ export async function submitAttendance(data: {
           data: {
             userId: data.userId,
             type: 'anomaly_checkin',
-            description: `Karyawan melakukan check-out lebih awal pada pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`,
+            description: `Karyawan melakukan check-out lebih awal pada pukul ${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })}`,
             relatedId: existing.id
           }
         })

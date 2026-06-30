@@ -517,7 +517,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
 
       {/* Detail / Edit dialog */}
       <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto overflow-x-hidden max-w-2xl w-[calc(100vw-2rem)] sm:w-full">
+        <DialogContent className="max-h-[90vh] overflow-y-auto max-w-2xl w-[calc(100vw-2rem)] sm:w-full">
           {draft && (
             <>
               <DialogHeader>
@@ -554,8 +554,8 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
 
                 <div className="space-y-1.5">
                   <Label>Nomor Telepon (WhatsApp)</Label>
-                  <div className="flex gap-2">
-                    <Input value={draft.phoneNumber || 'Belum diisi'} disabled className="bg-muted flex-1" />
+                  <div className="flex flex-wrap gap-2">
+                    <Input value={draft.phoneNumber || 'Belum diisi'} disabled className="bg-muted flex-1 min-w-[200px]" />
                     {draft.phoneNumber && (
                       <Button variant="outline" className="gap-2 shrink-0 border-success text-success hover:bg-success hover:text-white" onClick={() => window.open(`https://wa.me/${draft.phoneNumber.replace('+', '')}`, '_blank')}>
                         <Phone className="h-4 w-4" />
@@ -715,8 +715,8 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                     {draft.shiftCycle.length > 0 && (
                       <div className="space-y-3">
                         {draft.shiftCycle.map((cycleShiftId: string, idx: number) => (
-                          <div key={idx} className="flex gap-2 items-center">
-                            <Label className="w-20">Minggu {idx + 1}</Label>
+                          <div key={idx} className="flex flex-wrap sm:flex-nowrap gap-2 items-center">
+                            <Label className="w-20 shrink-0">Minggu {idx + 1}</Label>
                             <Select 
                               value={cycleShiftId || "none"} 
                               onValueChange={(v) => {
@@ -822,52 +822,6 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                   </div>
                 </div>
 
-                <div className="h-px bg-border my-2" />
-                <h4 className="text-sm font-medium text-foreground">Perangkat Login (User Devices)</h4>
-                {draft.userDevices && draft.userDevices.length > 0 ? (
-                  <div className="space-y-3">
-                    {draft.userDevices.map((device: any) => {
-                      const otherUsers = employees.filter(e => e.id !== draft.id && e.userDevices?.some((d: any) => d.deviceId === device.deviceId))
-                      return (
-                        <div key={device.deviceId} className="rounded-lg border bg-muted/20 p-3 flex flex-col gap-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-semibold truncate text-foreground" title={device.userAgent}>{device.userAgent || 'Unknown Device'}</p>
-                              <p className="text-xs text-muted-foreground font-mono">ID: {device.deviceId.substring(0, 8)}...</p>
-                            </div>
-                            <Button 
-                              variant={device.isBlocked ? "default" : "destructive"} 
-                              size="sm"
-                              className="h-8 shrink-0"
-                              onClick={async () => {
-                                const res = await toggleDeviceBlock(device.deviceId, draft.id, !device.isBlocked)
-                                if (res.success) {
-                                  toast.success(`Perangkat berhasil ${!device.isBlocked ? 'diblokir' : 'diizinkan'}`)
-                                  setDraft({
-                                    ...draft,
-                                    userDevices: draft.userDevices.map((d: any) => d.deviceId === device.deviceId ? { ...d, isBlocked: !device.isBlocked } : d)
-                                  })
-                                } else {
-                                  toast.error(res.error)
-                                }
-                              }}
-                            >
-                              {device.isBlocked ? "Buka Blokir" : "Blokir Perangkat"}
-                            </Button>
-                          </div>
-                          {otherUsers.length > 0 && (
-                            <div className="bg-warning/15 text-warning px-2 py-1.5 rounded text-xs flex items-center gap-1.5 border border-warning/30 group relative">
-                              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                              <span className="truncate">Perhatian: Device ID ini juga digunakan oleh {otherUsers.map(u => u.name).join(', ')}</span>
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">Belum ada perangkat yang terdaftar.</p>
-                )}
               </div>
 
               <DialogFooter className="gap-2 sm:gap-0 mt-4">
