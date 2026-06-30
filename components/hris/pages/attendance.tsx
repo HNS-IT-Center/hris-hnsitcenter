@@ -155,13 +155,22 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
       const deviceId = await generateFingerprint()
       const userAgent = navigator.userAgent
 
-      // Upload to R2 (Mock for now until API is ready)
+      // Upload to R2
       const formData = new FormData()
-      formData.append("file", capturedBlob)
+      formData.append("file", capturedBlob, "photo.webp")
+      formData.append("userId", user.id)
       
-      // Normally we fetch `/api/upload/attendance` here...
-      // For now, we mock a URL:
-      const mockPhotoUrl = "https://example.com/mock-attendance.webp"
+      const uploadRes = await fetch('/api/upload/attendance', {
+        method: 'POST',
+        body: formData
+      })
+      const uploadData = await uploadRes.json()
+
+      if (!uploadRes.ok || !uploadData.url) {
+        throw new Error(uploadData.error || "Gagal mengunggah foto.")
+      }
+
+      const photoUrl = uploadData.url
 
       // Send to server
       const res = await submitAttendance({
@@ -169,7 +178,7 @@ export function AttendancePage({ user, store, todayRecord }: { user: any, store:
         storeId: store?.id,
         lat: liveLocation.lat,
         lng: liveLocation.lng,
-        photoUrl: mockPhotoUrl,
+        photoUrl: photoUrl,
         deviceId,
         userAgent
       })

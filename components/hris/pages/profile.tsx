@@ -1,13 +1,14 @@
 "use client"
 
 import { GlassCard } from "@/components/hris/shared"
-import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X } from "lucide-react"
+import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload } from "lucide-react"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
-import { useState, useTransition } from "react"
+import { useState, useTransition, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { updateProfilePhoneNumber } from "@/app/actions/profile"
+import { updateProfilePhoneNumber, updateProfileAvatar } from "@/app/actions/profile"
+import { compressToWebP } from "@/lib/utils/file"
 
 type LeaveQuota = Awaited<ReturnType<typeof getMyLeaveQuota>>
 
@@ -54,6 +55,43 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
   const [phoneInput, setPhoneInput] = useState(user.phoneNumber ?? "")
   const [currentPhone, setCurrentPhone] = useState(user.phoneNumber ?? "")
   const [isPending, startTransition] = useTransition()
+  
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    setIsUploading(true)
+    try {
+      const compressed = await compressToWebP(file, 0.90)
+      const formData = new FormData()
+      formData.append('file', compressed)
+      formData.append('userId', user.id)
+      
+      const res = await fetch('/api/upload/avatar', {
+        method: 'POST',
+        body: formData
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.url) {
+        const updateRes = await updateProfileAvatar(data.url)
+        if (updateRes.success) {
+          toast.success("Foto profil berhasil diperbarui")
+        } else {
+          toast.error(updateRes.error || "Gagal menyimpan foto profil.")
+        }
+      } else {
+        toast.error("Gagal mengunggah foto", { description: data.error })
+      }
+    } catch (err) {
+      toast.error("Terjadi kesalahan saat mengunggah foto")
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   async function handleSavePhone() {
     startTransition(async () => {
@@ -82,17 +120,23 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
     <div className="space-y-6">
       <div className="rounded-2xl border border-primary/20 bg-primary p-6 shadow-sm text-primary-foreground">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-          {user.avatarUrl ? (
-            <img
-              src={user.avatarUrl}
-              alt={user.name}
-              className="h-20 w-20 rounded-2xl object-cover"
-            />
-          ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 text-2xl font-bold">
-              {getInitials(user.name)}
+          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 text-2xl font-bold overflow-hidden relative shrink-0">
+              {user.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt={user.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                getInitials(user.name)
+              )}
+              <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
+                {isUploading ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Upload className="h-5 w-5 text-white" />}
+              </div>
             </div>
-          )}
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
+          </div>
           <div className="text-center sm:text-left">
             <h2 className="text-xl font-bold">{user.name}</h2>
             <p className="text-primary-foreground/80">{user.positionName ?? ROLE_LABELS[user.role] ?? user.role}</p>

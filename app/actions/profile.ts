@@ -30,3 +30,21 @@ export async function updateProfilePhoneNumber(phoneNumber: string) {
     return { success: false, error: 'Failed to update phone number.' }
   }
 }
+
+export async function updateProfileAvatar(avatarUrl: string) {
+  try {
+    const ssoUser = await getServerUser()
+    await prisma.user.update({
+      where: { ssoId: ssoUser.id },
+      data: { avatarUrl }
+    })
+
+    revalidatePath('/profile')
+    revalidatePath('/hrd/employees')
+    
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating avatar:', error)
+    return { success: false, error: 'Failed to update avatar.' }
+  }
+}

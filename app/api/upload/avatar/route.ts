@@ -6,13 +6,14 @@ import { generateStoragePath } from '@/lib/utils/file'
 export async function POST(req: NextRequest) {
   try {
     const user = await getServerUser()
-    if (!user || !['HRD', 'ADMIN', 'BOSS'].includes(user.role)) {
+    const formData = await req.formData()
+    const targetUserId = formData.get('userId') as string | null
+
+    if (!user || (!['HRD', 'ADMIN', 'BOSS'].includes(user.role) && targetUserId !== user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const formData = await req.formData()
     const file = formData.get('file') as File | null
-    const targetUserId = formData.get('userId') as string | null
 
     if (!file || !targetUserId) {
       return NextResponse.json({ error: 'File and userId are required' }, { status: 400 })
