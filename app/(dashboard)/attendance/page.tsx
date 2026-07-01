@@ -1,20 +1,19 @@
 import { AttendancePage } from "@/components/hris/pages/attendance"
 import { prisma } from "@/lib/prisma"
 import { getTodayAttendance } from "@/app/actions/attendance"
-import { headers } from "next/headers"
+import { getServerUser } from "@/lib/auth"
 import { redirect } from "next/navigation"
 
 export default async function Page() {
-  const headersList = await headers()
-  const userId = headersList.get("x-user-id")
+  const ssoUser = await getServerUser()
   
-  if (!userId) {
+  if (!ssoUser.email) {
     redirect("/login")
   }
 
   // Fetch full user and store
   const user = await prisma.user.findUnique({
-    where: { ssoId: userId },
+    where: { email: ssoUser.email },
     include: { store: true, shift: true }
   })
 

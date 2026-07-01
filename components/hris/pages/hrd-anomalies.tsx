@@ -90,23 +90,30 @@ export function HrdAnomalies({ initialDate, flags }: { initialDate: string, flag
               <GlassCard key={flag.id} className="relative overflow-hidden group">
                 <div className={`absolute left-0 top-0 bottom-0 w-1 ${cat.color === 'destructive' ? 'bg-destructive' : 'bg-orange-500'}`} />
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pl-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <h4 className="font-semibold text-lg">{flag.user.name}</h4>
+                  <div className="space-y-3 w-full">
+                    <h4 className="font-semibold text-lg break-words">{flag.user.name}</h4>
+                    
+                    <div className="flex flex-wrap gap-2">
                       <Badge variant={cat.color === 'destructive' ? 'destructive' : 'outline'} className={cat.color === 'warning' ? 'text-orange-500 border-orange-500 bg-orange-500/10' : ''}>
-                        <Icon className="mr-1.5 h-3 w-3" />
+                        <Icon className="mr-1.5 h-3 w-3 shrink-0" />
                         {cat.label}
                       </Badge>
-                      {flag.isResolved && (
+                      {flag.isResolved ? (
                         <Badge variant="secondary" className="bg-success/20 text-success hover:bg-success/30">
                           Diselesaikan
                         </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-muted text-muted-foreground">
+                          Belum Diselesaikan
+                        </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                    
+                    <p className="text-sm text-muted-foreground leading-relaxed break-words">
                       {flag.description}
                     </p>
-                    <p className="text-xs text-muted-foreground/60 mt-2">
+                    
+                    <p className="text-xs text-muted-foreground/60 pt-1">
                       Terdeteksi pada: {format(new Date(flag.createdAt), 'HH:mm - d MMM yyyy')}
                     </p>
                   </div>

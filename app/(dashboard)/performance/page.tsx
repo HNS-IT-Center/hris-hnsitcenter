@@ -10,7 +10,7 @@ export default async function Page({
   const params = await searchParams
   const ssoUser = await getServerUser()
   const dbUser = await prisma.user.findUnique({
-    where: { ssoId: ssoUser.id },
+    where: { email: ssoUser.email },
     select: { id: true },
   })
   if (!dbUser) return null

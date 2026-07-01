@@ -17,7 +17,7 @@ export async function updateProfilePhoneNumber(phoneNumber: string) {
     }
 
     await prisma.user.update({
-      where: { ssoId: ssoUser.id },
+      where: { email: ssoUser.email },
       data: { phoneNumber: formattedNumber }
     })
 
@@ -35,7 +35,7 @@ export async function updateProfileAvatar(avatarUrl: string) {
   try {
     const ssoUser = await getServerUser()
     await prisma.user.update({
-      where: { ssoId: ssoUser.id },
+      where: { email: ssoUser.email },
       data: { avatarUrl }
     })
 

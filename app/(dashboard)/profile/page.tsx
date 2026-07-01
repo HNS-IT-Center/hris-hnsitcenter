@@ -6,7 +6,7 @@ import { getMyLeaveQuota } from "@/app/actions/leave"
 export default async function Page() {
   const ssoUser = await getServerUser()
   const dbUser = await prisma.user.findUnique({
-    where: { ssoId: ssoUser.id },
+    where: { email: ssoUser.email },
     include: {
       store: { select: { name: true } },
       shift: { select: { name: true } },

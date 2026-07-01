@@ -357,17 +357,17 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                   <p className="truncate font-semibold text-foreground">{e.name}</p>
                   <StatusBadge active={e.isActive} />
                 </div>
-                <p className="truncate text-xs text-muted-foreground">
-                  {e.positionName} • {e.ssoId || e.id}
+                <p className="truncate text-xs text-muted-foreground mt-0.5">
+                  {e.positionName || '-'}
                 </p>
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Briefcase className="h-3 w-3" />
-                    {e.departmentName || '-'}
+                <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1 min-w-0">
+                    <Briefcase className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{e.departmentName || '-'}</span>
                   </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {stores.find(s => s.id === e.storeId)?.name || 'Pusat'}
+                  <span className="flex items-center gap-1 min-w-0">
+                    <MapPin className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{stores.find(s => s.id === e.storeId)?.name || 'Pusat'}</span>
                   </span>
                 </div>
               </div>
