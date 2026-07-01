@@ -97,11 +97,33 @@ export async function submitAttendance(data: {
 
       if (otherUsers.length > 0) {
         // Prevent spamming by checking if flag already exists today
+        let deviceStr = `Device ID: ${data.deviceId.substring(0, 8)}...`
+        if (data.userAgent) {
+          try {
+            const { UAParser } = require('ua-parser-js')
+            const parser = new UAParser(data.userAgent)
+            const result = parser.getResult()
+            const deviceModel = result.device.model
+            const deviceVendor = result.device.vendor
+            if (deviceModel) {
+              deviceStr = `${deviceVendor ? deviceVendor + ' ' : ''}${deviceModel}`
+            } else {
+              const os = result.os.name
+              const browser = result.browser.name
+              if (os || browser) {
+                deviceStr = `${os || 'Unknown OS'} - ${browser || 'Unknown Browser'}`
+              }
+            }
+          } catch (err) {
+            // fallback if parser fails
+          }
+        }
+
         const existingFlag = await prisma.attentionFlag.findFirst({
           where: {
             userId: data.userId,
             type: 'anomaly_checkin',
-            description: { contains: data.deviceId.substring(0, 8) },
+            description: { contains: deviceStr },
             createdAt: { gte: today }
           }
         })
@@ -112,7 +134,7 @@ export async function submitAttendance(data: {
             data: {
               userId: data.userId,
               type: 'anomaly_checkin',
-              description: `PERHATIAN: Karyawan login menggunakan perangkat (Device ID: ${data.deviceId.substring(0, 8)}...) yang juga digunakan oleh ${otherUserName} (yang menggunakan itu juga lebih awal). Indikasi titip absen.`,
+              description: `PERHATIAN: Karyawan login menggunakan perangkat (${deviceStr}) yang juga digunakan oleh ${otherUserName} (yang absen menggunakan perangkat ini lebih awal). Indikasi titip absen.`,
             }
           })
         }
