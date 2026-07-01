@@ -4,13 +4,22 @@ import { useState, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { GlassCard } from "@/components/hris/shared"
-import { Camera, CheckCircle2, MapPin, RotateCcw, Send, AlertTriangle, ClipboardList } from "lucide-react"
+import { Camera, CheckCircle2, MapPin, RotateCcw, Send, AlertTriangle, ClipboardList, X } from "lucide-react"
 import { getDistanceInMeters } from "@/lib/utils/geo"
 import { submitAttendance } from "@/app/actions/attendance"
 import { generateFingerprint } from "@/lib/utils/fingerprint"
 import { useRouter } from "next/navigation"
 import { DashboardUser } from "@/components/hris/dashboard-shell"
-import Swal from 'sweetalert2'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 type PermissionState = "idle" | "requesting" | "granted" | "denied"
 
@@ -39,6 +48,7 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
   
   // Submit State
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showEarlyCheckout, setShowEarlyCheckout] = useState(false)
   
   const isCompleted = todayRecord?.checkInTime && todayRecord?.checkOutTime
 
@@ -157,7 +167,7 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
     }
 
     // Client-side Early Check-out Warning
-    if (actionText === "Check-out" && user.shift) {
+    if ((actionText === "Check-out" || actionText === "Absen Keluar") && user.shift) {
       let shiftEndStr = user.shift.endTime
       if (approvedLeave?.type === 'HALF_DAY' && approvedLeave?.halfDayType === 'EARLY_OUT' && approvedLeave?.halfDayTime) {
         shiftEndStr = approvedLeave.halfDayTime
@@ -167,20 +177,16 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
       shiftEndDate.setHours(parseInt(eh), parseInt(em), 0, 0)
       
       if (new Date() < shiftEndDate) {
-        const result = await Swal.fire({
-          title: 'Perhatian!',
-          text: 'Jam kerja Anda belum berakhir. Apakah Anda yakin ingin absen keluar sekarang?',
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#3085d6',
-          cancelButtonColor: '#d33',
-          confirmButtonText: 'Ya, Absen Keluar',
-          cancelButtonText: 'Batal'
-        })
-        if (!result.isConfirmed) return
+        setShowEarlyCheckout(true)
+        return
       }
     }
 
+    await executeSubmit()
+  }
+
+  const executeSubmit = async () => {
+    setShowEarlyCheckout(false)
     setIsSubmitting(true)
     
     try {
@@ -312,61 +318,82 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-5">
-      <GlassCard>
-        <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3">
-          <span className="flex items-center gap-2 text-sm font-medium">
-            <MapPin className="h-4 w-4" />
-            Jarak ke {store?.name || "Pusat"}
-          </span>
-          <span className={`text-sm font-semibold ${isOutOfRange ? 'text-destructive' : 'text-success'}`}>
-            {liveDistance !== null ? `${liveDistance} meter` : "Mencari..."}
-          </span>
-        </div>
-        {isOutOfRange && (
-          <p className="mt-2 text-xs text-destructive text-center">
-            Anda berada di luar radius yang diizinkan ({store.radiusMeters} meter). Mendekatlah ke lokasi toko.
-          </p>
-        )}
-
-        {/* Camera / preview area */}
-        <div className="relative mt-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted">
-          <video 
-            ref={videoRef} 
-            autoPlay 
-            playsInline 
-            muted 
-            className={`h-full w-full object-cover ${capturedUrl ? 'hidden' : 'block'}`}
-          />
-          {capturedUrl && (
-            <img src={capturedUrl} alt="Selfie" className="h-full w-full object-cover" />
-          )}
-          <canvas ref={canvasRef} className="hidden" />
-
-          <span className="absolute left-3 top-3 rounded-full bg-foreground/70 px-2.5 py-1 text-xs font-medium text-background">
-            {capturedUrl ? "Pratinjau" : "Live"}
-          </span>
-        </div>
-
-        {/* Controls */}
-        {capturedUrl ? (
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <Button variant="outline" onClick={handleRetake} className="gap-2" disabled={isSubmitting}>
-              <RotateCcw className="h-4 w-4" />
-              Ulangi Foto
-            </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting || isOutOfRange} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-              <Send className="h-4 w-4" />
-              {isSubmitting ? "Mengirim..." : `Kirim ${actionText}`}
-            </Button>
+    <>
+      <div className="mx-auto max-w-xl space-y-5">
+        <GlassCard>
+          <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 px-4 py-3">
+            <span className="flex items-center gap-2 text-sm font-medium">
+              <MapPin className="h-4 w-4" />
+              Jarak ke {store?.name || "Pusat"}
+            </span>
+            <span className={`text-sm font-semibold ${isOutOfRange ? 'text-destructive' : 'text-success'}`}>
+              {liveDistance !== null ? `${liveDistance} meter` : "Mencari..."}
+            </span>
           </div>
-        ) : (
-          <Button onClick={handleCapture} className="mt-4 h-12 w-full gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90">
-            <Camera className="h-5 w-5" />
-            Ambil Foto {actionText}
-          </Button>
-        )}
-      </GlassCard>
-    </div>
+          {isOutOfRange && (
+            <p className="mt-2 text-xs text-destructive text-center">
+              Anda berada di luar radius yang diizinkan ({store.radiusMeters} meter). Mendekatlah ke lokasi toko.
+            </p>
+          )}
+
+          {/* Camera / preview area */}
+          <div className="relative mt-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted">
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className={`h-full w-full object-cover ${capturedUrl ? 'hidden' : 'block'}`}
+            />
+            {capturedUrl && (
+              <img src={capturedUrl} alt="Selfie" className="h-full w-full object-cover" />
+            )}
+            <canvas ref={canvasRef} className="hidden" />
+
+            <span className="absolute left-3 top-3 rounded-full bg-foreground/70 px-2.5 py-1 text-xs font-medium text-background">
+              {capturedUrl ? "Pratinjau" : "Live"}
+            </span>
+          </div>
+
+          {/* Controls */}
+          {capturedUrl ? (
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <Button variant="outline" onClick={handleRetake} className="gap-2" disabled={isSubmitting}>
+                <RotateCcw className="h-4 w-4" />
+                Ulangi Foto
+              </Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting || isOutOfRange} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+                <Send className="h-4 w-4" />
+                {isSubmitting ? "Mengirim..." : `Kirim ${actionText}`}
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={handleCapture} className="mt-4 h-12 w-full gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90">
+              <Camera className="h-5 w-5" />
+              Ambil Foto {actionText}
+            </Button>
+          )}
+        </GlassCard>
+      </div>
+
+      <AlertDialog open={showEarlyCheckout} onOpenChange={setShowEarlyCheckout}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pulang Lebih Awal?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Absenmu akan ditandai sebagai pulang lebih awal di sistem, kamu yakin Check-out sekarang?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowEarlyCheckout(false)}>
+              <X className="mr-2 h-4 w-4" /> Batal
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={executeSubmit}>
+              <CheckCircle2 className="mr-2 h-4 w-4" /> Ya, Absen Keluar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

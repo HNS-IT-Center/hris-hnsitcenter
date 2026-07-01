@@ -15,7 +15,7 @@ export default async function Page() {
   // Fetch full user and store
   const user = await prisma.user.findUnique({
     where: { ssoId: userId },
-    include: { store: true }
+    include: { store: true, shift: true }
   })
 
   if (!user) {
