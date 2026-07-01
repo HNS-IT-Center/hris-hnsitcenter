@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { Role } from "@/lib/hris-data"
 import type { DashboardUser } from "@/components/hris/dashboard-shell"
+import { PushSubscriber } from "@/components/hris/push-subscriber"
 import { Bell, Menu, Moon, Sun, UserCog } from "lucide-react"
 import {
   DropdownMenu,
@@ -85,6 +86,9 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
         >
           {mounted && theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
+
+        {/* Web Push Subscriber */}
+        {user?.id && <PushSubscriber userId={user.id} />}
 
         {/* Notifications */}
         <DropdownMenu>

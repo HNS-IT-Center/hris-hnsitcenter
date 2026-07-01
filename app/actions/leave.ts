@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { sendPushNotification, sendPushNotificationToRole } from '@/lib/web-push'
 
 /**
  * Get all leave requests for a specific employee.
@@ -82,6 +83,24 @@ export async function submitLeaveRequest(data: {
     })
     revalidatePath('/leave')
     revalidatePath('/hrd/leave')
+
+    // Trigger push notification to HRD/BOSS
+    const userName = (await prisma.user.findUnique({ where: { id: data.userId }, select: { name: true } }))?.name || 'Seorang karyawan'
+    let leaveTypeString = data.type
+    if (data.type === 'SICK') leaveTypeString = 'Sakit'
+    if (data.type === 'ANNUAL_LEAVE') leaveTypeString = 'Cuti'
+    if (data.type === 'PERSONAL') leaveTypeString = 'Izin'
+    if (data.type === 'HALF_DAY') leaveTypeString = 'Izin Setengah Hari'
+    
+    await sendPushNotificationToRole(
+      ['HRD', 'BOSS', 'ADMIN'],
+      {
+        title: 'Pengajuan Izin Baru',
+        body: `${userName} telah mengajukan ${leaveTypeString}.`,
+        url: '/hrd/leave'
+      }
+    )
+
     return { success: true, data: record }
   } catch (error) {
     console.error('Error submitting leave request:', error)
@@ -154,6 +173,18 @@ export async function approveLeaveRequest(
 
     revalidatePath('/hrd/leave')
     revalidatePath('/leave')
+    
+    const statusLabel = approved ? 'disetujui' : 'ditolak'
+    const rejectText = !approved ? ` Alasan: ${finalRejectReason}` : ''
+    await sendPushNotification(
+      request.userId,
+      {
+        title: `Pengajuan Izin ${approved ? 'Disetujui' : 'Ditolak'}`,
+        body: `Pengajuan izin Anda telah ${statusLabel}.${rejectText}`,
+        url: '/leave'
+      }
+    )
+
     return { success: true }
   } catch (error) {
     console.error('Error approving leave request:', error)
