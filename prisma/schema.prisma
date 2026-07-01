@@ -177,6 +177,7 @@ model User {
   cycleStartDate  DateTime?   // Anchor date (Monday) where index 0 starts
   halfDays        Int[]       @default([]) // e.g. [6] for Saturday
   leaveQuotaRemaining Int     @default(12) // Sisa Cuti
+  lastQuotaResetDate  DateTime? // Tanggal terakhir quota direset (anniversary)
 
   department      Department?         @relation(fields: [departmentId], references: [id])
   store           Store?              @relation(fields: [storeId], references: [id])

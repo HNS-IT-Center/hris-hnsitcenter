@@ -36,34 +36,68 @@ export async function syncUserFromSSO(payload: SSOUser) {
     role = Role.BOSS
   }
 
-  // 3. Upsert User in database
-  // Using upsert ensures that if they exist, their details (name, role, dept) stay in sync with SSO.
-  // If they don't exist, they are auto-provisioned seamlessly!
-  await prisma.user.upsert({
-    where: { email },
-    update: {
-      ssoId: id,
-      name,
-      role,
-      departmentId,
-      ssoDepartmentId,
-      departmentName,
-      ssoPositionId,
-      positionName
-    },
-    create: {
-      ssoId: id,
-      email,
-      name,
-      role,
-      departmentId,
-      ssoDepartmentId,
-      departmentName,
-      ssoPositionId,
-      positionName,
-      isActive: true, // Auto-activate
-      notifEnabled: true,
-      twoFAEnabled: false
+  // 3. Check existing user and handle Quota Reset
+  const existingUser = await prisma.user.findUnique({ where: { email } })
+
+  if (existingUser) {
+    const now = new Date()
+    const joinDate = new Date(existingUser.joinDate)
+    
+    // Determine the most recent anniversary date in the past
+    const anniversaryThisYear = new Date(joinDate)
+    anniversaryThisYear.setFullYear(now.getFullYear())
+
+    if (anniversaryThisYear > now) {
+      anniversaryThisYear.setFullYear(now.getFullYear() - 1)
     }
-  })
+
+    const lastReset = existingUser.lastQuotaResetDate ? new Date(existingUser.lastQuotaResetDate) : new Date(0)
+    
+    let newQuota = existingUser.leaveQuotaRemaining
+    let newResetDate = existingUser.lastQuotaResetDate
+
+    // Only reset if they have worked strictly more than 0 years (anniversary > joinDate)
+    // and we haven't reset it since that specific anniversary.
+    if (anniversaryThisYear > joinDate && lastReset < anniversaryThisYear) {
+      newQuota = 12
+      newResetDate = anniversaryThisYear
+    }
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        ssoId: id,
+        name,
+        role,
+        departmentId,
+        ssoDepartmentId,
+        departmentName,
+        ssoPositionId,
+        positionName,
+        leaveQuotaRemaining: newQuota,
+        lastQuotaResetDate: newResetDate,
+      },
+    })
+  } else {
+    // If they don't exist, they are auto-provisioned seamlessly!
+    await prisma.user.create({
+      data: {
+        ssoId: id,
+        email,
+        name,
+        role,
+        departmentId,
+        ssoDepartmentId,
+        departmentName,
+        ssoPositionId,
+        positionName,
+        isActive: true, // Auto-activate
+        notifEnabled: true,
+        twoFAEnabled: false,
+        // New employees get 0 quota initially. lastQuotaResetDate is set to their joinDate.
+        leaveQuotaRemaining: 0, 
+        lastQuotaResetDate: new Date(),
+      }
+    })
+  }
 }

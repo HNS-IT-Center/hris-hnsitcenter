@@ -74,6 +74,7 @@ export async function createEmployee(data: {
   storeId?: string | null
   shiftId?: string | null
   phoneNumber?: string | null
+  joinDate?: Date
 }) {
   try {
     const existing = await prisma.user.findUnique({ where: { email: data.email } })
@@ -108,6 +109,9 @@ export async function createEmployee(data: {
         isActive: true,
         notifEnabled: true,
         twoFAEnabled: false,
+        joinDate: data.joinDate ?? new Date(),
+        leaveQuotaRemaining: 0,
+        lastQuotaResetDate: data.joinDate ?? new Date(),
       }
     })
 

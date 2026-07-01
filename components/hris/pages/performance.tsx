@@ -46,6 +46,8 @@ export function PerformancePage({
   events = [],
   year,
   month,
+  summary,
+  periodLabel,
 }: {
   attendanceRecords: AttendanceRecord[]
   events?: any[]
