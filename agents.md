@@ -69,12 +69,14 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
 ### Phase 1: Core Setup & Dashboard (Status: COMPLETED)
 - **Dynamic Dashboards:** Both Employee and HRD dashboards fetch live summary data.
 - **Attention Flags:** System generates flags for unusual activity (e.g., missed checkout). HRD can resolve these flags via `resolveAttentionFlag` Server Action.
+- **Payroll Period Logic:** Employee dashboard and Performance calculations use a custom payroll period (26th of the previous month to 25th of the current month) instead of standard calendar months.
 
 ### Phase 2: Employee & Shift Management (Status: PARTIALLY COMPLETED)
 - **Employee Management (COMPLETED):**
   - HRD can view list of employees, update profiles, and assign roles/departments.
   - Added `phoneNumber` field to User profile with WhatsApp direct message integration.
   - New SSO users are automatically provisioned if they bypass HRD pre-registration.
+  - UI optimized for mobile layout (Employee cards prevent horizontal overflow).
 - **Shift Management (NOT STARTED):**
   - Need to wire up UI in `/app/(dashboard)/hrd/shifts`.
 - **Media Upload:** Implement Cloudflare R2 upload for employee avatars in `EmployeeForm`. Compress to WebP client-side via `lib/utils/file.ts`.
@@ -86,7 +88,7 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
   - Uses HTML5 Camera API to capture selfies.
   - **Permission UX:** Checks permissions on mount. Prompts users visually if permissions are denied, preventing silent failures.
 - **Fraud Prevention & Fingerprinting:**
-  - Implemented Device ID tracking on login (persisted via `UserDevice` table).
+  - Implemented Device ID tracking on login (persisted via `UserDevice` table) and parsed `userAgent` string via `ua-parser-js` to log human-readable device names (e.g., "Xiaomi Redmi Note 10").
   - HRD can block specific devices from specific accounts to prevent check-in fraud.
   - Check-In boundaries enforced: Early Check-in (max 30 mins before), Late Check-in (allowed but marked late), and Check-Out limit (max 55 mins after shift).
 - **HRD Logs (`/hrd/attendance`):** 
@@ -94,12 +96,14 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
   - Displays statuses: Present, Late, Alpha, On Leave, and Belum Absen.
   - Automatically maps "Belum Absen" to `ON_LEAVE` if the user has an approved leave request on that date.
   - Includes a "Lihat Detail" modal that surfaces Check-In/Out selfies and clickable Google Maps links for GPS coordinates.
+  - **Export Rekap Absensi:** Moved from Employee Directory to HRD Attendance Logs page for contextual consistency.
 
 ### Phase 4: Leave & Overtime Approvals (Status: PARTIALLY COMPLETED)
 - **Leave Requests (COMPLETED):**
   - Employees can submit requests via Server Action (`submitLeaveRequest`). Quota validation is enforced.
   - HRD can approve/reject via `/hrd/leave` using `approveLeaveRequest`.
   - Quotas (`Total`, `Used`, `Remaining`) dynamically update based on approved requests.
+  - **Automated Quota Reset (Lazy Reset):** System seamlessly resets `leaveQuotaRemaining` to 12 upon the exact 1-year work anniversary without needing background cron jobs. System relies on `lastQuotaResetDate` during session initialization to ensure precision.
 - **Calendar Integration (COMPLETED):**
   - `CalendarEvent` database model powers dynamic company events (Town Halls, Holidays).
   - HRD Calendar Manager (`/hrd/calendar`) fetches dynamic audiences (Departments, Stores, Shifts) directly from the database instead of hardcoded lists.
