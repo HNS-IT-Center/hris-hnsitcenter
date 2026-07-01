@@ -145,6 +145,7 @@ model User {
   // SSO-sourced fields (populated on first SSO login)
   ssoId           String?   @unique  // The `id` from the SSO JWT payload
   email           String    @unique
+  passwordHash    String?
   name            String
   username        String?   @unique
   avatarUrl       String?

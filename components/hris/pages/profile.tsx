@@ -1,13 +1,14 @@
 "use client"
 
 import { GlassCard } from "@/components/hris/shared"
-import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload } from "lucide-react"
+import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock } from "lucide-react"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
 import { useState, useTransition, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { updateProfilePhoneNumber, updateProfileAvatar } from "@/app/actions/profile"
+import { updatePassword } from "@/app/actions/auth-local"
 import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
 
 type LeaveQuota = Awaited<ReturnType<typeof getMyLeaveQuota>>
@@ -44,7 +45,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
 }
 
-export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuota: LeaveQuota }) {
+export function ProfilePage({ user, leaveQuota, hasPassword = false }: { user: UserProfile; leaveQuota: LeaveQuota; hasPassword?: boolean }) {
   const joinDate = new Date(user.joinDate).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "long",
@@ -58,6 +59,32 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
   
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [isEditingPassword, setIsEditingPassword] = useState(false)
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [isPendingPassword, startTransitionPassword] = useTransition()
+
+  const handleSavePassword = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (newPassword !== confirmPassword) {
+      toast.error("Konfirmasi password tidak cocok")
+      return
+    }
+    startTransitionPassword(async () => {
+      const res = await updatePassword(newPassword)
+      if (res.success) {
+        toast.success("Password berhasil disimpan")
+        setIsEditingPassword(false)
+        setNewPassword("")
+        setConfirmPassword("")
+        // Refresh page so hasPassword becomes true if it wasn't
+        window.location.reload()
+      } else {
+        toast.error(res.error)
+      }
+    })
+  }
 
   async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -193,6 +220,58 @@ export function ProfilePage({ user, leaveQuota }: { user: UserProfile; leaveQuot
                     <p className="truncate text-sm font-medium text-foreground">{currentPhone || "Belum diatur"}</p>
                     <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => setIsEditingPhone(true)}>
                       <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 border-t border-border pt-6">
+            <h4 className="mb-4 text-sm font-semibold text-foreground">Keamanan Akun</h4>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <Lock className="h-4 w-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-muted-foreground">Password Lokal</p>
+                {isEditingPassword ? (
+                  <form onSubmit={handleSavePassword} className="mt-2 space-y-2 max-w-sm">
+                    <Input 
+                      type="password"
+                      value={newPassword} 
+                      onChange={(e) => setNewPassword(e.target.value)} 
+                      placeholder="Password Baru" 
+                      className="h-8 text-sm"
+                      disabled={isPendingPassword}
+                      required
+                    />
+                    <Input 
+                      type="password"
+                      value={confirmPassword} 
+                      onChange={(e) => setConfirmPassword(e.target.value)} 
+                      placeholder="Konfirmasi Password" 
+                      className="h-8 text-sm"
+                      disabled={isPendingPassword}
+                      required
+                    />
+                    <div className="flex gap-2">
+                      <Button type="submit" size="sm" variant="secondary" className="h-8 text-xs" disabled={isPendingPassword}>
+                        {isPendingPassword ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                        Simpan
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsEditingPassword(false)} disabled={isPendingPassword}>
+                        Batal
+                      </Button>
+                    </div>
+                  </form>
+                ) : (
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <p className="text-sm font-medium text-foreground">
+                      {hasPassword ? "••••••••" : "Belum diatur"}
+                    </p>
+                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setIsEditingPassword(true)}>
+                      {hasPassword ? "Ubah" : "Buat"}
                     </Button>
                   </div>
                 )}

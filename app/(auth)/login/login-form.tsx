@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Building2, Fingerprint, Loader2, Lock, Mail } from "lucide-react"
 
+import { loginLocal } from "@/app/actions/auth-local"
+import { Checkbox } from "@/components/ui/checkbox"
 export function LoginForm({ ssoUrl, errorMessage }: { ssoUrl: string, errorMessage: string | null }) {
   const [loading, setLoading] = useState(false)
 
@@ -18,10 +20,23 @@ export function LoginForm({ ssoUrl, errorMessage }: { ssoUrl: string, errorMessa
     window.location.href = ssoUrl
   }
 
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [rememberMe, setRememberMe] = useState(false)
+  const [isPending, startTransition] = useTransition()
+
   const handleLocalLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    toast.error("Autentikasi lokal dinonaktifkan", {
-      description: "Sistem HRIS HNS IT Center saat ini hanya mengizinkan login melalui SSO. Silakan tekan 'Masuk dengan SSO'."
+    setLoading(true)
+    startTransition(async () => {
+      const res = await loginLocal(email, password, rememberMe)
+      if (res.success) {
+        toast.success("Login berhasil", { id: "login-local" })
+        window.location.href = "/dashboard"
+      } else {
+        toast.error(res.error, { id: "login-local" })
+        setLoading(false)
+      }
     })
   }
 
@@ -72,20 +87,30 @@ export function LoginForm({ ssoUrl, errorMessage }: { ssoUrl: string, errorMessa
 
           <form onSubmit={handleLocalLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email / Username</Label>
+              <Label htmlFor="email">Email</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="email" type="text" placeholder="nama@hnsitcenter.com" className="pl-9 bg-input" />
+                <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="nama@hnsitcenter.com" className="pl-9 bg-input" disabled={loading} />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="password" type="password" placeholder="••••••••" className="pl-9 bg-input" />
+                <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" className="pl-9 bg-input" disabled={loading} />
               </div>
             </div>
-            <Button type="submit" variant="secondary" disabled={loading} className="h-11 w-full">
+            <div className="flex items-center space-x-2 pb-1">
+              <Checkbox id="remember" checked={rememberMe} onCheckedChange={(c) => setRememberMe(c === true)} disabled={loading} />
+              <label
+                htmlFor="remember"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Ingat Saya (7 hari)
+              </label>
+            </div>
+            <Button type="submit" variant="secondary" disabled={loading || isPending} className="h-11 w-full">
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Masuk
             </Button>
           </form>

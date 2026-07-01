@@ -16,6 +16,7 @@ export default async function Page() {
   if (!dbUser) return null
 
   const leaveQuota = await getMyLeaveQuota(dbUser.id)
+  const hasPassword = !!dbUser.passwordHash
 
-  return <ProfilePage user={dbUser} leaveQuota={leaveQuota} />
+  return <ProfilePage user={dbUser as any} leaveQuota={leaveQuota} hasPassword={hasPassword} />
 }
