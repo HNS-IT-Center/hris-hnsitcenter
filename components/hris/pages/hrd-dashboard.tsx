@@ -98,11 +98,16 @@ export function HrdDashboard({ data }: { data: HrdData }) {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Attention flags */}
         <GlassCard className="lg:col-span-2">
-          <div className="mb-4 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-warning" />
-            <h2 className="font-semibold text-foreground">Perlu Diperhatikan</h2>
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-warning" />
+              <h2 className="font-semibold text-foreground">Perlu Diperhatikan</h2>
+            </div>
+            <Button variant="link" size="sm" onClick={() => router.push('/hrd/anomalies')} className="text-xs h-auto py-0">
+              Lihat Semua
+            </Button>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-3 max-h-[320px] overflow-y-auto pr-2">
             {unresolvedFlags.length === 0 ? (
               <p className="text-center text-sm text-muted-foreground py-4">Tidak ada flag yang perlu diperhatikan.</p>
             ) : (

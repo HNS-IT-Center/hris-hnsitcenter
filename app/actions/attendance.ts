@@ -90,7 +90,9 @@ export async function submitAttendance(data: {
         where: {
           deviceId: data.deviceId,
           userId: { not: data.userId }
-        }
+        },
+        include: { user: true },
+        orderBy: { lastUsedAt: 'asc' }
       })
 
       if (otherUsers.length > 0) {
@@ -99,17 +101,18 @@ export async function submitAttendance(data: {
           where: {
             userId: data.userId,
             type: 'anomaly_checkin',
-            description: { contains: data.deviceId },
+            description: { contains: data.deviceId.substring(0, 8) },
             createdAt: { gte: today }
           }
         })
         
         if (!existingFlag) {
+          const otherUserName = otherUsers[0].user.name
           await prisma.attentionFlag.create({
             data: {
               userId: data.userId,
               type: 'anomaly_checkin',
-              description: `PERHATIAN: Karyawan login menggunakan perangkat (Device ID: ${data.deviceId.substring(0, 8)}...) yang juga digunakan oleh pengguna lain. Indikasi titip absen.`,
+              description: `PERHATIAN: Karyawan login menggunakan perangkat (Device ID: ${data.deviceId.substring(0, 8)}...) yang juga digunakan oleh ${otherUserName} (yang menggunakan itu juga lebih awal). Indikasi titip absen.`,
             }
           })
         }
