@@ -1,7 +1,7 @@
 "use client"
 
 import { GlassCard } from "@/components/hris/shared"
-import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock } from "lucide-react"
+import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, EyeOff } from "lucide-react"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
 import { useState, useTransition, useRef } from "react"
 import { Input } from "@/components/ui/input"
@@ -63,6 +63,7 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false }: { user: U
   const [isEditingPassword, setIsEditingPassword] = useState(false)
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [isPendingPassword, startTransitionPassword] = useTransition()
 
   const handleSavePassword = (e: React.FormEvent) => {
@@ -237,24 +238,31 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false }: { user: U
                 <p className="text-xs text-muted-foreground">Password Lokal</p>
                 {isEditingPassword ? (
                   <form onSubmit={handleSavePassword} className="mt-2 space-y-2 max-w-sm">
-                    <Input 
-                      type="password"
-                      value={newPassword} 
-                      onChange={(e) => setNewPassword(e.target.value)} 
-                      placeholder="Password Baru" 
-                      className="h-8 text-sm"
-                      disabled={isPendingPassword}
-                      required
-                    />
-                    <Input 
-                      type="password"
-                      value={confirmPassword} 
-                      onChange={(e) => setConfirmPassword(e.target.value)} 
-                      placeholder="Konfirmasi Password" 
-                      className="h-8 text-sm"
-                      disabled={isPendingPassword}
-                      required
-                    />
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"}
+                        value={newPassword} 
+                        onChange={(e) => setNewPassword(e.target.value)} 
+                        placeholder="Password Baru" 
+                        className="h-8 pr-8 text-sm"
+                        disabled={isPendingPassword}
+                        required
+                      />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                        {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Input 
+                        type={showPassword ? "text" : "password"}
+                        value={confirmPassword} 
+                        onChange={(e) => setConfirmPassword(e.target.value)} 
+                        placeholder="Konfirmasi Password" 
+                        className="h-8 pr-8 text-sm"
+                        disabled={isPendingPassword}
+                        required
+                      />
+                    </div>
                     <div className="flex gap-2">
                       <Button type="submit" size="sm" variant="secondary" className="h-8 text-xs" disabled={isPendingPassword}>
                         {isPendingPassword ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}

@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Building2, Fingerprint, Loader2, Lock, Mail } from "lucide-react"
+import { Building2, Fingerprint, Loader2, Lock, Mail, Eye, EyeOff } from "lucide-react"
 
 import { loginLocal } from "@/app/actions/auth-local"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -22,6 +22,7 @@ export function LoginForm({ ssoUrl, errorMessage }: { ssoUrl: string, errorMessa
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -97,11 +98,14 @@ export function LoginForm({ ssoUrl, errorMessage }: { ssoUrl: string, errorMessa
               <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" className="pl-9 bg-input" disabled={loading} />
+                <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" className="pl-9 pr-9 bg-input" disabled={loading} />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
             <div className="flex items-center space-x-2 pb-1">
-              <Checkbox id="remember" checked={rememberMe} onCheckedChange={(c) => setRememberMe(c === true)} disabled={loading} />
+              <Checkbox id="remember" checked={rememberMe} onCheckedChange={(c) => setRememberMe(c === true)} disabled={loading} className="bg-white data-[state=checked]:bg-primary" />
               <label
                 htmlFor="remember"
                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"

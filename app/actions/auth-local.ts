@@ -42,7 +42,7 @@ export async function loginLocal(email: string, password: string, rememberMe: bo
   try {
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { department: true, position: true }
+      include: { department: true }
     })
 
     if (!user || !user.isActive) {
