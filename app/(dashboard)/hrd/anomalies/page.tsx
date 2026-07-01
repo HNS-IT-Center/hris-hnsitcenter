@@ -1,13 +1,12 @@
 import { HrdAnomalies } from "@/components/hris/pages/hrd-anomalies"
 import { prisma } from "@/lib/prisma"
-import { headers } from "next/headers"
+import { getServerUser } from "@/lib/auth"
 import { redirect } from "next/navigation"
 
 export default async function Page(props: { searchParams: Promise<{ date?: string }> }) {
-  const headersList = await headers()
-  const role = headersList.get("x-user-role")
+  const user = await getServerUser()
   
-  if (role !== "HRD") {
+  if (user.globalRole !== "HRD" && user.globalRole !== "hrd") {
     redirect("/dashboard")
   }
 
