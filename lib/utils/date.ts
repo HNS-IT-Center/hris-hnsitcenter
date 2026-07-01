@@ -32,11 +32,12 @@ export function wibDayToUTC(year: number, month: number, day: number): Date {
 }
 
 /**
- * Get today's midnight UTC from WIB perspective.
+ * Get today's midnight UTC from WIB perspective, 
+ * represented as T00:00:00Z to match attendance records.
  */
 export function todayUTC(): Date {
-  const wib = nowWIB()
-  return wibDayToUTC(wib.getUTCFullYear(), wib.getUTCMonth() + 1, wib.getUTCDate())
+  const yyyyMmDd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+  return new Date(`${yyyyMmDd}T00:00:00Z`)
 }
 
 /**

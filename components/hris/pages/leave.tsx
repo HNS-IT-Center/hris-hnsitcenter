@@ -18,7 +18,11 @@ import {
 } from "@/components/ui/dialog"
 import { GlassCard, StatusBadge } from "@/components/hris/shared"
 import { cn } from "@/lib/utils"
-import { Calendar, Check, ClipboardList, Plus, X } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { format } from "date-fns"
+import { id as localeID } from "date-fns/locale"
+import { Calendar as CalendarIcon, Check, ClipboardList, Plus, X, ExternalLink } from "lucide-react"
 import { submitLeaveRequest, approveLeaveRequest, type getPendingLeaveRequests, type getMyLeaveRequests } from "@/app/actions/leave"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
 
@@ -48,17 +52,16 @@ type StatusFilter = (typeof STATUS_FILTER)[number]
 
 function RequestForm({ userId, onDone }: { userId: string; onDone: () => void }) {
   const [type, setType] = useState<"ANNUAL_LEAVE" | "SICK" | "PERSONAL" | "HALF_DAY">("ANNUAL_LEAVE")
-  const [startDate, setStartDate] = useState("")
-  const [endDate, setEndDate] = useState("")
+  const [date, setDate] = useState<{ from?: Date; to?: Date } | undefined>()
   const [reason, setReason] = useState("")
   const [halfDayType, setHalfDayType] = useState<"LATE_IN" | "EARLY_OUT">("LATE_IN")
   const [halfDayTime, setHalfDayTime] = useState("")
   const [isPending, startTransition] = useTransition()
 
   const handleSubmit = () => {
-    if (!startDate || !endDate) return toast.error("Pilih tanggal mulai dan selesai.")
-    const start = new Date(startDate)
-    const end = new Date(endDate)
+    if (!date?.from || !date?.to) return toast.error("Pilih rentang tanggal.")
+    const start = date.from
+    const end = date.to
     if (end < start) return toast.error("Tanggal selesai tidak boleh lebih awal dari tanggal mulai.")
     if (type === "HALF_DAY" && !halfDayTime) return toast.error("Pilih waktu untuk izin setengah hari.")
 
@@ -104,15 +107,43 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
           ))}
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="from">Tanggal Mulai</Label>
-          <Input id="from" type="date" className="bg-input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="to">Tanggal Selesai</Label>
-          <Input id="to" type="date" className="bg-input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-        </div>
+      <div className="space-y-1.5">
+        <Label>Rentang Tanggal</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-full justify-start text-left font-normal bg-input",
+                !date && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date?.from ? (
+                date.to ? (
+                  <>
+                    {format(date.from, "LLL dd, y", { locale: localeID })} -{" "}
+                    {format(date.to, "LLL dd, y", { locale: localeID })}
+                  </>
+                ) : (
+                  format(date.from, "LLL dd, y", { locale: localeID })
+                )
+              ) : (
+                <span>Pilih rentang tanggal</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <CalendarComponent
+              initialFocus
+              mode="range"
+              defaultMonth={date?.from}
+              selected={date as any}
+              onSelect={setDate as any}
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
       
       {type === "HALF_DAY" && (
@@ -210,15 +241,27 @@ function HrdView({ pendingRequests }: { pendingRequests: PendingRequest[] }) {
               </div>
               <div className="flex gap-2">
                 {r.status === 'APPROVED' && r.type === 'SICK' ? (
-                  <Button
-                    size="sm"
-                    className="gap-1.5 bg-success text-primary-foreground hover:bg-success/90"
-                    disabled={isPending || !(r as any).sickNoteUrl}
-                    onClick={() => handleVerify(r.id, r.user.name)}
-                    title={!(r as any).sickNoteUrl ? "Menunggu karyawan upload surat" : "Verifikasi"}
-                  >
-                    <Check className="h-4 w-4" /> Verifikasi Surat
-                  </Button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {(r as any).sickNoteUrl && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => window.open((r as any).sickNoteUrl, '_blank')}
+                      >
+                        <ExternalLink className="h-4 w-4" /> Lihat Surat
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      className="gap-1.5 bg-success text-primary-foreground hover:bg-success/90"
+                      disabled={isPending || !(r as any).sickNoteUrl}
+                      onClick={() => handleVerify(r.id, r.user.name)}
+                      title={!(r as any).sickNoteUrl ? "Menunggu karyawan upload surat" : "Verifikasi"}
+                    >
+                      <Check className="h-4 w-4" /> Verifikasi Surat
+                    </Button>
+                  </div>
                 ) : (
                   <>
                     <Button
@@ -361,19 +404,26 @@ function EmployeeView({ userId, leaveRequests, leaveQuota }: {
                         if (file) handleUpload(r.id, file)
                       }} 
                     />
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs h-7 px-2 border-primary text-primary"
-                      disabled={isUploading}
-                      onClick={() => document.getElementById(`file-${r.id}`)?.click()}
-                    >
-                      {isUploading ? "Mengunggah..." : "Unggah Surat Sakit"}
-                    </Button>
-                  </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="text-xs h-7 px-2 border-primary text-primary"
+                        disabled={isUploading}
+                        onClick={() => document.getElementById(`file-${r.id}`)?.click()}
+                      >
+                        {isUploading ? "Mengunggah..." : "Unggah Surat Dokter"}
+                      </Button>
+                    </div>
                 )}
                 {r.type === 'SICK' && (r as any).sickNoteUrl && (
-                  <span className="text-[10px] bg-success/10 text-success px-2 py-0.5 rounded-full font-medium">Surat Terlampir</span>
+                  <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    className="text-xs h-7 px-2"
+                    onClick={() => window.open((r as any).sickNoteUrl, '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" /> Lihat Surat
+                  </Button>
                 )}
               </div>
             </GlassCard>
