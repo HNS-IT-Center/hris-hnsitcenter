@@ -177,6 +177,7 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
                     <Input 
                       id="open" 
                       type="time" 
+                      lang="en-GB"
                       className="bg-input" 
                       value={draft.openTime}
                       onChange={(e) => setDraft({...draft, openTime: e.target.value})}
@@ -187,6 +188,7 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
                     <Input 
                       id="close" 
                       type="time" 
+                      lang="en-GB"
                       className="bg-input" 
                       value={draft.closeTime}
                       onChange={(e) => setDraft({...draft, closeTime: e.target.value})}
@@ -314,6 +316,7 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
                     <Label>Jam Buka</Label>
                     <Input 
                       type="time" 
+                      lang="en-GB"
                       className="bg-input" 
                       value={editTarget.openTime}
                       onChange={(e) => setEditTarget({...editTarget, openTime: e.target.value})}
@@ -323,6 +326,7 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
                     <Label>Jam Tutup</Label>
                     <Input 
                       type="time" 
+                      lang="en-GB"
                       className="bg-input" 
                       value={editTarget.closeTime}
                       onChange={(e) => setEditTarget({...editTarget, closeTime: e.target.value})}

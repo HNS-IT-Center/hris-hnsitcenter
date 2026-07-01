@@ -328,3 +328,54 @@ export async function submitAttendance(data: {
     return { success: false, error: 'Terjadi kesalahan pada server saat mengirim absensi.' }
   }
 }
+
+/**
+ * HRD/Boss Override Attendance Status (Dispensasi)
+ */
+export async function overrideAttendance(
+  attendanceId: string, 
+  newStatus: 'PRESENT' | 'LATE' | 'ALPHA' | 'ON_LEAVE' | 'BELUM_ABSEN', 
+  reason: string
+) {
+  try {
+    const { getServerUser } = await import('@/lib/auth')
+    const admin = await getServerUser()
+    if (!admin || (admin.role !== 'HRD' && admin.role !== 'BOSS' && admin.role !== 'SUPERADMIN')) {
+      return { success: false, error: 'Unauthorized.' }
+    }
+
+    if (!reason || reason.trim() === '') {
+      return { success: false, error: 'Alasan dispensasi wajib diisi.' }
+    }
+
+    const record = await prisma.attendance.findUnique({ where: { id: attendanceId } })
+    if (!record) return { success: false, error: 'Data absensi tidak ditemukan.' }
+
+    let penaltyAmount = record.penaltyAmount
+    let lateMinutes = record.lateMinutes
+    if (newStatus === 'PRESENT') {
+      penaltyAmount = 0
+      lateMinutes = 0
+    } else if (newStatus === 'LATE') {
+      penaltyAmount = 20000
+    }
+
+    await prisma.attendance.update({
+      where: { id: attendanceId },
+      data: {
+        status: newStatus,
+        isOverridden: true,
+        overrideReason: reason,
+        overriddenById: admin.id,
+        penaltyAmount,
+        lateMinutes
+      }
+    })
+
+    revalidatePath('/hrd/attendance')
+    return { success: true }
+  } catch (error) {
+    console.error('Error overriding attendance:', error)
+    return { success: false, error: 'Gagal meng-override data absensi.' }
+  }
+}

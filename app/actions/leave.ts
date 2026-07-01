@@ -45,6 +45,24 @@ export async function submitLeaveRequest(data: {
   halfDayTime?: string
 }) {
   try {
+    let unpaidHours = 0
+    if (data.type === 'HALF_DAY' && data.halfDayTime && data.halfDayType) {
+      const user = await prisma.user.findUnique({ where: { id: data.userId }, include: { shift: true } })
+      if (user?.shift) {
+        const [sH, sM] = user.shift.startTime.split(':').map(Number)
+        const [eH, eM] = user.shift.endTime.split(':').map(Number)
+        const [rH, rM] = data.halfDayTime.split(':').map(Number)
+        
+        if (data.halfDayType === 'LATE_IN') {
+          const diffHrs = (rH + rM/60) - (sH + sM/60)
+          unpaidHours = Math.max(0, Math.ceil(diffHrs))
+        } else if (data.halfDayType === 'EARLY_OUT') {
+          const diffHrs = (eH + eM/60) - (rH + rM/60)
+          unpaidHours = Math.max(0, Math.ceil(diffHrs))
+        }
+      }
+    }
+
     const record = await prisma.leaveRequest.create({
       data: {
         userId: data.userId,
@@ -58,6 +76,7 @@ export async function submitLeaveRequest(data: {
         sickNoteFileName: data.sickNoteFileName,
         halfDayType: data.halfDayType,
         halfDayTime: data.halfDayTime,
+        unpaidHours,
         isPaid: data.type === 'SICK' && !data.sickNoteUrl ? false : true,
       },
     })
@@ -71,22 +90,16 @@ export async function submitLeaveRequest(data: {
 }
 
 /**
- * For HRD: get all PENDING leave requests with user info.
+ * For HRD: get all leave requests (for history and approval)
  */
-export async function getPendingLeaveRequests() {
+export async function getAllLeaveRequests() {
   return await prisma.leaveRequest.findMany({
-    where: {
-      OR: [
-        { status: 'PENDING' },
-        { type: 'SICK', status: 'APPROVED', isPaid: false },
-      ],
-    },
     include: {
       user: {
         select: { id: true, name: true, avatarUrl: true, departmentName: true, positionName: true },
       },
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: { createdAt: 'desc' },
   })
 }
 
@@ -103,25 +116,41 @@ export async function approveLeaveRequest(
     const request = await prisma.leaveRequest.findUnique({ where: { id } })
     if (!request) return { success: false, error: 'Pengajuan tidak ditemukan.' }
 
-    await prisma.leaveRequest.update({
-      where: { id },
-      data: {
-        status: approved ? 'APPROVED' : 'REJECTED',
-        rejectReason: approved ? null : rejectReason,
-      },
-    })
+    // Lock constraint: Cannot edit if endDate (WIB day) has already passed
+    const endOfLeaveDay = request.endDate.getTime() + 86400000 // Add 24h to midnight UTC
+    if (Date.now() > endOfLeaveDay) {
+       return { success: false, error: 'Tidak dapat mengubah status karena tanggal izin sudah berlalu.' }
+    }
 
-    // Deduct quota if annual leave was approved
-    if (approved && request.type === 'ANNUAL_LEAVE') {
-      await prisma.user.update({
-        where: { id: request.userId },
+    const finalRejectReason = approved ? null : (rejectReason?.trim() || "Tidak diizinkan")
+
+    let quotaChange = 0
+    if (request.type === 'ANNUAL_LEAVE') {
+       if (approved && request.status !== 'APPROVED') {
+          quotaChange = -Math.ceil(request.totalDays)
+       } else if (!approved && request.status === 'APPROVED') {
+          quotaChange = Math.ceil(request.totalDays)
+       }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.leaveRequest.update({
+        where: { id },
         data: {
-          leaveQuotaRemaining: {
-            decrement: Math.ceil(request.totalDays),
-          },
+          status: approved ? 'APPROVED' : 'REJECTED',
+          rejectReason: finalRejectReason,
         },
       })
-    }
+
+      if (quotaChange !== 0) {
+        await tx.user.update({
+          where: { id: request.userId },
+          data: {
+            leaveQuotaRemaining: { increment: quotaChange },
+          },
+        })
+      }
+    })
 
     revalidatePath('/hrd/leave')
     revalidatePath('/leave')
@@ -155,6 +184,14 @@ export async function verifySickLeave(id: string, isPaid: boolean) {
  */
 export async function uploadSickNote(id: string, sickNoteUrl: string, sickNoteFileName: string) {
   try {
+    const request = await prisma.leaveRequest.findUnique({ where: { id } })
+    if (!request) return { success: false, error: 'Pengajuan tidak ditemukan.' }
+    
+    // 3 days limit constraint (3 * 24 * 60 * 60 * 1000 = 259200000 ms)
+    if (Date.now() - request.createdAt.getTime() > 259200000) {
+       return { success: false, error: 'Batas waktu 3 hari untuk mengunggah surat sakit telah habis.' }
+    }
+
     await prisma.leaveRequest.update({
       where: { id },
       data: { sickNoteUrl, sickNoteFileName },

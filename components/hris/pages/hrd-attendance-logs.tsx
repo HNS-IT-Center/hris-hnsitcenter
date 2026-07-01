@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import type { getHrdAttendanceLogs } from "@/app/actions/dashboard"
+import { overrideAttendance } from "@/app/actions/attendance"
 
 type LogData = Awaited<ReturnType<typeof getHrdAttendanceLogs>>
 type LogEntry = LogData["logs"][number]
@@ -82,15 +83,42 @@ function formatTime(dt: Date | string | null | undefined) {
 
 export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
   const router = useRouter()
-  const [, startTransition] = useTransition()
+  const [isPending, startTransition] = useTransition()
   const [tab, setTab] = useState("all")
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>()
+  const [overrideStatus, setOverrideStatus] = useState<DisplayStatus>("PRESENT")
+  const [overrideReason, setOverrideReason] = useState("")
+  const [isOverriding, setIsOverriding] = useState(false)
   const [date, setDate] = useState(() => {
     const d = new Date(initialData.date)
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
   })
+
+  
+  const handleOverride = async () => {
+    if (!selectedLog || !selectedLog.attendance) return
+    if (!overrideReason.trim()) {
+      toast.error("Alasan dispensasi wajib diisi.")
+      return
+    }
+    
+    setIsOverriding(true)
+    const res = await overrideAttendance(selectedLog.attendance.id, overrideStatus as any, overrideReason)
+    setIsOverriding(false)
+    
+    if (res.success) {
+      toast.success("Status absensi berhasil diubah")
+      setModalOpen(false)
+      // Refresh the page data
+      startTransition(() => {
+        router.refresh()
+      })
+    } else {
+      toast.error(res.error)
+    }
+  }
 
   const handleDateChange = (newDate: string) => {
     setDate(newDate)
@@ -271,7 +299,7 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
       {/* Details Modal */}
       <Dialog open={modalOpen} onOpenChange={(open) => {
         setModalOpen(open)
-        if (!open) setSelectedLog(null)
+        if (!open) { setSelectedLog(null); setOverrideReason(""); setOverrideStatus("PRESENT"); }
       }}>
         <DialogContent className="max-w-md w-full sm:max-w-lg">
           <DialogHeader>
@@ -313,7 +341,59 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
                 )}
               </div>
 
-              {/* Check-Out Details */}
+              
+              {/* Override / Dispensasi Section */}
+              {selectedLog.attendance && (
+                <div className="pt-4 mt-4 border-t border-border space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <h4 className="font-semibold text-sm">Ubah Status (Dispensasi)</h4>
+                    {selectedLog.attendance.isOverridden && (
+                      <span className="text-[10px] bg-warning/20 text-warning px-2 py-0.5 rounded-full font-bold">TER-OVERRIDE</span>
+                    )}
+                  </div>
+                  
+                  {selectedLog.attendance.isOverridden && selectedLog.attendance.overrideReason && (
+                    <div className="bg-muted p-2 rounded-md text-xs mb-3 border border-border">
+                      <span className="font-bold">Alasan Override Sebelumnya: </span> 
+                      {selectedLog.attendance.overrideReason}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Status Baru</label>
+                      <select 
+                        className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        value={overrideStatus}
+                        onChange={(e) => setOverrideStatus(e.target.value as DisplayStatus)}
+                      >
+                        <option value="PRESENT">Hadir (Tepat Waktu)</option>
+                        <option value="LATE">Telat</option>
+                        <option value="ALPHA">Alpha</option>
+                        <option value="ON_LEAVE">Izin/Cuti</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Alasan (Wajib)</label>
+                      <Input 
+                        placeholder="Contoh: Sakit mendadak, lupa absen..." 
+                        value={overrideReason}
+                        onChange={(e) => setOverrideReason(e.target.value)}
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    className="w-full mt-2" 
+                    onClick={handleOverride} 
+                    disabled={isOverriding || !overrideReason.trim()}
+                  >
+                    {isOverriding ? "Menyimpan..." : "Simpan Perubahan Status"}
+                  </Button>
+                </div>
+              )}
+
+{/* Check-Out Details */}
               <div className="space-y-2">
                 <h4 className="font-semibold text-sm">Check-Out</h4>
                 {selectedLog.attendance?.checkOutTime ? (

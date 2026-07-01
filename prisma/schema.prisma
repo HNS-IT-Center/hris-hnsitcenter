@@ -243,6 +243,10 @@ model Attendance {
   isRainyDay       Boolean          @default(false)
   photoTimestamp   DateTime?
   locationTimestamp DateTime?
+  isOverridden     Boolean          @default(false)
+  overrideReason   String?
+  overriddenById   String?
+  penaltyAmount    Int              @default(0)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -323,6 +327,7 @@ model LeaveRequest {
   // For HALF_DAY type
   halfDayType   String?     // 'LATE_IN' or 'EARLY_OUT'
   halfDayTime   String?     // e.g. '13:00'
+  unpaidHours   Int?        @default(0) // Rounded integer of unpaid hours for payroll
   // For SICK type (2-step verification)
   isPaid        Boolean     @default(true)
   // For OVERTIME type

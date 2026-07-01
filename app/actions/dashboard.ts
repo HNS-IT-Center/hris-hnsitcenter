@@ -180,6 +180,7 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
     prisma.attendance.findMany({
       where: { date: day },
       select: {
+        id: true,
         userId: true,
         status: true,
         checkInTime: true,
@@ -192,6 +193,8 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
         checkInLng: true,
         checkOutLat: true,
         checkOutLng: true,
+        isOverridden: true,
+        overrideReason: true,
       },
     }),
 

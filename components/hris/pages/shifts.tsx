@@ -135,6 +135,7 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
                     <Input 
                       id="start" 
                       type="time" 
+                      lang="en-GB"
                       className="bg-input" 
                       value={draft.startTime}
                       onChange={(e) => setDraft({...draft, startTime: e.target.value})}
@@ -145,6 +146,7 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
                     <Input 
                       id="end" 
                       type="time" 
+                      lang="en-GB"
                       className="bg-input" 
                       value={draft.endTime}
                       onChange={(e) => setDraft({...draft, endTime: e.target.value})}
@@ -246,6 +248,7 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
                     <Label>Jam Mulai</Label>
                     <Input 
                       type="time" 
+                      lang="en-GB"
                       className="bg-input" 
                       value={editTarget.startTime}
                       onChange={(e) => setEditTarget({...editTarget, startTime: e.target.value})}
@@ -255,6 +258,7 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
                     <Label>Jam Selesai</Label>
                     <Input 
                       type="time" 
+                      lang="en-GB"
                       className="bg-input" 
                       value={editTarget.endTime}
                       onChange={(e) => setEditTarget({...editTarget, endTime: e.target.value})}
