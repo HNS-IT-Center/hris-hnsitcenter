@@ -380,7 +380,7 @@ function EmployeeView({ userId, leaveRequests, leaveQuota }: {
             <GlassCard key={r.id} className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary/15 text-secondary">
-                  <Calendar className="h-5 w-5" />
+                  <CalendarIcon className="h-5 w-5" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-foreground">{LEAVE_TYPE_LABELS[r.type] ?? r.type}</p>
