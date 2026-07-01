@@ -62,13 +62,9 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
     touchStartY.current = e.touches[0].clientY
     touchCurrentX.current = e.touches[0].clientX
     isScrolling.current = false
-    
-    // Only allow swipe to open if starting from left edge (< 30px)
+    // Allow swipe to open from anywhere as requested by user
     // If sidebar is already open, any swipe start is fine
-    if (!mobileOpen && touchStartX.current > 30) {
-      isSwiping.current = false
-      return
-    }
+    // (Removed the > 30px check)
     isSwiping.current = true
   }
 
