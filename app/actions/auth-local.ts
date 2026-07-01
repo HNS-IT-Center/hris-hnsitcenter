@@ -27,7 +27,7 @@ export async function updatePassword(newPassword: string) {
     const passwordHash = await bcrypt.hash(newPassword, salt)
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: { email: user.email },
       data: { passwordHash }
     })
 

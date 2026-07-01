@@ -17,12 +17,13 @@ We employ a strict **Server-to-Client separation** for data fetching:
 2. **Client Components (`components/hris/pages/*.tsx`)**: Accept the fetched data as `props`. These components handle interactivity, hooks, and UI rendering.
 *Rule: Do NOT fetch database records directly inside Client Components. Do NOT use hardcoded data (`lib/hris-data.ts`).*
 
-### Authentication (SSO Proxy Flow)
-The app does not use NextAuth. It relies on a central SSO server (`sso.hnsitcenter.id`).
-1. Users log in at the SSO portal and receive an `sso_token` (JWT Cookie).
-2. The `middleware.ts` (Proxy) intercepts requests, decodes the JWT using `HS256`, and injects headers (`x-user-id`, `x-user-role`, `x-user-email`) into the request.
+### Authentication (SSO Proxy Flow & Local Auth)
+The app uses a hybrid authentication approach (SSO + Local Password).
+1. Users log in at the SSO portal (or local login) and receive an `sso_token` (JWT Cookie).
+2. The `proxy.ts` intercepts requests, decodes the JWT using `HS256`, and injects headers (`x-user-id`, `x-user-role`, `x-user-email`) into the request.
 3. Server Components read these headers via `lib/auth.ts` -> `getServerUser()`.
 4. **Local Dev Bypass**: If running on `localhost:3000`, the proxy automatically injects a mock HRD user (`dev@hnsitcenter.id`) to bypass browser cross-domain cookie restrictions.
+5. **CRITICAL AUTH RULE**: When querying or updating a user record in the database for authentication or session purposes, **ALWAYS match by `email: user.email`**, NOT by `id`. The `id` returned by `getServerUser()` corresponds to the `ssoId` if they logged in via SSO, which will cause `RecordNotFound` errors if used against the primary `id` column in Prisma. Email is the consistent unique identifier across both Local and SSO flows.
 
 ---
 
