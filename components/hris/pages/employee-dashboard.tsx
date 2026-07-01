@@ -97,7 +97,7 @@ export function EmployeeDashboard({ data }: { data: DashboardData }) {
 
       {/* Monthly summary */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Ringkasan Bulan Ini</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{data.periodLabel || "Ringkasan Periode Ini"}</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           {SUMMARY.map((s) => {
             const Icon = s.icon

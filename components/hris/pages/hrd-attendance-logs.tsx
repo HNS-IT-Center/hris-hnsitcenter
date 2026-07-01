@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
+import { type DateRange } from "react-day-picker"
 import { GlassCard } from "@/components/hris/shared"
+import { DatePickerWithRange } from "@/components/hris/shared/date-range-picker"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -19,7 +22,8 @@ import {
   UserX,
   Search,
   Map,
-  CalendarIcon
+  CalendarIcon,
+  Download
 } from "lucide-react"
 import {
   Dialog,
@@ -82,6 +86,7 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
   const [tab, setTab] = useState("all")
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>()
   const [date, setDate] = useState(() => {
     const d = new Date(initialData.date)
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
@@ -110,8 +115,9 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
           <h1 className="text-xl font-bold text-foreground">Log Absensi Karyawan</h1>
           <p className="text-sm text-muted-foreground">Pantau status kehadiran seluruh karyawan.</p>
         </div>
-        <Popover>
-          <PopoverTrigger asChild>
+        <div className="flex flex-col sm:flex-row gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
             <Button
               variant={"outline"}
               className={cn(
@@ -132,6 +138,27 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
             />
           </PopoverContent>
         </Popover>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="gap-1.5 w-full sm:w-auto bg-input">
+              <Download className="h-4 w-4" />
+              Export Rekap
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80" align="end">
+            <div className="space-y-4">
+              <h4 className="font-medium leading-none">Export Rekap Absensi</h4>
+              <p className="text-sm text-muted-foreground">Pilih rentang tanggal untuk diexport.</p>
+              <DatePickerWithRange date={exportDateRange} setDate={setExportDateRange} />
+              <div className="flex flex-col gap-2 pt-2">
+                <Button variant="outline" className="w-full" onClick={() => toast.success("Mengekspor PDF...")}>Export PDF</Button>
+                <Button variant="outline" className="w-full" onClick={() => toast.success("Mengekspor Excel...")}>Export XLS</Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+        </div>
       </div>
 
       {/* Summary cards */}

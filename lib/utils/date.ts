@@ -102,3 +102,47 @@ export function relativeTime(date: Date): string {
   if (diffDay < 7) return `${diffDay} hari lalu`
   return formatWIB(date, { day: 'numeric', month: 'short', year: 'numeric' })
 }
+
+/**
+ * Calculates the payroll period boundaries (26th to 25th) in UTC based on a given WIB date.
+ */
+export function getPayrollPeriod(baseDateUTC: Date = new Date()) {
+  const wib = toWIB(baseDateUTC)
+  const currentDay = wib.getUTCDate()
+  const currentMonth = wib.getUTCMonth() + 1 // 1-12
+  const currentYear = wib.getUTCFullYear()
+
+  let startYear = currentYear
+  let startMonth = currentMonth
+  let endYear = currentYear
+  let endMonth = currentMonth
+
+  if (currentDay > 25) {
+    // e.g. May 26 -> period is May 26 to June 25
+    endMonth = currentMonth + 1
+    if (endMonth > 12) {
+      endMonth = 1
+      endYear++
+    }
+  } else {
+    // e.g. May 15 -> period is April 26 to May 25
+    startMonth = currentMonth - 1
+    if (startMonth < 1) {
+      startMonth = 12
+      startYear--
+    }
+  }
+
+  const startDateUTC = wibDayToUTC(startYear, startMonth, 26)
+  const endDateMidnightWIB = wibDayToUTC(endYear, endMonth, 25)
+  const endDateUTC = new Date(endDateMidnightWIB.getTime() + 24 * 60 * 60 * 1000 - 1)
+
+  // Label strictly for display on the front-end (e.g., 26 Apr - 25 Mei)
+  // We format using simple strings since formatWIB formats absolute dates
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+  const startStr = `26 ${months[startMonth - 1]}`
+  const endStr = `25 ${months[endMonth - 1]} ${endYear}`
+  const periodLabel = `${startStr} - ${endStr}`
+
+  return { startDateUTC, endDateUTC, periodLabel }
+}

@@ -1,6 +1,7 @@
 import { PerformancePage } from "@/components/hris/pages/performance"
 import { getServerUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getPayrollPeriod } from "@/lib/utils/date"
 
 export default async function Page({
   searchParams,
@@ -22,14 +23,31 @@ export default async function Page({
   const startOfMonth = new Date(Date.UTC(year, month - 1, 1))
   const endOfMonth = new Date(Date.UTC(year, month, 0, 23, 59, 59))
 
+  const baseDate = new Date(Date.UTC(year, month - 1, 15))
+  const { startDateUTC, endDateUTC, periodLabel } = getPayrollPeriod(baseDate)
+
+  const minDate = new Date(Math.min(startOfMonth.getTime(), startDateUTC.getTime()))
+  const maxDate = new Date(Math.max(endOfMonth.getTime(), endDateUTC.getTime()))
+
   const attendanceRecords = await prisma.attendance.findMany({
     where: {
       userId: dbUser.id,
-      date: { gte: startOfMonth, lte: endOfMonth },
+      date: { gte: minDate, lte: maxDate },
     },
     select: { date: true, status: true, lateMinutes: true },
     orderBy: { date: "asc" },
   })
+
+  // Precompute summary for the payroll period
+  let hadir = 0, telat = 0, alpha = 0, izin = 0, cuti = 0
+  for (const r of attendanceRecords) {
+    if (r.date >= startDateUTC && r.date <= endDateUTC) {
+      if (r.status === 'PRESENT') hadir++
+      if (r.status === 'LATE') telat++
+      if (r.status === 'ALPHA') alpha++
+      if (r.status === 'ON_LEAVE') izin++
+    }
+  }
 
   // Fetch events. Normally we'd filter by scope, but let's grab all for the month to filter on the client.
   const [events, leaves] = await Promise.all([
@@ -77,5 +95,14 @@ export default async function Page({
     date: e.date.toISOString().split('T')[0]
   })), ...leaveEvents]
 
-  return <PerformancePage attendanceRecords={attendanceRecords} events={combinedEvents} year={year} month={month} />
+  return (
+    <PerformancePage 
+      attendanceRecords={attendanceRecords.filter(r => r.date >= startOfMonth && r.date <= endOfMonth)} 
+      events={combinedEvents} 
+      year={year} 
+      month={month} 
+      summary={{ hadir, telat, alpha, izin, cuti }}
+      periodLabel={periodLabel}
+    />
+  )
 }

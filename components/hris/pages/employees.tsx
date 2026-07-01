@@ -291,25 +291,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
             </SelectContent>
           </Select>
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="gap-1.5 w-full sm:w-auto">
-                <Download className="h-4 w-4" />
-                Export Rekap
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80" align="end">
-              <div className="space-y-4">
-                <h4 className="font-medium leading-none">Export Rekap Absensi</h4>
-                <p className="text-sm text-muted-foreground">Pilih rentang tanggal untuk diexport.</p>
-                <DatePickerWithRange date={dateRange} setDate={setDateRange} />
-                <div className="flex flex-col gap-2 pt-2">
-                  <Button variant="outline" className="w-full" onClick={() => toast.success("Mengekspor PDF...")}>Export PDF</Button>
-                  <Button variant="outline" className="w-full" onClick={() => toast.success("Mengekspor Excel...")}>Export XLS</Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+
           <Button onClick={() => setIsAddOpen(true)} className="gap-1.5 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
             <Plus className="h-4 w-4" />
             Tambah Karyawan

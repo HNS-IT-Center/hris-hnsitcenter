@@ -51,6 +51,8 @@ export function PerformancePage({
   events?: any[]
   year: number
   month: number // 1-indexed
+  summary?: { hadir: number, telat: number, alpha: number, izin: number, cuti: number }
+  periodLabel?: string
 }) {
   const router = useRouter()
 
@@ -81,21 +83,15 @@ export function PerformancePage({
 
   const MONTH_NAMES = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"]
 
-  // Summary tallies
-  const summary = {
-    hadir: attendanceRecords.filter((r) => r.status === "PRESENT").length,
-    telat: attendanceRecords.filter((r) => r.status === "LATE").length,
-    alpha: attendanceRecords.filter((r) => r.status === "ALPHA").length,
-    izin: attendanceRecords.filter((r) => r.status === "ON_LEAVE").length,
-    cuti: 0, // distinguished by leave type — placeholder
-  }
+  // Summary tallies passed from server
+  const activeSummary = summary || { hadir: 0, telat: 0, alpha: 0, izin: 0, cuti: 0 }
 
   const SUMMARY = [
-    { label: "Hadir", value: summary.hadir, icon: CheckCircle2, color: "text-success" },
-    { label: "Telat", value: summary.telat, icon: AlarmClock, color: "text-warning" },
-    { label: "Alpha", value: summary.alpha, icon: XCircle, color: "text-destructive" },
-    { label: "Izin", value: summary.izin, icon: Clock, color: "text-secondary" },
-    { label: "Cuti", value: summary.cuti, icon: Plane, color: "text-primary" },
+    { label: "Hadir", value: activeSummary.hadir, icon: CheckCircle2, color: "text-success" },
+    { label: "Telat", value: activeSummary.telat, icon: AlarmClock, color: "text-warning" },
+    { label: "Alpha", value: activeSummary.alpha, icon: XCircle, color: "text-destructive" },
+    { label: "Izin", value: activeSummary.izin, icon: Clock, color: "text-secondary" },
+    { label: "Cuti", value: activeSummary.cuti, icon: Plane, color: "text-primary" },
   ]
 
   const navigateMonth = (dir: -1 | 1) => {
@@ -215,7 +211,9 @@ export function PerformancePage({
 
       {/* Summary */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Rekap Performa</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          {periodLabel || "Rekap Performa"}
+        </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {SUMMARY.map((s) => {
             const Icon = s.icon

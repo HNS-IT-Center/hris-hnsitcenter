@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { getPayrollPeriod, todayUTC } from '@/lib/utils/date'
 
 // ─── Employee Dashboard ────────────────────────────────────────────────────────
 
@@ -9,11 +10,9 @@ import { prisma } from '@/lib/prisma'
  */
 export async function getEmployeeDashboardData(userId: string) {
   const now = new Date()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  const { startDateUTC, endDateUTC, periodLabel } = getPayrollPeriod(now)
 
-  const today = new Date()
-  today.setUTCHours(0, 0, 0, 0)
+  const today = todayUTC()
 
   const [user, monthlyAttendance, recentLeaves, recentBroadcasts, todayRecord] =
     await Promise.all([
@@ -35,7 +34,7 @@ export async function getEmployeeDashboardData(userId: string) {
       prisma.attendance.findMany({
         where: {
           userId,
-          date: { gte: startOfMonth, lte: endOfMonth },
+          date: { gte: startDateUTC, lte: endDateUTC },
         },
         select: { status: true },
       }),
