@@ -139,6 +139,8 @@ export async function submitAttendance(data: {
       return { success: false, error: 'Shift Anda tidak ditemukan. Hubungi HRD.' }
     }
 
+    const shift = user.shift
+
     let shiftStart = parseTimeStr(shift.startTime, now)
     let shiftEnd = parseTimeStr(shift.endTime, now)
 
