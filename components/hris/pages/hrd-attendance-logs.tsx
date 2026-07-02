@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useState, useTransition, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { type DateRange } from "react-day-picker"
@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar"
 import { format, subMonths, setDate, parseISO } from "date-fns"
 import { id } from "date-fns/locale"
+import NProgress from 'nprogress'
 import { cn } from "@/lib/utils"
 import {
   CheckCircle2,
@@ -96,6 +97,12 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
   })
 
+  useEffect(() => {
+    if (!isPending) {
+      NProgress.done()
+    }
+  }, [isPending])
+
   // Filters
   const [deptFilter, setDeptFilter] = useState("Semua")
   const [storeFilter, setStoreFilter] = useState("Semua")
@@ -133,6 +140,7 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
 
   const handleDateChange = (newDate: string) => {
     setDate(newDate)
+    NProgress.start()
     startTransition(() => {
       router.push(`/hrd/attendance?date=${newDate}`)
     })
@@ -193,7 +201,13 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
         <Button 
           variant="outline" 
           className="gap-1.5 w-full sm:w-auto bg-input"
-          onClick={() => router.push('/hrd/rekap')}
+          disabled={isPending}
+          onClick={() => {
+            NProgress.start()
+            startTransition(() => {
+              router.push('/hrd/rekap')
+            })
+          }}
         >
           <Download className="h-4 w-4" />
           Export Rekap
