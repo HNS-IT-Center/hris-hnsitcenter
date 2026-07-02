@@ -83,6 +83,8 @@ We have a massive dummy seeder (`prisma/seed-dummy.ts`) that populates the datab
   - New SSO users are automatically provisioned if they bypass HRD pre-registration.
   - UI optimized for mobile layout (Employee cards prevent horizontal overflow).
   - **Pagination added:** Capped at 15 employees per page on Desktop, 10 on Mobile.
+  - **Account Creation (Local Auth):** HRD can optionally set a `password` when creating a new employee, which is securely hashed using `bcryptjs`, allowing immediate local login before SSO is linked.
+  - **Hard Deletion (Safety Checks):** HRD can permanently delete an employee (except themselves). Since Prisma lacks deep cascading deletes by default, the deletion runs a `$transaction` to safely wipe all related records (Attendances, Leaves, Assignments, Devices, etc.) before deleting the `User` record to prevent P2003 foreign key constraint errors.
 - **Shift Management (NOT STARTED):**
   - Need to wire up UI in `/app/(dashboard)/hrd/shifts`.
 - **Media Upload:** Implement Cloudflare R2 upload for employee avatars in `EmployeeForm`. Compress to WebP client-side via `lib/utils/file.ts`.
@@ -105,6 +107,7 @@ We have a massive dummy seeder (`prisma/seed-dummy.ts`) that populates the datab
   - **Pagination added:** Capped at 10 items per page.
   - **Export Rekap Absensi:** Moved from a standalone page to an "Export Rekap" button inside the HRD Attendance Logs page.
   - **Rekap Flow:** HRD clicks Export, selects a Date Range (Defaults to 26th of last month to 25th of current month), and applies Store/Department filters. The app routes to `/hrd/rekap` passing these parameters to render a print-friendly A4 Landscape layout using native CSS (`@media print`).
+  - **PDF Export Design:** The PDF print view strips out the sidebar/navbar, condenses the "Team Overview" into a single row, hides the "Department Statistics", and forces background colors via `-webkit-print-color-adjust: exact` for a clean A4 layout. Mobile view displays 6 employee cards per page to prevent excessive scrolling.
 
 ### Phase 4: Leave & Overtime Approvals (Status: PARTIALLY COMPLETED)
 - **Leave Requests (COMPLETED):**
