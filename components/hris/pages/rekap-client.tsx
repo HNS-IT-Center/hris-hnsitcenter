@@ -54,6 +54,11 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
     if (storeFilter !== 'Semua') q.set('store', storeFilter)
     router.push(`/hrd/rekap?${q.toString()}`)
   }
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+  const totalPages = Math.max(1, Math.ceil(recapList.length / itemsPerPage))
   
   // Ambil top performers (paling sering masuk)
   const sortedRecap = [...recapList].sort((a, b) => b.stats.present - a.stats.present)
@@ -171,13 +176,14 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
           </div>
         </header>
 
-        {/* Konten Utama (1/4 Kiri, 3/4 Kanan) */}
-        <div className="flex-1 flex px-8 py-6 gap-6 overflow-hidden bg-background">
+        {/* Konten Utama (Single Column Web, 2-Row Print) */}
+        <div className="flex-1 flex flex-col px-8 py-6 gap-6 bg-background">
           
-          {/* KIRI: Summary Sidebar (1/4) */}
-          <div className="w-1/4 flex flex-col gap-6">
+          {/* Row 1: Statistik (Web: Stack, Print/Desktop: 2 Columns) */}
+          <div className="flex flex-col md:flex-row gap-6 print:flex-row print:w-full">
             
-            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4">
+            {/* KIRI: Ringkasan Tim */}
+            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 w-full md:w-1/2 print:w-1/2">
               <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-4">Ringkasan Tim</h2>
               
               <div className="space-y-4">
@@ -209,7 +215,8 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
               </div>
             </div>
 
-            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 flex-1">
+            {/* KANAN: Statistik Departemen */}
+            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 w-full md:w-1/2 print:w-1/2">
               <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-4">Statistik Departemen</h2>
               <div className="space-y-4">
                 {deptStats.map(d => (
@@ -223,12 +230,42 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
                 ))}
               </div>
             </div>
-
           </div>
 
-          {/* KANAN: Data Table (3/4) */}
-          <div className="w-3/4 flex flex-col bg-background border border-primary/10 rounded-lg overflow-hidden">
-            <div className="overflow-x-auto flex-1">
+          {/* Row 2: List of Employees */}
+          <div className="flex flex-col bg-background border border-primary/10 rounded-lg overflow-hidden">
+            
+            {/* Mobile Cards (Hidden on Desktop & Print) */}
+            <div className="block md:hidden print:hidden p-4 space-y-4">
+              {recapList.map((row, index) => {
+                const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2)
+                const isVisible = index >= (currentPage - 1) * itemsPerPage && index < currentPage * itemsPerPage
+                return (
+                  <div key={row.employee.id} className={isVisible ? "flex flex-col bg-primary/5 p-4 rounded-lg border border-primary/10 gap-3" : "hidden"}>
+                    <div className="flex items-center gap-3 border-b border-primary/10 pb-3">
+                      <Avatar className="w-10 h-10 border border-primary/10">
+                        <AvatarFallback className="text-xs bg-primary/10">{getInitials(row.employee.name)}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-semibold text-foreground">{row.employee.name}</div>
+                        <div className="text-xs text-muted-foreground">{row.employee.department} • {row.employee.employeeId || 'No ID'}</div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex justify-between bg-background p-2 rounded"><span className="text-muted-foreground">Hadir:</span><span className="font-semibold">{row.stats.present}</span></div>
+                      <div className="flex justify-between bg-background p-2 rounded"><span className="text-muted-foreground">Telat:</span><span className={row.stats.late > 0 ? "text-destructive font-bold" : "font-medium"}>{row.stats.late}</span></div>
+                      <div className="flex justify-between bg-background p-2 rounded"><span className="text-muted-foreground">Alpha:</span><span className={row.stats.alpha > 0 ? "text-destructive font-bold" : "font-medium"}>{row.stats.alpha}</span></div>
+                      <div className="flex justify-between bg-background p-2 rounded"><span className="text-muted-foreground">Izin/Cuti:</span><span className="text-sky-600 font-medium">{row.stats.izin + row.stats.cuti}</span></div>
+                      <div className="flex justify-between bg-background p-2 rounded"><span className="text-muted-foreground" title="Lupa Checkout/In">Lupa CO:</span><span className={row.stats.forgotInOut > 0 ? "text-amber-600 font-bold" : "font-medium"}>{row.stats.forgotInOut}</span></div>
+                      <div className="flex justify-between bg-background p-2 rounded"><span className="text-muted-foreground">Rata2 Datang:</span><span className="font-mono">{row.stats.avgArrival}</span></div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Desktop & Print Table */}
+            <div className="hidden md:block print:block overflow-x-auto">
               <Table className="w-full text-xs">
                 <TableHeader className="bg-primary/5 sticky top-0">
                   <TableRow className="hover:bg-transparent">
@@ -244,10 +281,16 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recapList.map((row) => {
+                  {recapList.map((row, index) => {
                     const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').substring(0, 2)
+                    // For print, we want all rows visible. For screen, we paginate.
+                    const isVisibleOnScreen = index >= (currentPage - 1) * itemsPerPage && index < currentPage * itemsPerPage
+                    
                     return (
-                      <TableRow key={row.employee.id} className="hover:bg-primary/5 transition-colors border-primary/5">
+                      <TableRow 
+                        key={row.employee.id} 
+                        className={isVisibleOnScreen ? "hover:bg-primary/5 transition-colors border-primary/5 print:table-row" : "hidden print:table-row"}
+                      >
                         <TableCell className="py-2.5">
                           <div className="flex items-center gap-2">
                             <Avatar className="w-6 h-6 border border-primary/10">
@@ -300,7 +343,34 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
               </Table>
             </div>
             
-            {/* Navigasi Tabel (Hanya di layar) dihapus agar semua baris bisa diprint sekaligus */}
+            {/* Navigasi Tabel (Hanya di layar) */}
+            {totalPages > 1 && (
+              <div className="no-print p-4 flex items-center justify-between border-t border-primary/10 bg-background/50">
+                <span className="text-xs text-muted-foreground">
+                  Halaman {currentPage} dari {totalPages} ({recapList.length} total)
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
