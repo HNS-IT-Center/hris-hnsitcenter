@@ -228,16 +228,7 @@ export function RekapClient({ recapList, deptStats, startDate, endDate }: Props)
               </Table>
             </div>
             
-            {/* Navigasi Tabel (Hanya di layar) */}
-            <div className="flex items-center justify-between px-4 py-2 bg-primary/5 border-t border-primary/10 no-print">
-              <div className="text-xs text-muted-foreground">Total {recapList.length} karyawan</div>
-              <div className="flex gap-1">
-                <Button variant="ghost" size="icon" className="w-6 h-6"><ChevronLeft className="w-3 h-3" /></Button>
-                <Button variant="default" size="icon" className="w-6 h-6 text-xs h-6">1</Button>
-                <Button variant="ghost" size="icon" className="w-6 h-6"><ChevronRight className="w-3 h-3" /></Button>
-              </div>
-            </div>
-
+            {/* Navigasi Tabel (Hanya di layar) dihapus agar semua baris bisa diprint sekaligus */}
           </div>
 
         </div>

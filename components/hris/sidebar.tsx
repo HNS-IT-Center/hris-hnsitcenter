@@ -55,7 +55,6 @@ const EMPLOYEE_NAV: NavItem[] = [
 const HRD_NAV: NavItem[] = [
   { id: "hrd-dashboard", label: "Dashboard HRD", icon: LayoutDashboard, href: "/hrd/dashboard" },
   { id: "hrd-attendance", label: "Log Absensi", icon: CalendarCheck, href: "/hrd/attendance" },
-  { id: "rekap", label: "Rekap Bulanan", icon: FileText, href: "/hrd/rekap" },
   { id: "hrd-anomalies", label: "Log Anomali", icon: AlertTriangle, href: "/hrd/anomalies" },
   { id: "employees", label: "Karyawan", icon: Users, href: "/hrd/employees" },
   { id: "shifts", label: "Shift", icon: CalendarDays, href: "/hrd/shifts" },
