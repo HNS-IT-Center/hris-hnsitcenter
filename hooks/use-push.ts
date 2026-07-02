@@ -35,6 +35,11 @@ export function usePush(userId?: string) {
   const subscribe = async () => {
     if (!registration || !userId) return false
     try {
+      const permissionResult = await Notification.requestPermission()
+      if (permissionResult !== 'granted') {
+        throw new Error('Notification permission not granted')
+      }
+
       const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
       if (!publicVapidKey) throw new Error('VAPID public key is missing')
 
