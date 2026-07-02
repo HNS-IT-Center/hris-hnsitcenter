@@ -1,26 +1,24 @@
 import { getMonthlyRecap } from "@/app/actions/rekap"
 import { RekapClient } from "@/components/hris/pages/rekap-client"
 import { format, subMonths, startOfMonth, endOfMonth, setDate } from "date-fns"
+import { prisma } from "@/lib/prisma"
 
-export default async function RekapPage({
-  searchParams,
-}: {
-  searchParams: { startDate?: string; endDate?: string; department?: string; store?: string }
+export default async function RekapPage(props: {
+  searchParams: Promise<{ startDate?: string; endDate?: string; department?: string; store?: string }>
 }) {
+  const searchParams = await props.searchParams
+
   // Default to 26 last month - 25 this month
   const today = new Date()
   let startDate = new Date()
   let endDate = new Date()
 
   if (today.getDate() <= 25) {
-    // We are before 25th, so period is 26th of 2 months ago to 25th of last month?
-    // Wait, if today is July 2, period is June 26 to July 25.
     startDate = setDate(subMonths(today, 1), 26)
     endDate = setDate(today, 25)
   } else {
-    // If today is July 26, period is July 26 to Aug 25
     startDate = setDate(today, 26)
-    endDate = setDate(subMonths(today, -1), 25) // add 1 month
+    endDate = setDate(subMonths(today, -1), 25)
   }
 
   // Allow override via searchParams
@@ -34,12 +32,20 @@ export default async function RekapPage({
     searchParams.store
   )
 
+  // Fetch unique filter options
+  const departments = await prisma.department.findMany({ select: { name: true } })
+  const stores = await prisma.store.findMany({ select: { name: true } })
+
   return (
     <RekapClient 
       recapList={recapList} 
       deptStats={deptStats} 
       startDate={startDate.toISOString()} 
       endDate={endDate.toISOString()} 
+      availableDepartments={departments.map(d => d.name)}
+      availableStores={stores.map(s => s.name)}
+      currentDepartment={searchParams.department}
+      currentStore={searchParams.store}
     />
   )
 }

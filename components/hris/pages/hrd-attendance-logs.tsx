@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { type DateRange } from "react-day-picker"
 import { GlassCard } from "@/components/hris/shared"
-import { DatePickerWithRange } from "@/components/hris/shared/date-range-picker"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -105,21 +104,6 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 10
 
-  // Default Export Date Range (26th to 25th)
-  const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(() => {
-    const today = new Date()
-    let start = new Date()
-    let end = new Date()
-    if (today.getDate() <= 25) {
-      start = setDate(subMonths(today, 1), 26)
-      end = setDate(today, 25)
-    } else {
-      start = setDate(today, 26)
-      end = setDate(subMonths(today, -1), 25)
-    }
-    return { from: start, to: end }
-  })
-
   // Unique lists for filters
   const departments = Array.from(new Set(initialData.logs.map(l => l.employee.departmentName).filter(Boolean))) as string[]
   const stores = Array.from(new Set(initialData.logs.map(l => l.employee.store?.name).filter(Boolean))) as string[]
@@ -206,40 +190,14 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
           </PopoverContent>
         </Popover>
 
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant="outline" className="gap-1.5 w-full sm:w-auto bg-input">
-              <Download className="h-4 w-4" />
-              Export Rekap
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80" align="end">
-            <div className="space-y-4">
-              <h4 className="font-medium leading-none">Export Rekap Absensi</h4>
-              <p className="text-sm text-muted-foreground">Pilih rentang tanggal untuk diexport (Default: Tgl 26 - 25).</p>
-              <DatePickerWithRange date={exportDateRange} setDate={setExportDateRange} />
-              
-              <div className="flex flex-col gap-2 pt-2">
-                <Button 
-                  variant="default" 
-                  className="w-full" 
-                  onClick={() => {
-                    const start = exportDateRange?.from ? exportDateRange.from.toISOString() : ''
-                    const end = exportDateRange?.to ? exportDateRange.to.toISOString() : ''
-                    const q = new URLSearchParams()
-                    if (start) q.set('startDate', start)
-                    if (end) q.set('endDate', end)
-                    if (deptFilter !== 'Semua') q.set('department', deptFilter)
-                    if (storeFilter !== 'Semua') q.set('store', storeFilter)
-                    router.push(`/hrd/rekap?${q.toString()}`)
-                  }}
-                >
-                  Tampilkan & Cetak Rekap
-                </Button>
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+        <Button 
+          variant="outline" 
+          className="gap-1.5 w-full sm:w-auto bg-input"
+          onClick={() => router.push('/hrd/rekap')}
+        >
+          <Download className="h-4 w-4" />
+          Export Rekap
+        </Button>
         </div>
       </div>
 

@@ -1,11 +1,15 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
-import { Printer, Download, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Printer, Download, ChevronLeft, ChevronRight, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
+import { DatePickerWithRange } from '@/components/hris/shared/date-range-picker'
+import { type DateRange } from "react-day-picker"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RecapData, DepartmentStat } from '@/app/actions/rekap'
 import {
   Table,
@@ -24,11 +28,32 @@ type Props = {
   deptStats: DepartmentStat[]
   startDate: string
   endDate: string
+  availableDepartments: string[]
+  availableStores: string[]
+  currentDepartment?: string
+  currentStore?: string
 }
 
-export function RekapClient({ recapList, deptStats, startDate, endDate }: Props) {
+export function RekapClient({ recapList, deptStats, startDate, endDate, availableDepartments, availableStores, currentDepartment, currentStore }: Props) {
+  const router = useRouter()
   const sDate = parseISO(startDate)
   const eDate = parseISO(endDate)
+  
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: sDate,
+    to: eDate
+  })
+  const [deptFilter, setDeptFilter] = useState(currentDepartment || "Semua")
+  const [storeFilter, setStoreFilter] = useState(currentStore || "Semua")
+
+  const applyFilters = () => {
+    const q = new URLSearchParams()
+    if (dateRange?.from) q.set('startDate', dateRange.from.toISOString())
+    if (dateRange?.to) q.set('endDate', dateRange.to.toISOString())
+    if (deptFilter !== 'Semua') q.set('department', deptFilter)
+    if (storeFilter !== 'Semua') q.set('store', storeFilter)
+    router.push(`/hrd/rekap?${q.toString()}`)
+  }
   
   // Ambil top performers (paling sering masuk)
   const sortedRecap = [...recapList].sort((a, b) => b.stats.present - a.stats.present)
@@ -52,7 +77,7 @@ export function RekapClient({ recapList, deptStats, startDate, endDate }: Props)
       */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          @page { size: landscape; margin: 0; }
+          @page { size: A4 landscape; margin: 15mm; }
           body, main { background-color: white !important; }
           .no-print { display: none !important; }
           .pdf-container { 
@@ -62,6 +87,15 @@ export function RekapClient({ recapList, deptStats, startDate, endDate }: Props)
              box-shadow: none; 
              border: none;
              background-color: white !important;
+             min-height: auto !important;
+          }
+          /* Ensure table rows don't break across pages */
+          tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+          }
+          thead {
+            display: table-header-group;
           }
           /* Hilangkan sidebar dari layout root Next.js jika ada */
           #app-sidebar { display: none !important; }
@@ -71,19 +105,57 @@ export function RekapClient({ recapList, deptStats, startDate, endDate }: Props)
       `}} />
 
       {/* Kontrol Layar (Tidak diprint) */}
-      <GlassCard className="no-print mb-6 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-primary">Preview Laporan PDF (Landscape)</h1>
-          <p className="text-sm text-muted-foreground">Tekan tombol cetak untuk menyimpan sebagai PDF dengan kualitas tinggi.</p>
+      <GlassCard className="no-print mb-6 p-4 flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-primary/10 pb-4">
+          <div>
+            <h1 className="text-xl font-semibold text-primary">Rekapitulasi Absensi</h1>
+            <p className="text-sm text-muted-foreground">Sesuaikan filter sebelum mencetak PDF.</p>
+          </div>
+          <Button onClick={handlePrint} className="gap-2 bg-primary text-primary-foreground w-full sm:w-auto">
+            <Printer className="w-4 h-4" />
+            Cetak / Simpan PDF
+          </Button>
         </div>
-        <Button onClick={handlePrint} className="gap-2 bg-primary text-primary-foreground">
-          <Printer className="w-4 h-4" />
-          Cetak / Simpan PDF
-        </Button>
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="flex-1">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Rentang Tanggal</label>
+            <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+          </div>
+          <div className="w-full md:w-[200px]">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Departemen</label>
+            <Select value={deptFilter} onValueChange={setDeptFilter}>
+              <SelectTrigger className="bg-input h-10">
+                <SelectValue placeholder="Semua Dept" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Semua">Semua Dept</SelectItem>
+                {availableDepartments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="w-full md:w-[200px]">
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">Toko</label>
+            <Select value={storeFilter} onValueChange={setStoreFilter}>
+              <SelectTrigger className="bg-input h-10">
+                <SelectValue placeholder="Semua Toko" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Semua">Semua Toko</SelectItem>
+                {availableStores.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <Button onClick={applyFilters} className="w-full md:w-auto gap-2">
+              <Search className="w-4 h-4" />
+              Terapkan Filter
+            </Button>
+          </div>
+        </div>
       </GlassCard>
 
       {/* Kontainer PDF A4 Landscape */}
-      <div className="pdf-container bg-background/50 border border-primary/10 sm:rounded-xl sm:shadow-lg overflow-hidden flex flex-col w-full min-h-[794px]" style={{ maxWidth: '297mm', margin: '0 auto' }}>
+      <div className="pdf-container bg-background border border-primary/10 sm:rounded-xl sm:shadow-lg flex flex-col w-full min-h-[794px]" style={{ maxWidth: '297mm', margin: '0 auto' }}>
         
         {/* Header Kertas */}
         <header className="flex justify-between items-center w-full px-8 py-6 bg-background border-b border-primary/10">
