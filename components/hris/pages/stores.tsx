@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { TimePicker } from "@/components/ui/time-picker"
 import { Slider } from "@/components/ui/slider"
 import {
   Dialog,
@@ -174,24 +175,18 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="open">Jam Buka</Label>
-                    <Input 
+                    <TimePicker 
                       id="open" 
-                      type="time" 
-                      lang="en-GB"
-                      className="bg-input" 
                       value={draft.openTime}
-                      onChange={(e) => setDraft({...draft, openTime: e.target.value})}
+                      onChange={(val) => setDraft({...draft, openTime: val})}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="close">Jam Tutup</Label>
-                    <Input 
+                    <TimePicker 
                       id="close" 
-                      type="time" 
-                      lang="en-GB"
-                      className="bg-input" 
                       value={draft.closeTime}
-                      onChange={(e) => setDraft({...draft, closeTime: e.target.value})}
+                      onChange={(val) => setDraft({...draft, closeTime: val})}
                     />
                   </div>
                 </div>
@@ -314,22 +309,16 @@ export function StoresPage({ initialStores }: { initialStores: Store[] }) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Jam Buka</Label>
-                    <Input 
-                      type="time" 
-                      lang="en-GB"
-                      className="bg-input" 
+                    <TimePicker 
                       value={editTarget.openTime}
-                      onChange={(e) => setEditTarget({...editTarget, openTime: e.target.value})}
+                      onChange={(val) => setEditTarget({...editTarget, openTime: val})}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Jam Tutup</Label>
-                    <Input 
-                      type="time" 
-                      lang="en-GB"
-                      className="bg-input" 
+                    <TimePicker 
                       value={editTarget.closeTime}
-                      onChange={(e) => setEditTarget({...editTarget, closeTime: e.target.value})}
+                      onChange={(val) => setEditTarget({...editTarget, closeTime: val})}
                     />
                   </div>
                 </div>

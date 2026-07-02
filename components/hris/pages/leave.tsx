@@ -5,6 +5,7 @@ import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { TimePicker } from "@/components/ui/time-picker"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
@@ -161,12 +162,9 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
           </div>
           <div className="space-y-1.5">
             <Label>Jam (WIB)</Label>
-            <Input 
-              type="time" 
-              lang="en-GB"
-              className="bg-input" 
+            <TimePicker 
               value={halfDayTime} 
-              onChange={(e) => setHalfDayTime(e.target.value)} 
+              onChange={setHalfDayTime} 
             />
           </div>
         </div>
