@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import bcrypt from 'bcryptjs'
 
 export async function getEmployees() {
   console.log("Cache bust action")
@@ -75,6 +76,7 @@ export async function createEmployee(data: {
   shiftId?: string | null
   phoneNumber?: string | null
   joinDate?: Date
+  password?: string
 }) {
   try {
     const existing = await prisma.user.findUnique({ where: { email: data.email } })
@@ -95,10 +97,17 @@ export async function createEmployee(data: {
       role = 'BOSS'
     }
 
+    let passwordHash = null
+    if (data.password) {
+      const salt = await bcrypt.genSalt(10)
+      passwordHash = await bcrypt.hash(data.password, salt)
+    }
+
     const newUser = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
+        passwordHash,
         departmentName: data.departmentName,
         departmentId,
         positionName: data.positionName,
@@ -146,5 +155,44 @@ export async function toggleDeviceBlock(deviceId: string, userId: string, block:
   } catch (err) {
     console.error('Error toggling device block:', err)
     return { success: false, error: 'Gagal memblokir/membuka blokir perangkat.' }
+  }
+}
+
+export async function deleteEmployee(id: string, currentUserId: string) {
+  try {
+    if (id === currentUserId) {
+      return { success: false, error: 'Anda tidak dapat menghapus akun Anda sendiri.' }
+    }
+
+    const user = await prisma.user.findUnique({ where: { id } })
+    if (!user) {
+      return { success: false, error: 'Karyawan tidak ditemukan.' }
+    }
+
+    // Use transaction to perform cascading delete of related records
+    await prisma.$transaction([
+      prisma.attendance.deleteMany({ where: { userId: id } }),
+      prisma.leaveRequest.deleteMany({ where: { userId: id } }),
+      prisma.overtimeRequest.deleteMany({ where: { userId: id } }),
+      prisma.leaveQuota.deleteMany({ where: { userId: id } }),
+      prisma.performanceMonthly.deleteMany({ where: { userId: id } }),
+      prisma.storeAssignment.deleteMany({ where: { userId: id } }),
+      prisma.shiftAssignment.deleteMany({ where: { userId: id } }),
+      prisma.shiftOverride.deleteMany({ where: { userId: id } }),
+      prisma.shiftSwap.deleteMany({ where: { userAId: id } }),
+      prisma.shiftSwap.deleteMany({ where: { userBId: id } }),
+      prisma.userDevice.deleteMany({ where: { userId: id } }),
+      prisma.attentionFlag.deleteMany({ where: { userId: id } }),
+      prisma.pushSubscription.deleteMany({ where: { userId: id } }),
+      prisma.appNotification.deleteMany({ where: { userId: id } }),
+      prisma.broadcastFilterUser.deleteMany({ where: { userId: id } }),
+      prisma.user.delete({ where: { id } })
+    ])
+
+    revalidatePath('/hrd/employees')
+    return { success: true }
+  } catch (err) {
+    console.error('Error deleting employee:', err)
+    return { success: false, error: 'Gagal menghapus karyawan. Terdapat data terkait yang tidak dapat dihapus.' }
   }
 }

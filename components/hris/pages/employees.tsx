@@ -36,7 +36,7 @@ import { format, addDays } from "date-fns"
 import { id } from "date-fns/locale"
 import { type DateRange } from "react-day-picker"
 
-import { updateEmployee, createEmployee, toggleDeviceBlock } from "@/app/actions/employee"
+import { updateEmployee, createEmployee, toggleDeviceBlock, deleteEmployee } from "@/app/actions/employee"
 import { compressToWebP } from "@/lib/utils/file"
 import { DatePickerWithRange } from "@/components/hris/shared/date-range-picker"
 import { useTransition } from "react"
@@ -70,7 +70,7 @@ function StatusBadge({ active }: { active: boolean }) {
   )
 }
 
-export function EmployeesPage({ initialEmployees, stores, shifts, positions }: { initialEmployees: User[], stores: Store[], shifts: Shift[], positions: string[] }) {
+export function EmployeesPage({ initialEmployees, stores, shifts, positions, currentUserId }: { initialEmployees: User[], stores: Store[], shifts: Shift[], positions: string[], currentUserId: string }) {
   const [q, setQ] = useState("")
   const [deptFilter, setDeptFilter] = useState("Semua")
   const [storeFilter, setStoreFilter] = useState("Semua")
@@ -87,7 +87,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
   const [isPending, startTransition] = useTransition()
   
   const [newEmp, setNewEmp] = useState({
-    name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: ""
+    name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: "", password: ""
   })
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -185,13 +185,14 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
         positionName: newEmp.positionName,
         storeId: newEmp.storeId === "none" ? null : newEmp.storeId,
         shiftId: newEmp.shiftId === "none" ? null : newEmp.shiftId,
-        phoneNumber: phone || null
+        phoneNumber: phone || null,
+        password: newEmp.password || undefined
       })
 
       if (res.success && res.data) {
         setEmployees(prev => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)))
         setIsAddOpen(false)
-        setNewEmp({ name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: "" })
+        setNewEmp({ name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: "", password: "" })
         toast.success("Karyawan berhasil ditambahkan")
       } else {
         toast.error(res.error || "Gagal menambahkan karyawan")
@@ -276,6 +277,20 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
     } else {
       setDraft({ ...draft, halfDays: [...current, dayId] })
     }
+  }
+
+  async function handleDelete() {
+    if (!draft) return
+    startTransition(async () => {
+      const res = await deleteEmployee(draft.id, currentUserId)
+      if (res.success) {
+        setEmployees(prev => prev.filter(e => e.id !== draft.id))
+        setSelected(null)
+        toast.success("Karyawan berhasil dihapus secara permanen.")
+      } else {
+        toast.error(res.error || "Gagal menghapus karyawan")
+      }
+    })
   }
 
   return (
@@ -475,6 +490,10 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
               <Label>Email SSO</Label>
               <Input type="email" placeholder="john.doe@hnsitcenter.id" value={newEmp.email} onChange={e => setNewEmp({...newEmp, email: e.target.value})} />
             </div>
+            <div className="space-y-1.5">
+              <Label>Password (Opsional)</Label>
+              <Input type="text" placeholder="Kosongkan jika hanya menggunakan SSO" value={newEmp.password} onChange={e => setNewEmp({...newEmp, password: e.target.value})} />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Departemen</Label>
@@ -563,6 +582,29 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
                       Edit profil dan jadwal karyawan
                     </DialogDescription>
                   </div>
+                  {draft.id !== currentUserId && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="icon" title="Hapus Karyawan" className="shrink-0 h-9 w-9">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Hapus Karyawan Permanen?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tindakan ini tidak dapat dibatalkan. Menghapus karyawan ini juga akan menghapus seluruh data kehadiran, izin, dan jadwal terkait dari database.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Batal</AlertDialogCancel>
+                          <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
+                            Ya, Hapus Permanen
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
                 </div>
               </DialogHeader>
 
