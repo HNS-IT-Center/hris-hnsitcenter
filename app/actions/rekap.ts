@@ -36,10 +36,10 @@ export async function getMonthlyRecap(startDateStr: string, endDateStr: string, 
   const startDate = new Date(startDateStr)
   const endDate = new Date(endDateStr)
   
-  // Ambil semua karyawan
+  // Ambil semua karyawan (termasuk HRD, dll kecuali BOSS)
   const employees = await prisma.user.findMany({
     where: { 
-      role: 'EMPLOYEE', 
+      role: { not: 'BOSS' },
       isActive: true,
       ...(departmentFilter ? { departmentName: departmentFilter } : {}),
       ...(storeFilter ? { store: { name: storeFilter } } : {})

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
@@ -57,7 +57,15 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+
+  useEffect(() => {
+    const handleResize = () => setItemsPerPage(window.innerWidth < 768 ? 6 : 10)
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   const totalPages = Math.max(1, Math.ceil(recapList.length / itemsPerPage))
   
   // Ambil top performers (paling sering masuk)
@@ -102,9 +110,8 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
           thead {
             display: table-header-group;
           }
-          /* Hilangkan sidebar dari layout root Next.js jika ada */
-          #app-sidebar { display: none !important; }
-          #app-topbar { display: none !important; }
+          /* Hilangkan sidebar/navbar dari layout utama saat print */
+          #app-sidebar, #app-topbar, nav, header:not(.pdf-header), .topbar { display: none !important; }
           .dashboard-main-content { padding: 0 !important; margin: 0 !important; }
         }
       `}} />
@@ -163,7 +170,7 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
       <div className="pdf-container bg-background border border-primary/10 sm:rounded-xl sm:shadow-lg flex flex-col w-full min-h-[794px]" style={{ maxWidth: '297mm', margin: '0 auto' }}>
         
         {/* Header Kertas */}
-        <header className="flex justify-between items-center w-full px-8 py-6 bg-background border-b border-primary/10">
+        <header className="flex justify-between items-center w-full px-8 py-6 bg-background border-b border-primary/10 pdf-header">
           <div>
              <div className="text-2xl font-bold text-primary tracking-tight">HNS IT Center</div>
              <div className="text-sm text-muted-foreground mt-1">Rekapitulasi Kehadiran & Performa</div>
@@ -180,33 +187,33 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
         <div className="flex-1 flex flex-col px-8 py-6 gap-6 bg-background">
           
           {/* Row 1: Statistik (Web: Stack, Print/Desktop: 2 Columns) */}
-          <div className="flex flex-col md:flex-row gap-6 print:flex-row print:w-full">
+          <div className="flex flex-col md:flex-row gap-6 print:flex-col print:w-full print:gap-2 print:mb-2">
             
             {/* KIRI: Ringkasan Tim */}
-            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 w-full md:w-1/2 print:w-1/2">
-              <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-4">Ringkasan Tim</h2>
+            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 w-full md:w-1/2 print:w-full print:p-0 print:border-none print:bg-transparent">
+              <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-4 print:mb-1">Ringkasan Tim</h2>
               
-              <div className="space-y-4">
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Performa Terbaik</div>
+              <div className="space-y-4 print:space-y-0 print:flex print:flex-row print:gap-6 print:items-center">
+                <div className="print:flex print:items-center print:gap-2">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 print:mb-0">Performa Terbaik:</div>
                   <div className="flex flex-wrap gap-1.5">
                     {topPerformers.length === 0 && <span className="text-xs text-muted-foreground">-</span>}
                     {topPerformers.map(t => (
-                      <Badge key={t.employee.id} variant="default" className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/15">
+                      <Badge key={t.employee.id} variant="default" className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/15 print:bg-transparent print:border-emerald-500 print:text-emerald-700">
                         {t.employee.name.split(' ')[0]}
                       </Badge>
                     ))}
                   </div>
                 </div>
                 
-                <div className="h-px bg-primary/10 w-full" />
+                <div className="h-px bg-primary/10 w-full print:hidden" />
                 
-                <div>
-                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Sering Terlambat</div>
+                <div className="print:flex print:items-center print:gap-2">
+                  <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2 print:mb-0">Sering Terlambat:</div>
                   <div className="flex flex-wrap gap-1.5">
                     {frequentLate.length === 0 && <span className="text-xs text-emerald-600">Nihil</span>}
                     {frequentLate.map(t => (
-                      <Badge key={t.employee.id} variant="destructive" className="text-[10px]">
+                      <Badge key={t.employee.id} variant="destructive" className="text-[10px] print:bg-transparent print:border-destructive print:text-destructive">
                         {t.employee.name.split(' ')[0]} ({t.stats.late})
                       </Badge>
                     ))}
@@ -215,8 +222,8 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
               </div>
             </div>
 
-            {/* KANAN: Statistik Departemen */}
-            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 w-full md:w-1/2 print:w-1/2">
+            {/* KANAN: Statistik Departemen (Hidden on Print) */}
+            <div className="bg-primary/5 border border-primary/10 rounded-lg p-4 w-full md:w-1/2 print:hidden">
               <h2 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-4">Statistik Departemen</h2>
               <div className="space-y-4">
                 {deptStats.map(d => (
