@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress'
 import { DatePickerWithRange } from '@/components/hris/shared/date-range-picker'
 import { type DateRange } from "react-day-picker"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import NProgress from 'nprogress'
 import { RecapData, DepartmentStat } from '@/app/actions/rekap'
 import {
   Table,
@@ -48,6 +49,12 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
 
   const [isPending, startTransition] = useTransition()
   
+  useEffect(() => {
+    if (!isPending) {
+      NProgress.done()
+    }
+  }, [isPending])
+  
   const applyFilters = () => {
     const q = new URLSearchParams()
     if (dateRange?.from) q.set('startDate', dateRange.from.toISOString())
@@ -55,6 +62,7 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
     if (deptFilter !== 'Semua') q.set('department', deptFilter)
     if (storeFilter !== 'Semua') q.set('store', storeFilter)
     
+    NProgress.start()
     startTransition(() => {
       router.push(`/hrd/rekap?${q.toString()}`)
     })
