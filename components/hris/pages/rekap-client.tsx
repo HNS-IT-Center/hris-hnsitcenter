@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { format, parseISO } from 'date-fns'
 import { id as localeID } from 'date-fns/locale'
-import { Printer, Download, ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { Printer, Download, ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { DatePickerWithRange } from '@/components/hris/shared/date-range-picker'
@@ -46,13 +46,18 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
   const [deptFilter, setDeptFilter] = useState(currentDepartment || "Semua")
   const [storeFilter, setStoreFilter] = useState(currentStore || "Semua")
 
+  const [isPending, startTransition] = useTransition()
+  
   const applyFilters = () => {
     const q = new URLSearchParams()
     if (dateRange?.from) q.set('startDate', dateRange.from.toISOString())
     if (dateRange?.to) q.set('endDate', dateRange.to.toISOString())
     if (deptFilter !== 'Semua') q.set('department', deptFilter)
     if (storeFilter !== 'Semua') q.set('store', storeFilter)
-    router.push(`/hrd/rekap?${q.toString()}`)
+    
+    startTransition(() => {
+      router.push(`/hrd/rekap?${q.toString()}`)
+    })
   }
 
   // Pagination State
@@ -158,9 +163,9 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
             </Select>
           </div>
           <div className="flex items-end">
-            <Button onClick={applyFilters} className="w-full md:w-auto gap-2">
-              <Search className="w-4 h-4" />
-              Terapkan Filter
+            <Button onClick={applyFilters} disabled={isPending} className="w-full md:w-auto gap-2">
+              {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+              {isPending ? 'Memuat Data...' : 'Terapkan Filter'}
             </Button>
           </div>
         </div>

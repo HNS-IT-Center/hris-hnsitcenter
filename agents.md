@@ -132,7 +132,7 @@ We have a massive dummy seeder (`prisma/seed-dummy.ts`) that populates the datab
 - **NO EMOJIS:** Absolutely no emojis (🚀, 🎉, etc.) anywhere in the UI or codebase. This is a strict rule.
 - **Date Pickers:** Always use the Shadcn UI `Calendar` & `Popover` (or `DatePickerWithRange`) for date selection. Do NOT use default HTML `<input type="date">`.
 - **Time Format:** Always use **24-hour format** (HH:mm) for all time pickers and display logic.
-- **Loading States:** Always use `useTransition` when calling Server Actions from buttons to provide immediate visual feedback (e.g., "Mengirim...").
+- **Loading States & Visual Feedback:** Always use `useTransition` when calling Server Actions from buttons to provide immediate visual feedback (e.g., changing text to "Mengirim..." or "Memuat Data..." and showing a spinner). Furthermore, for actions that take time (like filtering or programmatic `router.push` with searchParams), ensure loading states are visible so the user knows the app is not stuck. If the global top loading bar (TopLoader) doesn't trigger automatically on `router.push`, explicitly manage local loading states on the interacting components.
 - **Error Handling:** Use `toast.error()` (from `sonner`) for user-facing errors returned by Server Actions.
 - **Design Language:** Use `GlassCard` wrapper for standard UI blocks to maintain the "glassmorphism" aesthetic.
 - **Swipe-to-Sidebar:** The App layout uses a mobile swipe-to-open gesture for the sidebar (`e.touches`). Agents MUST ensure that horizontally scrolling elements (like `overflow-x-auto` tables, Radix Sliders, Modals) do not conflict by ignoring the swipe gesture if the event target is inside those elements (`e.target.closest(...)`).
