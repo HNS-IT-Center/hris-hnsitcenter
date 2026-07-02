@@ -58,13 +58,22 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
   const isScrolling = useRef(false)
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Abaikan swipe jika user sedang berinteraksi dengan elemen tertentu
+    const target = e.target as HTMLElement
+    if (
+      target.closest('[role="dialog"]') || 
+      target.closest('[role="alertdialog"]') || 
+      target.closest('input[type="range"]') || 
+      target.closest('.overflow-x-auto') ||
+      target.closest('[data-radix-scroll-area-viewport]')
+    ) {
+      return
+    }
+
     touchStartX.current = e.touches[0].clientX
     touchStartY.current = e.touches[0].clientY
     touchCurrentX.current = e.touches[0].clientX
     isScrolling.current = false
-    // Allow swipe to open from anywhere as requested by user
-    // If sidebar is already open, any swipe start is fine
-    // (Removed the > 30px check)
     isSwiping.current = true
   }
 

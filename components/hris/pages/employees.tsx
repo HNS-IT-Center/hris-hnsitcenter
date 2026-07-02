@@ -95,6 +95,25 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
     to: addDays(new Date(), 30),
   })
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(15)
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [q, deptFilter, storeFilter, hideInactive, sortField, sortOrder])
+
+  // Handle responsive items per page
+  useEffect(() => {
+    const handleResize = () => {
+      setItemsPerPage(window.innerWidth < 768 ? 10 : 15)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
   // Unique departments for filter
   const departments = Array.from(new Set(employees.map(e => e.departmentName).filter(Boolean))) as string[]
 
@@ -116,6 +135,10 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
       return sortOrder === "asc" ? dateA - dateB : dateB - dateA
     }
   })
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filtered.length / itemsPerPage))
+  const paginatedEmployees = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   function toggleSort(field: "name" | "joinDate") {
     if (sortField === field) {
@@ -328,7 +351,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
 
       {/* Mobile: cards */}
       <div className="grid gap-3 lg:hidden">
-        {filtered.map((e) => (
+        {paginatedEmployees.map((e) => (
           <GlassCard key={e.id} className="p-4 w-full overflow-hidden break-words">
             <button onClick={() => openDetail(e)} className="flex w-full items-center gap-3 text-left">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary/15 text-sm font-semibold text-secondary overflow-hidden">
@@ -357,12 +380,23 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
             </button>
           </GlassCard>
         ))}
-        {filtered.length === 0 && (
+        {paginatedEmployees.length === 0 && (
           <GlassCard className="py-10 text-center text-sm text-muted-foreground w-full">
             Tidak ada karyawan yang cocok dengan filter.
           </GlassCard>
         )}
       </div>
+
+      {/* Pagination Controls Mobile */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between lg:hidden text-sm">
+          <span className="text-muted-foreground">Hal {currentPage} dari {totalPages}</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+          </div>
+        </div>
+      )}
 
       {/* Desktop: table */}
       <GlassCard className="hidden overflow-hidden p-0 lg:block w-full">
@@ -383,7 +417,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((e) => (
+              {paginatedEmployees.map((e) => (
                 <TableRow key={e.id} className="cursor-pointer" onClick={() => openDetail(e)}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -408,8 +442,18 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions }: {
             </TableBody>
           </Table>
         </div>
-        {filtered.length === 0 && (
+        {paginatedEmployees.length === 0 && (
           <p className="py-10 text-center text-sm text-muted-foreground">Tidak ada karyawan yang cocok dengan filter.</p>
+        )}
+        {/* Pagination Controls Desktop */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/20">
+            <span className="text-sm text-muted-foreground">Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(filtered.length, currentPage * itemsPerPage)} dari {filtered.length} Karyawan</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Sebelumnya</Button>
+              <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Selanjutnya</Button>
+            </div>
+          </div>
         )}
       </GlassCard>
 

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { format } from "date-fns"
+import { format, subMonths, setDate, parseISO } from "date-fns"
 import { id } from "date-fns/locale"
 import { cn } from "@/lib/utils"
 import {
@@ -23,7 +23,8 @@ import {
   Search,
   Map,
   CalendarIcon,
-  Download
+  Download,
+  Filter
 } from "lucide-react"
 import {
   Dialog,
@@ -33,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { getHrdAttendanceLogs } from "@/app/actions/dashboard"
 import { overrideAttendance } from "@/app/actions/attendance"
 
@@ -87,7 +89,6 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
   const [tab, setTab] = useState("all")
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
-  const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>()
   const [overrideStatus, setOverrideStatus] = useState<DisplayStatus>("PRESENT")
   const [overrideReason, setOverrideReason] = useState("")
   const [isOverriding, setIsOverriding] = useState(false)
@@ -96,7 +97,33 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`
   })
 
+  // Filters
+  const [deptFilter, setDeptFilter] = useState("Semua")
+  const [storeFilter, setStoreFilter] = useState("Semua")
   
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 10
+
+  // Default Export Date Range (26th to 25th)
+  const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(() => {
+    const today = new Date()
+    let start = new Date()
+    let end = new Date()
+    if (today.getDate() <= 25) {
+      start = setDate(subMonths(today, 1), 26)
+      end = setDate(today, 25)
+    } else {
+      start = setDate(today, 26)
+      end = setDate(subMonths(today, -1), 25)
+    }
+    return { from: start, to: end }
+  })
+
+  // Unique lists for filters
+  const departments = Array.from(new Set(initialData.logs.map(l => l.employee.departmentName).filter(Boolean))) as string[]
+  const stores = Array.from(new Set(initialData.logs.map(l => l.employee.store?.name).filter(Boolean))) as string[]
+
   const handleOverride = async () => {
     if (!selectedLog || !selectedLog.attendance) return
     if (!overrideReason.trim()) {
@@ -127,9 +154,21 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
     })
   }
 
-  const filtered = tab === "all"
-    ? initialData.logs
-    : initialData.logs.filter((l) => l.displayStatus === tab)
+  // Apply filters
+  let filteredLogs = initialData.logs
+  if (tab !== "all") {
+    filteredLogs = filteredLogs.filter(l => l.displayStatus === tab)
+  }
+  if (deptFilter !== "Semua") {
+    filteredLogs = filteredLogs.filter(l => l.employee.departmentName === deptFilter)
+  }
+  if (storeFilter !== "Semua") {
+    filteredLogs = filteredLogs.filter(l => l.employee.store?.name === storeFilter)
+  }
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredLogs.length / itemsPerPage))
+  const paginatedLogs = filteredLogs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   const presentCount = initialData.logs.filter((l) => l.displayStatus === "PRESENT" || l.displayStatus === "LATE").length
   const missingCount = initialData.logs.filter((l) => l.displayStatus === "BELUM_ABSEN").length
@@ -177,11 +216,26 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
           <PopoverContent className="w-80" align="end">
             <div className="space-y-4">
               <h4 className="font-medium leading-none">Export Rekap Absensi</h4>
-              <p className="text-sm text-muted-foreground">Pilih rentang tanggal untuk diexport.</p>
+              <p className="text-sm text-muted-foreground">Pilih rentang tanggal untuk diexport (Default: Tgl 26 - 25).</p>
               <DatePickerWithRange date={exportDateRange} setDate={setExportDateRange} />
+              
               <div className="flex flex-col gap-2 pt-2">
-                <Button variant="outline" className="w-full" onClick={() => toast.success("Mengekspor PDF...")}>Export PDF</Button>
-                <Button variant="outline" className="w-full" onClick={() => toast.success("Mengekspor Excel...")}>Export XLS</Button>
+                <Button 
+                  variant="default" 
+                  className="w-full" 
+                  onClick={() => {
+                    const start = exportDateRange?.from ? exportDateRange.from.toISOString() : ''
+                    const end = exportDateRange?.to ? exportDateRange.to.toISOString() : ''
+                    const q = new URLSearchParams()
+                    if (start) q.set('startDate', start)
+                    if (end) q.set('endDate', end)
+                    if (deptFilter !== 'Semua') q.set('department', deptFilter)
+                    if (storeFilter !== 'Semua') q.set('store', storeFilter)
+                    router.push(`/hrd/rekap?${q.toString()}`)
+                  }}
+                >
+                  Tampilkan & Cetak Rekap
+                </Button>
               </div>
             </div>
           </PopoverContent>
@@ -203,25 +257,49 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
         ))}
       </div>
 
-      {/* Filter tabs */}
-      <div className="overflow-x-auto">
-        <Tabs value={tab} onValueChange={setTab}>
-          <TabsList className="w-max">
-            {TAB_FILTERS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
+      {/* Filter tabs & Dropdowns */}
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="overflow-x-auto">
+          <Tabs value={tab} onValueChange={(v) => { setTab(v); setCurrentPage(1); }}>
+            <TabsList className="w-max">
+              {TAB_FILTERS.map((t) => (
+                <TabsTrigger key={t.value} value={t.value}>{t.label}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+        
+        <div className="flex gap-2">
+          <Select value={deptFilter} onValueChange={(v) => { setDeptFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[140px] bg-input text-xs h-9">
+              <SelectValue placeholder="Departemen" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Semua">Semua Dept</SelectItem>
+              {departments.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          
+          <Select value={storeFilter} onValueChange={(v) => { setStoreFilter(v); setCurrentPage(1); }}>
+            <SelectTrigger className="w-[140px] bg-input text-xs h-9">
+              <SelectValue placeholder="Toko" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Semua">Semua Toko</SelectItem>
+              {stores.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Employee list */}
-      {filtered.length === 0 ? (
+      {filteredLogs.length === 0 ? (
         <GlassCard className="flex flex-col items-center justify-center gap-3 py-12 text-center">
           <p className="text-muted-foreground">Tidak ada data untuk filter ini.</p>
         </GlassCard>
       ) : (
         <div className="space-y-2">
-          {filtered.map((entry: LogEntry) => {
+          {paginatedLogs.map((entry: LogEntry) => {
             const { employee, attendance, displayStatus } = entry
             return (
               <GlassCard key={employee.id} className="flex items-center gap-3 p-3">
@@ -293,6 +371,17 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
               </GlassCard>
             )
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm py-2">
+          <span className="text-muted-foreground">Menampilkan {(currentPage - 1) * itemsPerPage + 1} - {Math.min(filteredLogs.length, currentPage * itemsPerPage)} dari {filteredLogs.length}</span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</Button>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
+          </div>
         </div>
       )}
 

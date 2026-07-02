@@ -5,7 +5,7 @@ import { format, subMonths, startOfMonth, endOfMonth, setDate } from "date-fns"
 export default async function RekapPage({
   searchParams,
 }: {
-  searchParams: { period?: string }
+  searchParams: { startDate?: string; endDate?: string; department?: string; store?: string }
 }) {
   // Default to 26 last month - 25 this month
   const today = new Date()
@@ -23,15 +23,16 @@ export default async function RekapPage({
     endDate = setDate(subMonths(today, -1), 25) // add 1 month
   }
 
-  // Allow override via search param format YYYY-MM
-  if (searchParams.period) {
-    const [y, m] = searchParams.period.split('-').map(Number)
-    const refDate = new Date(y, m - 1, 10) // 10th of that month
-    startDate = setDate(subMonths(refDate, 1), 26)
-    endDate = setDate(refDate, 25)
-  }
+  // Allow override via searchParams
+  if (searchParams.startDate) startDate = new Date(searchParams.startDate)
+  if (searchParams.endDate) endDate = new Date(searchParams.endDate)
 
-  const { recapList, deptStats } = await getMonthlyRecap(startDate.toISOString(), endDate.toISOString())
+  const { recapList, deptStats } = await getMonthlyRecap(
+    startDate.toISOString(), 
+    endDate.toISOString(),
+    searchParams.department,
+    searchParams.store
+  )
 
   return (
     <RekapClient 

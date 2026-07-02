@@ -27,7 +27,7 @@ export type DepartmentStat = {
   attendanceRate: number // percentage
 }
 
-export async function getMonthlyRecap(startDateStr: string, endDateStr: string) {
+export async function getMonthlyRecap(startDateStr: string, endDateStr: string, departmentFilter?: string, storeFilter?: string) {
   const user = await getServerUser()
   if (!user || (user.role !== 'HRD' && user.role !== 'BOSS' && user.role !== 'ADMIN')) {
     throw new Error('Unauthorized')
@@ -38,8 +38,13 @@ export async function getMonthlyRecap(startDateStr: string, endDateStr: string) 
   
   // Ambil semua karyawan
   const employees = await prisma.user.findMany({
-    where: { role: 'EMPLOYEE', isActive: true },
-    include: { department: true }
+    where: { 
+      role: 'EMPLOYEE', 
+      isActive: true,
+      ...(departmentFilter ? { departmentName: departmentFilter } : {}),
+      ...(storeFilter ? { store: { name: storeFilter } } : {})
+    },
+    include: { department: true, store: true }
   })
 
   // Ambil semua attendance di rentang tersebut
