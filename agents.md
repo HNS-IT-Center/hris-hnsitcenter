@@ -62,6 +62,11 @@ If you rename or delete a column (e.g., `shiftPattern`), Next.js/Prisma might ag
 Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item -Recurse -Force "node_modules\.prisma" -ErrorAction SilentlyContinue ; npx prisma generate
 ```
 
+### Dummy Seeding for Testing
+We have a massive dummy seeder (`prisma/seed-dummy.ts`) that populates the database with 30 employees and 2 months of attendance, leaves, and logs (April to July 2026).
+- **Run Dummy Seeder**: `npx tsx prisma/seed-dummy.ts`
+- **Truncate Dummy Data**: `npx tsx prisma/truncate-dummy.ts` (Wipes dummy data safely without deleting SSO accounts).
+
 ---
 
 ## 4. Phase Completion Status & Implementation Details
@@ -77,6 +82,7 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
   - Added `phoneNumber` field to User profile with WhatsApp direct message integration.
   - New SSO users are automatically provisioned if they bypass HRD pre-registration.
   - UI optimized for mobile layout (Employee cards prevent horizontal overflow).
+  - **Pagination added:** Capped at 15 employees per page on Desktop, 10 on Mobile.
 - **Shift Management (NOT STARTED):**
   - Need to wire up UI in `/app/(dashboard)/hrd/shifts`.
 - **Media Upload:** Implement Cloudflare R2 upload for employee avatars in `EmployeeForm`. Compress to WebP client-side via `lib/utils/file.ts`.
@@ -96,7 +102,9 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
   - Displays statuses: Present, Late, Alpha, On Leave, and Belum Absen.
   - Automatically maps "Belum Absen" to `ON_LEAVE` if the user has an approved leave request on that date.
   - Includes a "Lihat Detail" modal that surfaces Check-In/Out selfies and clickable Google Maps links for GPS coordinates.
-  - **Export Rekap Absensi:** Moved from Employee Directory to HRD Attendance Logs page for contextual consistency.
+  - **Pagination added:** Capped at 10 items per page.
+  - **Export Rekap Absensi:** Moved from a standalone page to an "Export Rekap" button inside the HRD Attendance Logs page.
+  - **Rekap Flow:** HRD clicks Export, selects a Date Range (Defaults to 26th of last month to 25th of current month), and applies Store/Department filters. The app routes to `/hrd/rekap` passing these parameters to render a print-friendly A4 Landscape layout using native CSS (`@media print`).
 
 ### Phase 4: Leave & Overtime Approvals (Status: PARTIALLY COMPLETED)
 - **Leave Requests (COMPLETED):**
@@ -112,8 +120,8 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
 - **Overtime Requests (NOT STARTED):** Need to implement logic for submitting and approving overtime hours in the `/performance` module.
 
 
-### Phase 5: Notifications & Automation (Status: NOT STARTED)
-- **Web Push (VAPID):** Ask for notification permissions, store subscriptions, and push alerts for Leave Approvals.
+### Phase 5: Notifications & Automation (Status: IN PROGRESS)
+- **Web Push (VAPID) (COMPLETED):** Ask for notification permissions, store subscriptions, and push alerts for Leave Approvals. VAPID keys are properly loaded from `.env`. The UI for subscribing/unsubscribing is available in the Employee Profile page.
 - **Email (Resend):** Send critical email alerts to HRD for new requests.
 - **Cron Jobs (Vercel Cron):** Setup `/api/cron/auto-checkout` to run at 23:59 to automatically check out users who forgot to clock out, marking them as `FORGOT_CHECKOUT` and generating an `AttentionFlag`.
 
@@ -123,6 +131,8 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
 - **Icons:** Use `lucide-react` consistently.
 - **NO EMOJIS:** Absolutely no emojis (🚀, 🎉, etc.) anywhere in the UI or codebase. This is a strict rule.
 - **Date Pickers:** Always use the Shadcn UI `Calendar` & `Popover` (or `DatePickerWithRange`) for date selection. Do NOT use default HTML `<input type="date">`.
+- **Time Format:** Always use **24-hour format** (HH:mm) for all time pickers and display logic.
 - **Loading States:** Always use `useTransition` when calling Server Actions from buttons to provide immediate visual feedback (e.g., "Mengirim...").
 - **Error Handling:** Use `toast.error()` (from `sonner`) for user-facing errors returned by Server Actions.
 - **Design Language:** Use `GlassCard` wrapper for standard UI blocks to maintain the "glassmorphism" aesthetic.
+- **Swipe-to-Sidebar:** The App layout uses a mobile swipe-to-open gesture for the sidebar (`e.touches`). Agents MUST ensure that horizontally scrolling elements (like `overflow-x-auto` tables, Radix Sliders, Modals) do not conflict by ignoring the swipe gesture if the event target is inside those elements (`e.target.closest(...)`).
