@@ -188,6 +188,7 @@ model User {
   overtimeRequests    OvertimeRequest[]
   leaveQuotas         LeaveQuota[]
   pushSubscriptions   PushSubscription[]
+  appNotifications    AppNotification[]
   storeAssignments    StoreAssignment[]
   shiftAssignments    ShiftAssignment[]
   shiftOverrides      ShiftOverride[]
@@ -462,7 +463,25 @@ model Recruitment {
 }
 
 // ============================================================
-// NOTIFICATIONS
+// IN-APP NOTIFICATIONS
+// ============================================================
+model AppNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  url       String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+// ============================================================
+// WEB PUSH SUBSCRIPTIONS
 // ============================================================
 
 model PushSubscription {

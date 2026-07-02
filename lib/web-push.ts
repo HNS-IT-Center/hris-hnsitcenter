@@ -15,6 +15,17 @@ try {
 
 export async function sendPushNotification(userId: string, payload: { title: string; body: string; url?: string }) {
   try {
+    // 1. Save In-App Notification (Always)
+    await prisma.appNotification.create({
+      data: {
+        userId,
+        title: payload.title,
+        message: payload.body,
+        url: payload.url,
+      }
+    })
+
+    // 2. Send Web Push Notification (If subscribed)
     const subs = await prisma.pushSubscription.findMany({
       where: { userId }
     })

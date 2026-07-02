@@ -18,11 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-const NOTIFICATIONS = [
-  { id: "1", title: "Izin disetujui", message: "Pengajuan sakit 20 Jun telah disetujui HRD.", time: "10 mnt lalu", unread: true },
-  { id: "2", title: "Pengingat absen", message: "Jangan lupa absen pulang sebelum 17:15.", time: "1 jam lalu", unread: true },
-  { id: "3", title: "Broadcast baru", message: "Update kebijakan absensi mulai 1 Juli.", time: "1 hari lalu", unread: false },
-]
+import { getAppNotifications, markNotificationAsRead } from "@/app/actions/notification"
 
 interface TopbarProps {
   title: string
@@ -36,10 +32,26 @@ interface TopbarProps {
 export function Topbar({ title, role, onMenu, user }: TopbarProps) {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const [notifications, setNotifications] = useState<any[]>([])
   const pathname = usePathname()
   
-  useEffect(() => setMounted(true), [])
-  const unread = NOTIFICATIONS.filter((n) => n.unread).length
+  useEffect(() => {
+    setMounted(true)
+    if (user?.id) {
+      getAppNotifications(user.id).then(res => {
+        if (res.success && res.data) {
+          setNotifications(res.data)
+        }
+      })
+    }
+  }, [user?.id])
+
+  const handleMarkAsRead = async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+    await markNotificationAsRead(id)
+  }
+
+  const unread = notifications.filter((n) => !n.isRead).length
 
   const isHrdMode = pathname?.startsWith('/hrd')
   const canSwitch = user?.role === "HRD" || user?.role === "BOSS"
@@ -108,18 +120,40 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
             <DropdownMenuLabel className="flex items-center justify-between">
               <div>
                 Notifikasi
-                <div className="text-[10px] font-normal text-muted-foreground">{unread} belum dibaca (Placeholder)</div>
+                <div className="text-[10px] font-normal text-muted-foreground">
+                  {unread === 0 ? "Semua telah dibaca" : `${unread} belum dibaca`}
+                </div>
               </div>
               {user?.id && <PushSubscriber userId={user.id} />}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            {NOTIFICATIONS.map((n) => (
-              <DropdownMenuItem key={n.id} className={cn("flex flex-col items-start gap-0.5 py-2.5", n.unread && "bg-accent/30")}>
-                <span className="text-sm font-medium text-foreground">{n.title}</span>
-                <span className="line-clamp-1 text-xs text-muted-foreground">{n.message}</span>
-                <span className="text-[11px] text-muted-foreground">{n.time}</span>
-              </DropdownMenuItem>
-            ))}
+            <div className="max-h-[300px] overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  Belum ada notifikasi
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <DropdownMenuItem 
+                    key={n.id} 
+                    className={cn("flex flex-col items-start gap-0.5 py-2.5 cursor-pointer", !n.isRead && "bg-accent/30")}
+                    onClick={() => {
+                      if (!n.isRead) handleMarkAsRead(n.id)
+                      if (n.url) window.location.href = n.url
+                    }}
+                  >
+                    <div className="flex w-full items-start justify-between gap-2">
+                      <span className="text-sm font-medium text-foreground">{n.title}</span>
+                      {!n.isRead && <span className="mt-1 h-2 w-2 rounded-full bg-destructive flex-shrink-0" />}
+                    </div>
+                    <span className="line-clamp-2 text-xs text-muted-foreground text-left">{n.message}</span>
+                    <span className="text-[11px] text-muted-foreground mt-1">
+                      {new Date(n.createdAt).toLocaleDateString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
