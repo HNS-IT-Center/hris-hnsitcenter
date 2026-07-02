@@ -104,7 +104,11 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           @page { size: A4 landscape; margin: 15mm; }
-          body, main { background-color: white !important; }
+          body, main { 
+            background-color: white !important; 
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           .no-print { display: none !important; }
           .pdf-container { 
              width: 100%; 
