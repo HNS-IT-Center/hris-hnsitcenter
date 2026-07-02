@@ -339,8 +339,11 @@ export async function overrideAttendance(
 ) {
   try {
     const { getServerUser } = await import('@/lib/auth')
-    const admin = await getServerUser()
-    if (!admin || (admin.role !== 'HRD' && admin.role !== 'BOSS' && admin.role !== 'SUPERADMIN')) {
+    const ssoAdmin = await getServerUser()
+    if (!ssoAdmin) return { success: false, error: 'Unauthorized.' }
+
+    const admin = await prisma.user.findUnique({ where: { email: ssoAdmin.email } })
+    if (!admin || (admin.role !== 'HRD' && admin.role !== 'BOSS' && admin.role !== 'ADMIN')) {
       return { success: false, error: 'Unauthorized.' }
     }
 
