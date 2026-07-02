@@ -87,8 +87,7 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
           {mounted && theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </button>
 
-        {/* Web Push Subscriber */}
-        {user?.id && <PushSubscriber userId={user.id} />}
+        {/* Notifications */}
 
         {/* Notifications */}
         <DropdownMenu>
@@ -107,8 +106,11 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
             <DropdownMenuLabel className="flex items-center justify-between">
-              Notifikasi
-              <span className="text-xs font-normal text-muted-foreground">{unread} belum dibaca</span>
+              <div>
+                Notifikasi
+                <div className="text-[10px] font-normal text-muted-foreground">{unread} belum dibaca (Placeholder)</div>
+              </div>
+              {user?.id && <PushSubscriber userId={user.id} />}
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             {NOTIFICATIONS.map((n) => (
