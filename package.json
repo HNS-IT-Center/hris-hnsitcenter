@@ -7,7 +7,9 @@
     "dev": "next dev",
     "lint": "eslint .",
     "start": "next start",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "seed:dummy": "tsx prisma/seed-dummy.ts",
+    "truncate:dummy": "tsx prisma/truncate-dummy.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",

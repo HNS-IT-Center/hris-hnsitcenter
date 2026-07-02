@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Monthly Attendance Recap - Horizontal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;family=JetBrains+Mono:wght@450&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#7e3000",
+                        "on-tertiary-fixed": "#351000",
+                        "secondary-container": "#39b8fd",
+                        "secondary-fixed": "#c9e6ff",
+                        "tertiary-container": "#a44100",
+                        "surface-container-low": "#eff4ff",
+                        "surface-bright": "#f8f9ff",
+                        "on-primary-fixed-variant": "#3323cc",
+                        "on-primary-container": "#dad7ff",
+                        "on-background": "#0b1c30",
+                        "on-tertiary": "#ffffff",
+                        "on-error": "#ffffff",
+                        "primary-fixed-dim": "#c3c0ff",
+                        "on-error-container": "#93000a",
+                        "on-tertiary-container": "#ffd2be",
+                        "surface-container-highest": "#d3e4fe",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#c3c0ff",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-fixed-variant": "#7b2f00",
+                        "inverse-surface": "#213145",
+                        "secondary-fixed-dim": "#89ceff",
+                        "on-surface-variant": "#464555",
+                        "on-secondary-fixed-variant": "#004c6e",
+                        "tertiary-fixed-dim": "#ffb695",
+                        "background": "#f8f9ff",
+                        "on-surface": "#0b1c30",
+                        "inverse-on-surface": "#eaf1ff",
+                        "primary-container": "#4f46e5",
+                        "on-secondary-fixed": "#001e2f",
+                        "surface": "#f8f9ff",
+                        "on-secondary-container": "#004666",
+                        "primary": "#3525cd",
+                        "surface-container": "#e5eeff",
+                        "error-container": "#ffdad6",
+                        "surface-variant": "#d3e4fe",
+                        "surface-container-high": "#dce9ff",
+                        "primary-fixed": "#e2dfff",
+                        "outline": "#777587",
+                        "outline-variant": "#c7c4d8",
+                        "on-primary-fixed": "#0f0069",
+                        "surface-tint": "#4d44e3",
+                        "tertiary-fixed": "#ffdbcc",
+                        "surface-dim": "#cbdbf5",
+                        "error": "#ba1a1a",
+                        "secondary": "#006591"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "gutter": "24px",
+                        "container-max": "1440px",
+                        "margin-desktop": "32px",
+                        "table-cell-padding-x": "16px",
+                        "unit": "4px",
+                        "table-cell-padding-y": "12px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "mono-label": ["JetBrains Mono"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["28px", { "lineHeight": "34px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-md": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "body-md": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "mono-label": ["12px", { "lineHeight": "16px", "fontWeight": "450" }],
+                        "body-sm": ["12px", { "lineHeight": "18px", "fontWeight": "400" }],
+                        "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Landscape PDF Print Styles */
+        @media print {
+            @page {
+                size: landscape;
+                margin: 0;
+            }
+            body {
+                background-color: white !important;
+                -webkit-print-color-adjust: exact;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .pdf-container {
+                width: 100%;
+                max-width: none;
+                margin: 0;
+                box-shadow: none;
+            }
+        }
+        /* Simulated A4 Landscape for screen viewing */
+        .pdf-container {
+            width: 297mm; /* A4 Landscape width */
+            height: 210mm; /* A4 Landscape height */
+            margin: 2rem auto;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            overflow: hidden;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen font-body-md">
+<!-- Screen-only controls -->
+<div class="no-print p-4 bg-surface-container border-b border-outline-variant flex justify-between items-center max-w-container-max mx-auto">
+<div>
+<h1 class="text-headline-md font-headline-md text-primary">PDF Export Preview (Landscape)</h1>
+<p class="text-body-sm font-body-sm text-on-surface-variant">Press Ctrl+P / Cmd+P to print or save as PDF.</p>
+</div>
+<button class="bg-primary text-on-primary px-4 py-2 rounded font-label-md text-label-md flex items-center gap-2 hover:bg-surface-tint transition-colors" onclick="window.print()">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">print</span>
+            Print PDF
+        </button>
+</div>
+<!-- Landscape PDF Container (A4 Proportions) -->
+<div class="pdf-container flex flex-col bg-surface">
+<!-- Header from JSON -->
+<header class="flex justify-between items-center w-full px-margin-desktop py-4 max-w-container-max mx-auto bg-surface border-b border-outline-variant">
+<div class="text-headline-md font-headline-md text-primary tracking-tight">Attendance Systems</div>
+<div class="flex items-center gap-4">
+<div class="text-right mr-4">
+<div class="text-label-md font-label-md text-on-surface">Monthly Recap</div>
+<div class="text-body-sm font-body-sm text-on-surface-variant">November 2023</div>
+</div>
+<div class="flex gap-2 no-print">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">print</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">download</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors cursor-pointer active:opacity-80">
+<span class="material-symbols-outlined">share</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Layout (Landscape Specific) -->
+<div class="flex-1 flex px-margin-desktop py-gutter gap-gutter overflow-hidden">
+<!-- Left Side: Summary Sidebar -->
+<div class="w-1/4 flex flex-col gap-4">
+<div class="bg-surface border border-outline-variant rounded-lg p-4 shadow-sm">
+<h2 class="text-label-md font-label-md text-on-surface mb-4 uppercase tracking-wider">Team Overview</h2>
+<div class="space-y-4"><div class="space-y-4"><div><div class="text-label-md font-label-md text-on-surface-variant mb-2 uppercase tracking-wider">Top Performers</div><div class="flex flex-wrap gap-2"><span class="px-2 py-1 rounded bg-[#ecfdf5] text-[#047857] text-label-md font-medium">Diana Ross</span><span class="px-2 py-1 rounded bg-[#ecfdf5] text-[#047857] text-label-md font-medium">Tom Hanks</span><span class="px-2 py-1 rounded bg-[#ecfdf5] text-[#047857] text-label-md font-medium">Alicia Keys</span></div></div><div class="h-px bg-outline-variant w-full"></div><div><div class="text-label-md font-label-md text-on-surface-variant mb-2 uppercase tracking-wider">Frequent Lateness</div><div class="flex flex-wrap gap-2"><span class="px-2 py-1 rounded bg-error-container text-error text-label-md font-medium">Jeff Bezos (7)</span><span class="px-2 py-1 rounded bg-error-container text-error text-label-md font-medium">Elon Musk (5)</span><span class="px-2 py-1 rounded bg-error-container text-error text-label-md font-medium">Serena Williams (3)</span></div></div></div></div>
+</div>
+<div class="bg-surface border border-outline-variant rounded-lg p-4 shadow-sm flex-1">
+<h2 class="text-label-md font-label-md text-on-surface mb-2 uppercase tracking-wider">Department Breakdown</h2>
+<div class="space-y-3 mt-4">
+<div>
+<div class="flex justify-between text-body-sm font-body-sm mb-1">
+<span class="text-on-surface">Engineering</span>
+<span class="text-on-surface font-semibold">96%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-primary h-1.5 rounded-full" style="width: 96%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-body-sm font-body-sm mb-1">
+<span class="text-on-surface">Marketing</span>
+<span class="text-on-surface font-semibold">92%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-primary h-1.5 rounded-full" style="width: 92%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-body-sm font-body-sm mb-1">
+<span class="text-on-surface">Sales</span>
+<span class="text-on-surface font-semibold">88%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-primary h-1.5 rounded-full" style="width: 88%"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-body-sm font-body-sm mb-1">
+<span class="text-on-surface">HR &amp; Admin</span>
+<span class="text-on-surface font-semibold">98%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-primary h-1.5 rounded-full" style="width: 98%"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Side: Detailed Table (Wider for landscape) -->
+<div class="w-3/4 flex flex-col bg-surface border border-outline-variant rounded-lg shadow-sm overflow-hidden">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-bright sticky top-0 border-b border-outline-variant">
+<tr><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold">Employee</th><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold">Role</th><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold text-center">Present</th><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold text-center">Late</th><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold text-center">Absent</th><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold text-center">Permit</th><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold text-center">Cuti</th><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold text-center">Forgot In/Out</th><th class="py-table-cell-padding-y px-table-cell-padding-x text-label-md font-label-md text-on-surface-variant font-semibold">Avg. Arrival</th></tr>
+</thead>
+<tbody class="divide-y divide-outline-variant"><tr class="hover:bg-surface-container-low transition-colors"><td class="py-table-cell-padding-y px-table-cell-padding-x"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-md text-label-md">DR</div><div><div class="text-body-md font-body-md font-medium text-on-surface">Diana Ross</div><div class="text-body-sm font-body-sm text-on-surface-variant">EMP-005</div></div></div></td><td class="py-table-cell-padding-y px-table-cell-padding-x text-body-sm font-body-sm text-on-surface">Lead Developer</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">21</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center"><span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-label-md font-label-md bg-[#fffbeb] text-[#b45309]">1</span></td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">0</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">0</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">0</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">0</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-mono-label font-mono-label text-on-surface-variant">08:45 AM</td></tr><tr class="hover:bg-surface-container-low transition-colors"><td class="py-table-cell-padding-y px-table-cell-padding-x"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-label-md text-label-md">MJ</div><div><div class="text-body-md font-body-md font-medium text-on-surface">Michael Jordan</div><div class="text-body-sm font-body-sm text-on-surface-variant">EMP-006</div></div></div></td><td class="py-table-cell-padding-y px-table-cell-padding-x text-body-sm font-body-sm text-on-surface">Sales Director</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">18</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center"><span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-label-md font-label-md bg-[#ecfdf5] text-[#047857]">0</span></td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center"><span class="inline-flex items-center justify-center px-2 py-0.5 rounded text-label-md font-label-md bg-error-container text-error">2</span></td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">1</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">0</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-center text-body-md font-body-md text-on-surface">1</td><td class="py-table-cell-padding-y px-table-cell-padding-x text-mono-label font-mono-label text-on-surface-variant">09:15 AM</td></tr></tbody>
+</table>
+</div>
+<div class="flex items-center justify-between px-4 py-2 bg-surface-bright border-t border-outline-variant no-print"><div class="text-body-sm text-on-surface-variant">Showing 1-10 of 30 employees</div><div class="flex gap-2"><button class="p-1 rounded hover:bg-surface-container-low text-outline cursor-default"><span class="material-symbols-outlined">chevron_left</span></button><button class="px-3 py-1 rounded bg-primary text-on-primary text-label-md">1</button><button class="px-3 py-1 rounded hover:bg-surface-container-low text-on-surface text-label-md">2</button><button class="px-3 py-1 rounded hover:bg-surface-container-low text-on-surface text-label-md">3</button><button class="p-1 rounded hover:bg-surface-container-low text-on-surface"><span class="material-symbols-outlined">chevron_right</span></button></div></div></div>
+</div>
+<!-- Footer from JSON -->
+<footer class="flex justify-between items-center w-full px-margin-desktop py-table-cell-padding-y max-w-container-max mx-auto bg-surface-container-lowest border-t border-outline-variant mt-auto">
+<div class="text-label-md font-label-md font-bold text-outline">© 2024 Attendance Systems | Monthly Recap Report | Page 1 of 3</div>
+<div class="flex gap-4">
+<a class="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-default" href="#">Privacy Policy</a>
+<a class="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-default" href="#">Support</a>
+<a class="text-label-md font-label-md text-on-surface-variant hover:text-primary transition-colors cursor-default" href="#">Export Log</a>
+</div>
+</footer>
+</div>
+</body></html>

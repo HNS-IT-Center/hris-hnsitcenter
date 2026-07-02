@@ -22,6 +22,7 @@ import {
   Users,
   X,
   AlertTriangle,
+  FileText,
 } from "lucide-react"
 
 export type NavId =
@@ -39,6 +40,7 @@ export type NavId =
   | "hrd-anomalies"
   | "recruitment"
   | "broadcast"
+  | "rekap"
 
 type NavItem = { id: NavId; label: string; icon: React.ElementType; href: string; badge?: number }
 
@@ -53,12 +55,13 @@ const EMPLOYEE_NAV: NavItem[] = [
 const HRD_NAV: NavItem[] = [
   { id: "hrd-dashboard", label: "Dashboard HRD", icon: LayoutDashboard, href: "/hrd/dashboard" },
   { id: "hrd-attendance", label: "Log Absensi", icon: CalendarCheck, href: "/hrd/attendance" },
+  { id: "rekap", label: "Rekap Bulanan", icon: FileText, href: "/hrd/rekap" },
   { id: "hrd-anomalies", label: "Log Anomali", icon: AlertTriangle, href: "/hrd/anomalies" },
   { id: "employees", label: "Karyawan", icon: Users, href: "/hrd/employees" },
   { id: "shifts", label: "Shift", icon: CalendarDays, href: "/hrd/shifts" },
   { id: "stores", label: "Toko", icon: MapPin, href: "/hrd/stores" },
   { id: "leave", label: "Approval Izin", icon: ClipboardList, href: "/hrd/leave" },
-  { id: "calendar", label: "Kelola Kalender", icon: CalendarRange, href: "/hrd/calendar" },
+  { id: "calendar", label: "Kalender Perusahaan", icon: CalendarRange, href: "/hrd/calendar" },
   { id: "recruitment", label: "Rekrutmen", icon: Target, href: "/hrd/recruitment" },
   { id: "broadcast", label: "Broadcast", icon: Megaphone, href: "/hrd/broadcast" },
 ]
