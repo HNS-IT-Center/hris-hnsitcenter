@@ -45,6 +45,7 @@ export async function submitAttendance(data: {
   photoUrl: string
   deviceId: string
   userAgent?: string
+  deviceName?: string   // Marketing name collected client-side (e.g. "Oppo Reno 14 5G")
 }) {
   try {
     const today = getTodayUTCForWIB()
@@ -96,16 +97,25 @@ export async function submitAttendance(data: {
       })
 
       if (otherUsers.length > 0) {
-        // Prevent spamming by checking if flag already exists today
+        // Build a human-readable device string for the attention flag.
+        // Priority: (1) marketing name from client-side userAgentData,
+        //           (2) model from ua-parser-js,
+        //           (3) OS + Browser fallback,
+        //           (4) partial Device ID.
         let deviceStr = `Device ID: ${data.deviceId.substring(0, 8)}...`
-        if (data.userAgent) {
+
+        if (data.deviceName) {
+          // Best case: client sent the real marketing model name
+          deviceStr = data.deviceName
+        } else if (data.userAgent) {
           try {
             const { UAParser } = require('ua-parser-js')
             const parser = new UAParser(data.userAgent)
             const result = parser.getResult()
             const deviceModel = result.device.model
             const deviceVendor = result.device.vendor
-            if (deviceModel) {
+            if (deviceModel && deviceModel.length > 1) {
+              // Only use model if it's not a single-letter code like "K"
               deviceStr = `${deviceVendor ? deviceVendor + ' ' : ''}${deviceModel}`
             } else {
               const os = result.os.name
@@ -114,8 +124,8 @@ export async function submitAttendance(data: {
                 deviceStr = `${os || 'Unknown OS'} - ${browser || 'Unknown Browser'}`
               }
             }
-          } catch (err) {
-            // fallback if parser fails
+          } catch {
+            // fallback if parser fails — keep Device ID string
           }
         }
 

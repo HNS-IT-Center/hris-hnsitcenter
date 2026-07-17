@@ -1,7 +1,7 @@
 "use client"
 
 import { GlassCard } from "@/components/hris/shared"
-import { Briefcase, Building2, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, EyeOff } from "lucide-react"
+import { Briefcase, Building2, Camera, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, EyeOff } from "lucide-react"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
 import { useState, useTransition, useRef } from "react"
 import { Input } from "@/components/ui/input"
@@ -158,9 +158,16 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false }: { user: U
               ) : (
                 getInitials(user.name)
               )}
+              {/* Hover overlay */}
               <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
                 {isUploading ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Upload className="h-5 w-5 text-white" />}
               </div>
+            </div>
+            {/* Always-visible camera badge — tells user the photo is editable */}
+            <div className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-primary bg-primary-foreground shadow-md">
+              {isUploading
+                ? <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                : <Camera className="h-3.5 w-3.5 text-primary" />}
             </div>
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
           </div>

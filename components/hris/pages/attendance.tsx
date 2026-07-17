@@ -196,6 +196,33 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
       const deviceId = await generateFingerprint()
       const userAgent = navigator.userAgent
 
+      // Collect a human-readable device name client-side.
+      // navigator.userAgentData is available in modern Chromium browsers and gives
+      // the real brand + model name (e.g. "Oppo Reno 14 5G"), unlike the raw
+      // userAgent string which only exposes model codes like "(K)".
+      let deviceName: string | undefined
+      try {
+        const uaData = (navigator as any).userAgentData
+        if (uaData) {
+          const highEntropy = await uaData.getHighEntropyValues(['model', 'platform', 'brands'])
+          const model = highEntropy.model as string | undefined
+          const platform = highEntropy.platform as string | undefined
+          const brands = (highEntropy.brands as { brand: string; version: string }[] | undefined)
+            ?.filter(b => !b.brand.includes('Not'))
+            .map(b => b.brand)
+            .join(', ')
+          if (model) {
+            deviceName = model
+          } else if (brands && platform) {
+            deviceName = `${platform} — ${brands}`
+          } else if (platform) {
+            deviceName = platform
+          }
+        }
+      } catch {
+        // getHighEntropyValues may be blocked by permissions policy — ignore
+      }
+
       // Convert to Base64 to avoid Next.js FormData parsing issues
       const base64 = await new Promise<string>((resolve) => {
         const reader = new FileReader()
@@ -224,7 +251,8 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
         lng: liveLocation.lng,
         photoUrl: photoUrl,
         deviceId,
-        userAgent
+        userAgent,
+        deviceName
       })
 
       if (res.success) {
@@ -343,6 +371,7 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
               autoPlay 
               playsInline 
               muted 
+              style={{ transform: 'scaleX(-1)' }}
               className={`h-full w-full object-cover ${capturedUrl ? 'hidden' : 'block'}`}
             />
             {capturedUrl && (

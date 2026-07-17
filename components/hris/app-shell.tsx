@@ -15,7 +15,6 @@ import { ShiftsPage } from "@/components/hris/pages/shifts"
 import { StoresPage } from "@/components/hris/pages/stores"
 import { CalendarManagerPage } from "@/components/hris/pages/calendar-manager"
 import { RecruitmentPage } from "@/components/hris/pages/recruitment"
-import { BroadcastPage } from "@/components/hris/pages/broadcast"
 
 const SECTION_TITLES: Record<NavId, string> = {
   dashboard: "Dashboard",
@@ -62,7 +61,7 @@ export function AppShell({ onLogout }: { onLogout: () => void }) {
       case "recruitment":
         return <RecruitmentPage />
       case "broadcast":
-        return <BroadcastPage />
+        return null // Handled by /hrd/broadcast server page
       default:
         return <EmployeeDashboard onNavigate={setActive} />
     }

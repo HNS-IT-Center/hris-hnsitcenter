@@ -501,7 +501,9 @@ model Broadcast {
   title       String
   message     String
   tag         BroadcastTag
-  sentAt      DateTime?
+  scheduledAt DateTime?    // When HRD wants to send it (null = send immediately)
+  sentAt      DateTime?    // Actual delivery timestamp (null = not yet sent)
+  isSent      Boolean      @default(false)
   createdById String
   createdAt   DateTime     @default(now())
 

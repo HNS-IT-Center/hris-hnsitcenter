@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/auto-checkout",
       "schedule": "59 16 * * *"
+    },
+    {
+      "path": "/api/cron/shift-reminders",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/send-broadcasts",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
