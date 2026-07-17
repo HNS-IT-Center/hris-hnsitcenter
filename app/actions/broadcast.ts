@@ -72,10 +72,16 @@ export async function createBroadcast(data: {
       }
     })
 
-    // If no scheduled time (send immediately), trigger sending right now
-    if (!data.scheduledAt) {
-      await deliverBroadcast(broadcast.id, data.allEmployees)
-    }
+    // TODO (future): when send-broadcasts cron is re-enabled in vercel.json,
+    // change this block to only call deliverBroadcast when scheduledAt is null,
+    // and let the cron handle scheduled ones:
+    //
+    //   if (!data.scheduledAt) {
+    //     await deliverBroadcast(broadcast.id, data.allEmployees)
+    //   }
+    //
+    // For now: always send immediately regardless of scheduledAt.
+    await deliverBroadcast(broadcast.id, data.allEmployees)
 
     revalidatePath('/hrd/broadcast')
     return { success: true, broadcastId: broadcast.id }
