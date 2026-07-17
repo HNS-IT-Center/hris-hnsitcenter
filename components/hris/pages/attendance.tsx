@@ -136,10 +136,14 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
     canvas.width = video.videoWidth
     canvas.height = video.videoHeight
     
-    // Draw current frame
+    // Draw current frame (Flipped horizontally to match mirror preview)
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    
+    ctx.translate(canvas.width, 0)
+    ctx.scale(-1, 1)
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
     
     // Compress to WebP (0.8 quality)
     canvas.toBlob((blob) => {
