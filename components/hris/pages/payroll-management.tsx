@@ -23,6 +23,7 @@ import {
 import { GlassCard } from "@/components/hris/shared"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { upsertPayrollConfig, generatePayrollSlip, getPayrollSlip, generateAllPayrollSlips, publishAllPayrollSlips } from "@/app/actions/payroll"
 import type { getAllEmployeesPayrollSummary } from "@/app/actions/payroll"
 import type { PayrollSlip } from "@prisma/client"
