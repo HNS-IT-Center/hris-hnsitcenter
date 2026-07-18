@@ -364,8 +364,9 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
   const [isPending, startTransition] = useTransition()
   const [configTarget, setConfigTarget] = useState<Employee | null>(null)
   const [slipPreview, setSlipPreview] = useState<(PayrollSlip & { user: any }) | null>(null)
-  const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [isGeneratingAll, setIsGeneratingAll] = useState(false)
+  const [showGenerateDialog, setShowGenerateDialog] = useState(false)
+  const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [search, setSearch] = useState("")
 
   const filteredEmployees = useMemo(() =>
@@ -398,11 +399,10 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
   }
 
   const handleGenerateAll = async () => {
-    if (!confirm("Apakah Anda yakin ingin men-generate slip gaji untuk SEMUA karyawan aktif? Ini mungkin membutuhkan waktu beberapa saat.")) return
-    
     setIsGeneratingAll(true)
     const res = await generateAllPayrollSlips(currentYear, currentMonth)
     setIsGeneratingAll(false)
+    setShowGenerateDialog(false)
     if (res.success) {
       toast.success(res.message)
       router.refresh()
@@ -412,10 +412,9 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
   }
 
   const handlePublishAll = async () => {
-    if (!confirm("Apakah Anda yakin ingin mem-publish SEMUA slip gaji untuk periode ini? Karyawan akan dapat melihatnya di profil mereka.")) return
-    
     startTransition(async () => {
       const res = await publishAllPayrollSlips(currentYear, currentMonth)
+      setShowPublishDialog(false)
       if (res.success) {
         toast.success(res.message)
         router.refresh()
@@ -448,17 +447,17 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
         {/* Period Navigator & Actions */}
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
           <Button 
-            onClick={handleGenerateAll}
+            onClick={() => setShowGenerateDialog(true)}
             disabled={isGeneratingAll || isPending}
             className="gap-1.5"
             variant="default"
           >
-            <RefreshCw className={`h-4 w-4 ${isGeneratingAll ? "animate-spin" : ""}`} />
-            {isGeneratingAll ? "Memproses..." : "Generate Semua"}
+            <RefreshCw className="h-4 w-4" />
+            Generate Semua
           </Button>
           
           <Button 
-            onClick={handlePublishAll}
+            onClick={() => setShowPublishDialog(true)}
             disabled={isGeneratingAll || isPending}
             className="gap-1.5"
             variant="outline"
@@ -624,6 +623,60 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
               slip={slipPreview}
               onClose={() => setSlipPreview(null)}
             />
+          )}
+        </DialogContent>
+      </Dialog>
+      {/* Generate All Dialog */}
+      <Dialog open={showGenerateDialog} onOpenChange={(open) => { if (!isGeneratingAll) setShowGenerateDialog(open) }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{isGeneratingAll ? "Memproses Slip Gaji..." : "Generate Semua Slip Gaji"}</DialogTitle>
+          </DialogHeader>
+          {isGeneratingAll ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
+              <p className="text-center text-sm text-muted-foreground">
+                Sistem sedang memproses slip gaji untuk seluruh karyawan aktif. Mohon jangan tutup halaman ini.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 pt-4">
+              <p className="text-sm text-foreground">
+                Apakah Anda yakin ingin men-generate slip gaji untuk SEMUA karyawan aktif pada periode <b>{periodLabel}</b>?
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>Batal</Button>
+                <Button onClick={handleGenerateAll}>Ya, Generate</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Publish All Dialog */}
+      <Dialog open={showPublishDialog} onOpenChange={(open) => { if (!isPending) setShowPublishDialog(open) }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{isPending ? "Mem-publish..." : "Publish Semua Slip Gaji"}</DialogTitle>
+          </DialogHeader>
+          {isPending ? (
+            <div className="flex flex-col items-center justify-center py-8 space-y-4">
+              <Send className="h-10 w-10 text-primary animate-bounce" />
+              <p className="text-center text-sm text-muted-foreground">
+                Sistem sedang mem-publish slip gaji. Karyawan akan segera dapat melihatnya.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 pt-4">
+              <p className="text-sm text-foreground">
+                Apakah Anda yakin ingin mem-publish SEMUA slip gaji untuk periode ini? 
+                Karyawan akan mendapatkan akses untuk melihatnya di halaman profil mereka.
+              </p>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Batal</Button>
+                <Button onClick={handlePublishAll}>Ya, Publish</Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
