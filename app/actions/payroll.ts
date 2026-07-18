@@ -389,7 +389,7 @@ export async function getAllEmployeesPayrollSummary() {
   if (!admin) return []
 
   const employees = await prisma.user.findMany({
-    where: { isActive: true, role: 'EMPLOYEE' },
+    where: { isActive: true, role: { not: 'BOSS' } },
     orderBy: { name: 'asc' },
     include: {
       payrollConfig: true,
