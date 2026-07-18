@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { UserRole, Shift, Store, Department } from '@prisma/client'
+import { Role, Shift, Store, Department } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { addDays, format, isWeekend, parseISO, startOfDay, endOfDay } from 'date-fns'
 
@@ -51,6 +51,19 @@ async function main() {
         leaveQuotaRemaining: 12,
       }
     })
+    
+    // Set default payroll config for the dummy user
+    await prisma.userPayrollConfig.create({
+      data: {
+        userId: user.id,
+        baseSalary26Days: 5000000 + Math.floor(Math.random() * 3) * 1000000, // 5, 6, or 7 million
+        uangMakan: 500000,
+        transport: 300000,
+        bpjs: 150000,
+        pph21: 0,
+      }
+    })
+    
     dummyUsers.push(user)
   }
 
@@ -60,7 +73,7 @@ async function main() {
   console.log('📅 Mem-build riwayat absensi (estimasi: 2.5 bulan, ribuan baris)...')
   
   const startDate = parseISO('2026-04-15T00:00:00Z')
-  const endDate = new Date('2026-07-02T00:00:00Z') // Tanggal patokan
+  const endDate = new Date() // Sampai hari ini
 
   const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
   let countAttendance = 0
