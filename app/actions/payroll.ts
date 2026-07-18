@@ -423,12 +423,23 @@ export async function generateAllPayrollSlips(year: number, month: number) {
   let successCount = 0
   let failCount = 0
 
-  for (const emp of employees) {
-    const res = await generatePayrollSlip(emp.id, year, month)
-    if (res.success) {
-      successCount++
-    } else {
-      failCount++
+  // Process in chunks of 10 to avoid overwhelming the database connection pool,
+  // but still gain massive speed improvements through parallel execution.
+  const CHUNK_SIZE = 10
+  for (let i = 0; i < employees.length; i += CHUNK_SIZE) {
+    const chunk = employees.slice(i, i + CHUNK_SIZE)
+    
+    // Execute all 10 employees concurrently
+    const results = await Promise.all(
+      chunk.map(emp => generatePayrollSlip(emp.id, year, month))
+    )
+
+    for (const res of results) {
+      if (res.success) {
+        successCount++
+      } else {
+        failCount++
+      }
     }
   }
 
