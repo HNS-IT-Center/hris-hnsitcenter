@@ -323,6 +323,7 @@ export async function generatePayrollSlip(
       lupaAbsen,
       izinSetengahHari,
       notes: overrides?.notes ?? null,
+      isPublished: false, // Reset to false on regenerate
       generatedAt: new Date(),
       updatedAt: new Date(),
     },
@@ -369,7 +370,7 @@ export async function generatePayrollSlip(
 
 export async function getEmployeePayrollSlips(userId: string) {
   return prisma.payrollSlip.findMany({
-    where: { userId },
+    where: { userId, isPublished: true },
     orderBy: { periodStart: 'desc' }
   })
 }
@@ -400,4 +401,65 @@ export async function getAllEmployeesPayrollSummary() {
   })
 
   return employees
+}
+
+// ============================================================
+// BATCH GENERATE PAYROLL SLIPS
+// ============================================================
+
+export async function generateAllPayrollSlips(year: number, month: number) {
+  const admin = await requireHrdOrBoss()
+  if (!admin) return { success: false, error: 'Unauthorized.' }
+
+  const employees = await prisma.user.findMany({
+    where: { isActive: true, role: { not: 'BOSS' } },
+    select: { id: true }
+  })
+
+  if (employees.length === 0) {
+    return { success: false, error: 'Tidak ada karyawan aktif.' }
+  }
+
+  let successCount = 0
+  let failCount = 0
+
+  for (const emp of employees) {
+    const res = await generatePayrollSlip(emp.id, year, month)
+    if (res.success) {
+      successCount++
+    } else {
+      failCount++
+    }
+  }
+
+  revalidatePath('/hrd/payroll')
+  return { success: true, message: `Berhasil men-generate ${successCount} slip gaji.` + (failCount > 0 ? ` Gagal: ${failCount}` : '') }
+}
+
+export async function publishAllPayrollSlips(year: number, month: number) {
+  const admin = await requireHrdOrBoss()
+  if (!admin) return { success: false, error: 'Unauthorized.' }
+
+  const { periodStart } = getPayrollPeriodByMonth(year, month)
+
+  const result = await prisma.payrollSlip.updateMany({
+    where: { periodStart },
+    data: { isPublished: true }
+  })
+
+  revalidatePath('/hrd/payroll')
+  return { success: true, message: `Berhasil mem-publish ${result.count} slip gaji.` }
+}
+
+export async function togglePublishPayrollSlip(userId: string, periodStart: Date, publish: boolean) {
+  const admin = await requireHrdOrBoss()
+  if (!admin) return { success: false, error: 'Unauthorized.' }
+
+  await prisma.payrollSlip.update({
+    where: { userId_periodStart: { userId, periodStart } },
+    data: { isPublished: publish }
+  })
+
+  revalidatePath('/hrd/payroll')
+  return { success: true }
 }

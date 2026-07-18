@@ -18,12 +18,12 @@ import {
   Wallet,
   TrendingDown,
   CheckCircle2,
+  Send,
 } from "lucide-react"
 import { GlassCard } from "@/components/hris/shared"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { upsertPayrollConfig, generatePayrollSlip, getPayrollSlip } from "@/app/actions/payroll"
+import { upsertPayrollConfig, generatePayrollSlip, getPayrollSlip, generateAllPayrollSlips, publishAllPayrollSlips } from "@/app/actions/payroll"
 import type { getAllEmployeesPayrollSummary } from "@/app/actions/payroll"
 import type { PayrollSlip } from "@prisma/client"
 
@@ -364,6 +364,7 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
   const [configTarget, setConfigTarget] = useState<Employee | null>(null)
   const [slipPreview, setSlipPreview] = useState<(PayrollSlip & { user: any }) | null>(null)
   const [generatingId, setGeneratingId] = useState<string | null>(null)
+  const [isGeneratingAll, setIsGeneratingAll] = useState(false)
   const [search, setSearch] = useState("")
 
   const filteredEmployees = useMemo(() =>
@@ -395,6 +396,34 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
     }
   }
 
+  const handleGenerateAll = async () => {
+    if (!confirm("Apakah Anda yakin ingin men-generate slip gaji untuk SEMUA karyawan aktif? Ini mungkin membutuhkan waktu beberapa saat.")) return
+    
+    setIsGeneratingAll(true)
+    const res = await generateAllPayrollSlips(currentYear, currentMonth)
+    setIsGeneratingAll(false)
+    if (res.success) {
+      toast.success(res.message)
+      router.refresh()
+    } else {
+      toast.error(res.error)
+    }
+  }
+
+  const handlePublishAll = async () => {
+    if (!confirm("Apakah Anda yakin ingin mem-publish SEMUA slip gaji untuk periode ini? Karyawan akan dapat melihatnya di profil mereka.")) return
+    
+    startTransition(async () => {
+      const res = await publishAllPayrollSlips(currentYear, currentMonth)
+      if (res.success) {
+        toast.success(res.message)
+        router.refresh()
+      } else {
+        toast.error(res.error)
+      }
+    })
+  }
+
   const handleViewSlip = async (employee: Employee) => {
     const ps = new Date(periodStart)
     const slip = await getPayrollSlip(employee.id, ps)
@@ -415,17 +444,39 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
           <h1 className="text-xl font-bold text-foreground">Manajemen Payroll</h1>
           <p className="text-sm text-muted-foreground">Atur & generate slip gaji karyawan.</p>
         </div>
-        {/* Period Navigator */}
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" className="h-9 w-9 bg-input" onClick={() => navigateMonth(-1)} disabled={isPending}>
-            <ChevronLeft className="h-4 w-4" />
+        {/* Period Navigator & Actions */}
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+          <Button 
+            onClick={handleGenerateAll}
+            disabled={isGeneratingAll || isPending}
+            className="gap-1.5"
+            variant="default"
+          >
+            <RefreshCw className={`h-4 w-4 ${isGeneratingAll ? "animate-spin" : ""}`} />
+            {isGeneratingAll ? "Memproses..." : "Generate Semua"}
           </Button>
-          <div className="px-3 py-1.5 rounded-md bg-input border text-sm font-medium min-w-[160px] text-center">
-            {periodLabel}
+          
+          <Button 
+            onClick={handlePublishAll}
+            disabled={isGeneratingAll || isPending}
+            className="gap-1.5"
+            variant="outline"
+          >
+            <Send className="h-4 w-4" />
+            Publish Semua
+          </Button>
+
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" className="h-9 w-9 bg-input" onClick={() => navigateMonth(-1)} disabled={isPending || isGeneratingAll}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="px-3 py-1.5 rounded-md bg-input border text-sm font-medium min-w-[160px] text-center">
+              {periodLabel}
+            </div>
+            <Button variant="outline" size="icon" className="h-9 w-9 bg-input" onClick={() => navigateMonth(1)} disabled={isPending || isGeneratingAll}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-          <Button variant="outline" size="icon" className="h-9 w-9 bg-input" onClick={() => navigateMonth(1)} disabled={isPending}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
