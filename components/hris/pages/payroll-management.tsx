@@ -364,6 +364,7 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
   const [isPending, startTransition] = useTransition()
   const [configTarget, setConfigTarget] = useState<Employee | null>(null)
   const [slipPreview, setSlipPreview] = useState<(PayrollSlip & { user: any }) | null>(null)
+  const [generatingId, setGeneratingId] = useState<string | null>(null)
   const [isGeneratingAll, setIsGeneratingAll] = useState(false)
   const [showGenerateDialog, setShowGenerateDialog] = useState(false)
   const [showPublishDialog, setShowPublishDialog] = useState(false)
