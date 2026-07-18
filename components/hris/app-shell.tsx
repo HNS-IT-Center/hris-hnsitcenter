@@ -23,13 +23,18 @@ const SECTION_TITLES: Record<NavId, string> = {
   performance: "Performa",
   profile: "Profil",
   "hrd-dashboard": "Dashboard HRD",
+  "hrd-attendance": "Log Absensi",
+  "hrd-anomalies": "Log Anomali",
   employees: "Karyawan",
   shifts: "Shift",
   stores: "Toko",
   calendar: "Kelola Kalender",
   recruitment: "Rekrutmen",
   broadcast: "Broadcast",
+  rekap: "Rekap Absensi",
+  payroll: "Payroll",
 }
+
 
 export function AppShell({ onLogout }: { onLogout: () => void }) {
   const [role, setRole] = useState<Role>("employee")

@@ -1,8 +1,9 @@
 "use client"
 
 import { GlassCard } from "@/components/hris/shared"
-import { Briefcase, Building2, Camera, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, EyeOff } from "lucide-react"
+import { Briefcase, Building2, Camera, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, EyeOff, FileText, Printer, Wallet } from "lucide-react"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
+import type { getEmployeePayrollSlips } from "@/app/actions/payroll"
 import { useState, useTransition, useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -10,8 +11,12 @@ import { toast } from "sonner"
 import { updateProfilePhoneNumber, updateProfileAvatar } from "@/app/actions/profile"
 import { updatePassword } from "@/app/actions/auth-local"
 import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { format } from "date-fns"
+import { id } from "date-fns/locale"
 
 type LeaveQuota = Awaited<ReturnType<typeof getMyLeaveQuota>>
+type PayrollSlip = Awaited<ReturnType<typeof getEmployeePayrollSlips>>[number]
 
 type UserProfile = {
   id: string
@@ -45,7 +50,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
 }
 
-export function ProfilePage({ user, leaveQuota, hasPassword = false }: { user: UserProfile; leaveQuota: LeaveQuota; hasPassword?: boolean }) {
+export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlips = [] }: { user: UserProfile; leaveQuota: LeaveQuota; hasPassword?: boolean; payrollSlips?: PayrollSlip[] }) {
   const joinDate = new Date(user.joinDate).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "long",
@@ -317,6 +322,46 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false }: { user: U
           </div>
         </GlassCard>
       </div>
+
+      {/* ── Riwayat Slip Gaji ──────────────────────────────────────────────────── */}
+      {payrollSlips.length > 0 && (
+        <GlassCard>
+          <div className="flex items-center gap-2 mb-4">
+            <Wallet className="h-4 w-4 text-primary" />
+            <h3 className="font-semibold text-foreground">Riwayat Slip Gaji</h3>
+          </div>
+          <div className="space-y-2">
+            {payrollSlips.map((slip) => (
+              <div
+                key={slip.id}
+                className="flex items-center justify-between rounded-xl border border-border bg-card/50 px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Periode {format(new Date(slip.periodStart), "d MMM", { locale: id })} – {format(new Date(slip.periodEnd), "d MMM yyyy", { locale: id })}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {slip.scheduledWorkDays} hari kerja · Digenerate {format(new Date(slip.generatedAt), "d MMM yyyy HH:mm", { locale: id })}
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-4">
+                  <p className="text-sm font-bold text-success">
+                    {new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", minimumFractionDigits: 0 }).format(slip.totalPenerimaan)}
+                  </p>
+                  <button
+                    className="text-xs text-primary hover:underline mt-0.5 flex items-center gap-1 ml-auto"
+                    onClick={() => window.print()}
+                    title="Cetak Slip Gaji"
+                  >
+                    <Printer className="h-3 w-3" />
+                    Lihat
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </GlassCard>
+      )}
     </div>
   )
 }

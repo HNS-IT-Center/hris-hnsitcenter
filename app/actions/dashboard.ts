@@ -153,7 +153,9 @@ export async function getHrdDashboardData(dateStr?: string) {
 
 /**
  * Fetches the full employee roster with their attendance status for a given date.
- * Employees with no attendance record are included as "BELUM_ABSEN".
+ * - Today: employees with no record = "BELUM_ABSEN"
+ * - Past dates: employees with no record and scheduled to work = "TIDAK_ABSEN"
+ * - Off days / holidays: excluded from the "not shown up" logic
  */
 export async function getHrdAttendanceLogs(dateStr?: string) {
   // Parse the target date
@@ -161,6 +163,11 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
   const day = new Date(
     Date.UTC(target.getFullYear(), target.getMonth(), target.getDate())
   )
+
+  // Determine if the selected date is in the past (strictly before today UTC midnight)
+  const todayMidnight = new Date()
+  todayMidnight.setUTCHours(0, 0, 0, 0)
+  const isPastDate = day < todayMidnight
 
   const [employees, attendances, leaves] = await Promise.all([
     prisma.user.findMany({
@@ -171,6 +178,7 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
         avatarUrl: true,
         positionName: true,
         departmentName: true,
+        weeklyOffDays: true,
         store: { select: { name: true } },
         shift: { select: { name: true, startTime: true, endTime: true } },
       },
@@ -211,10 +219,16 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
   const attendanceMap = new Map(attendances.map((a) => [a.userId, a]))
   const leaveMap = new Map(leaves.map((l) => [l.userId, l]))
 
+  // Day of week for the selected date (0=Sun ... 6=Sat)
+  const selectedDayOfWeek = day.getUTCDay()
+
   // Merge: every employee gets an attendance record or null
   const logs = employees.map((emp) => {
     const record = attendanceMap.get(emp.id) ?? null
     const leave = leaveMap.get(emp.id) ?? null
+
+    // Check if this is a scheduled off day for this employee
+    const isOffDay = emp.weeklyOffDays.includes(selectedDayOfWeek)
 
     let displayStatus = 'BELUM_ABSEN' as string
 
@@ -222,15 +236,26 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
       displayStatus = record.status
     } else if (leave) {
       displayStatus = 'ON_LEAVE'
+    } else if (isOffDay) {
+      displayStatus = 'HOLIDAY' // Off day — not required to come in
+    } else if (isPastDate) {
+      // Past date + no record + was scheduled to work = Tidak Absen
+      displayStatus = 'TIDAK_ABSEN'
     }
+    // else: today, not yet checked in = BELUM_ABSEN (default)
 
     return {
       employee: emp,
       attendance: record,
       leave: leave,
       displayStatus,
+      isPastDate,
+      isOffDay,
+      // Pass the date string for empty-record overrides
+      dateStr: day.toISOString().slice(0, 10),
     }
   })
 
   return { logs, date: day.toISOString() }
 }
+

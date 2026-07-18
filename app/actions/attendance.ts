@@ -255,11 +255,32 @@ export async function submitAttendance(data: {
         return { success: true, data: record, type: 'check-out' }
       }
 
+      // --- Rainy Day Grace Period ---
+      // If today is declared a rainy day for this store (or all stores),
+      // the effective start for lateness is shifted +60 minutes.
+      const rainyDay = await prisma.rainyDay.findFirst({
+        where: {
+          date: today,
+          OR: [
+            { storeId: data.storeId ?? undefined },
+            { storeId: null },
+          ]
+        }
+      })
+
+      let effectiveShiftStart = shiftStart
+      let isRainyDay = false
+      if (rainyDay) {
+        effectiveShiftStart = new Date(shiftStart.getTime() + 60 * 60000)
+        isRainyDay = true
+      }
+
       let status: 'PRESENT' | 'LATE' = 'PRESENT'
       let lateMinutes = 0
 
-      if (now > shiftStart) {
+      if (now > effectiveShiftStart) {
         status = 'LATE'
+        // Late minutes counted from the original shift start, not the grace window
         lateMinutes = Math.floor((now.getTime() - shiftStart.getTime()) / 60000)
       }
 
@@ -274,7 +295,8 @@ export async function submitAttendance(data: {
           checkInDistance: distance,
           checkInPhotoUrl: data.photoUrl,
           status,
-          lateMinutes
+          lateMinutes,
+          isRainyDay,
         }
       })
       revalidatePath('/attendance')
@@ -341,10 +363,15 @@ export async function submitAttendance(data: {
 
 /**
  * HRD/Boss Override Attendance Status (Dispensasi)
+ * Works for both existing records and past dates with no record (Tidak Absen case).
  */
 export async function overrideAttendance(
-  attendanceId: string, 
-  newStatus: 'PRESENT' | 'LATE' | 'ALPHA' | 'ON_LEAVE' | 'BELUM_ABSEN', 
+  params: {
+    attendanceId?: string      // If we already have a record
+    userId?: string            // Required when attendanceId is missing
+    date?: string              // ISO date string "YYYY-MM-DD" (WIB), required when attendanceId is missing
+  },
+  newStatus: 'PRESENT' | 'LATE' | 'ALPHA' | 'ON_LEAVE' | 'TIDAK_ABSEN' | 'FORGOT_CHECKIN' | 'FORGOT_CHECKOUT',
   reason: string
 ) {
   try {
@@ -361,29 +388,63 @@ export async function overrideAttendance(
       return { success: false, error: 'Alasan dispensasi wajib diisi.' }
     }
 
-    const record = await prisma.attendance.findUnique({ where: { id: attendanceId } })
-    if (!record) return { success: false, error: 'Data absensi tidak ditemukan.' }
+    // --- Determine the target record ---
+    let existingId: string | null = null
 
-    let penaltyAmount = record.penaltyAmount
-    let lateMinutes = record.lateMinutes
-    if (newStatus === 'PRESENT') {
-      penaltyAmount = 0
-      lateMinutes = 0
-    } else if (newStatus === 'LATE') {
-      penaltyAmount = 20000
+    if (params.attendanceId) {
+      existingId = params.attendanceId
+    } else if (params.userId && params.date) {
+      // Build the UTC midnight date for that WIB calendar day
+      const dateUTC = new Date(`${params.date}T00:00:00Z`)
+      const existing = await prisma.attendance.findUnique({
+        where: { userId_date: { userId: params.userId, date: dateUTC } }
+      })
+      existingId = existing?.id ?? null
     }
 
-    await prisma.attendance.update({
-      where: { id: attendanceId },
-      data: {
-        status: newStatus,
-        isOverridden: true,
-        overrideReason: reason,
-        overriddenById: admin.id,
-        penaltyAmount,
-        lateMinutes
+    if (existingId) {
+      // --- UPDATE existing record ---
+      const record = await prisma.attendance.findUnique({ where: { id: existingId } })
+      if (!record) return { success: false, error: 'Data absensi tidak ditemukan.' }
+
+      let penaltyAmount = record.penaltyAmount
+      let lateMinutes = record.lateMinutes
+      if (newStatus === 'PRESENT') {
+        penaltyAmount = 0
+        lateMinutes = 0
+      } else if (newStatus === 'LATE') {
+        penaltyAmount = 20000
       }
-    })
+
+      await prisma.attendance.update({
+        where: { id: existingId },
+        data: {
+          status: newStatus,
+          isOverridden: true,
+          overrideReason: reason,
+          overriddenById: admin.id,
+          penaltyAmount,
+          lateMinutes,
+        }
+      })
+    } else if (params.userId && params.date) {
+      // --- CREATE a new record for a past date that had no check-in at all ---
+      const dateUTC = new Date(`${params.date}T00:00:00Z`)
+      await prisma.attendance.create({
+        data: {
+          userId: params.userId,
+          date: dateUTC,
+          status: newStatus,
+          isOverridden: true,
+          overrideReason: reason,
+          overriddenById: admin.id,
+          penaltyAmount: 0,
+          lateMinutes: 0,
+        }
+      })
+    } else {
+      return { success: false, error: 'Informasi absensi tidak cukup untuk melakukan override.' }
+    }
 
     revalidatePath('/hrd/attendance')
     return { success: true }
@@ -392,3 +453,4 @@ export async function overrideAttendance(
     return { success: false, error: 'Gagal meng-override data absensi.' }
   }
 }
+

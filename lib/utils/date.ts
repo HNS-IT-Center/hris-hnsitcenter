@@ -147,3 +147,16 @@ export function getPayrollPeriod(baseDateUTC: Date = new Date()) {
 
   return { startDateUTC, endDateUTC, periodLabel }
 }
+
+/**
+ * Returns the 26th–25th period boundaries for a specific year/month.
+ * month is 1-indexed (1=Jan ... 12=Dec).
+ * E.g. year=2026, month=7 (July) → periodStart = 2026-06-26T00:00:00Z, periodEnd = 2026-07-25T00:00:00Z
+ */
+export function getPayrollPeriodByMonth(year: number, month: number) {
+  const prevMonth = month === 1 ? 12 : month - 1
+  const prevYear = month === 1 ? year - 1 : year
+  const periodStart = new Date(`${prevYear}-${String(prevMonth).padStart(2, '0')}-26T00:00:00Z`)
+  const periodEnd = new Date(`${year}-${String(month).padStart(2, '0')}-25T00:00:00Z`)
+  return { periodStart, periodEnd }
+}

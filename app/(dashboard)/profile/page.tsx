@@ -2,6 +2,7 @@ import { ProfilePage } from "@/components/hris/pages/profile"
 import { getServerUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getMyLeaveQuota } from "@/app/actions/leave"
+import { getEmployeePayrollSlips } from "@/app/actions/payroll"
 
 export default async function Page() {
   const ssoUser = await getServerUser()
@@ -15,8 +16,12 @@ export default async function Page() {
   })
   if (!dbUser) return null
 
-  const leaveQuota = await getMyLeaveQuota(dbUser.id)
+  const [leaveQuota, payrollSlips] = await Promise.all([
+    getMyLeaveQuota(dbUser.id),
+    getEmployeePayrollSlips(dbUser.id),
+  ])
   const hasPassword = !!dbUser.passwordHash
 
-  return <ProfilePage user={dbUser as any} leaveQuota={leaveQuota} hasPassword={hasPassword} />
+  return <ProfilePage user={dbUser as any} leaveQuota={leaveQuota} hasPassword={hasPassword} payrollSlips={payrollSlips as any} />
 }
+

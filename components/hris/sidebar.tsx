@@ -23,6 +23,7 @@ import {
   X,
   AlertTriangle,
   FileText,
+  Wallet,
 } from "lucide-react"
 
 export type NavId =
@@ -41,6 +42,7 @@ export type NavId =
   | "recruitment"
   | "broadcast"
   | "rekap"
+  | "payroll"
 
 type NavItem = { id: NavId; label: string; icon: React.ElementType; href: string; badge?: number }
 
@@ -60,6 +62,7 @@ const HRD_NAV: NavItem[] = [
   { id: "shifts", label: "Shift", icon: CalendarDays, href: "/hrd/shifts" },
   { id: "stores", label: "Toko", icon: MapPin, href: "/hrd/stores" },
   { id: "leave", label: "Approval Izin", icon: ClipboardList, href: "/hrd/leave" },
+  { id: "payroll", label: "Payroll", icon: Wallet, href: "/hrd/payroll" },
   { id: "calendar", label: "Kalender Perusahaan", icon: CalendarRange, href: "/hrd/calendar" },
   { id: "recruitment", label: "Rekrutmen", icon: Target, href: "/hrd/recruitment" },
   { id: "broadcast", label: "Broadcast", icon: Megaphone, href: "/hrd/broadcast" },

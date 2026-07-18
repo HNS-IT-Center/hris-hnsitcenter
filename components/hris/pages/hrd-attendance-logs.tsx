@@ -41,7 +41,7 @@ import { overrideAttendance } from "@/app/actions/attendance"
 type LogData = Awaited<ReturnType<typeof getHrdAttendanceLogs>>
 type LogEntry = LogData["logs"][number]
 
-type DisplayStatus = "PRESENT" | "LATE" | "ALPHA" | "ON_LEAVE" | "FORGOT_CHECKOUT" | "BELUM_ABSEN" | "HOLIDAY" | "FORGOT_CHECKIN"
+type DisplayStatus = "PRESENT" | "LATE" | "ALPHA" | "ON_LEAVE" | "FORGOT_CHECKOUT" | "BELUM_ABSEN" | "HOLIDAY" | "FORGOT_CHECKIN" | "TIDAK_ABSEN"
 
 const STATUS_CONFIG: Record<DisplayStatus, { label: string; color: string; icon: React.ElementType }> = {
   PRESENT: { label: "Hadir", color: "text-success bg-success/10", icon: CheckCircle2 },
@@ -51,6 +51,7 @@ const STATUS_CONFIG: Record<DisplayStatus, { label: string; color: string; icon:
   FORGOT_CHECKOUT: { label: "Lupa Check-out", color: "text-warning bg-warning/10", icon: LogOut },
   FORGOT_CHECKIN: { label: "Lupa Check-in", color: "text-destructive bg-destructive/10", icon: UserX },
   BELUM_ABSEN: { label: "Belum Absen", color: "text-muted-foreground bg-muted", icon: HelpCircle },
+  TIDAK_ABSEN: { label: "Tidak Absen", color: "text-destructive bg-destructive/15 font-semibold", icon: UserX },
   HOLIDAY: { label: "Libur", color: "text-primary bg-primary/10", icon: CheckCircle2 },
 }
 
@@ -59,6 +60,7 @@ const TAB_FILTERS = [
   { value: "PRESENT", label: "Hadir" },
   { value: "LATE", label: "Telat" },
   { value: "BELUM_ABSEN", label: "Belum Absen" },
+  { value: "TIDAK_ABSEN", label: "Tidak Absen" },
   { value: "ON_LEAVE", label: "Izin/Cuti" },
   { value: "ALPHA", label: "Alpha" },
 ]
@@ -116,20 +118,25 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
   const stores = Array.from(new Set(initialData.logs.map(l => l.employee.store?.name).filter(Boolean))) as string[]
 
   const handleOverride = async () => {
-    if (!selectedLog || !selectedLog.attendance) return
+    if (!selectedLog) return
     if (!overrideReason.trim()) {
       toast.error("Alasan dispensasi wajib diisi.")
       return
     }
     
     setIsOverriding(true)
-    const res = await overrideAttendance(selectedLog.attendance.id, overrideStatus as any, overrideReason)
+
+    // Build params: prefer attendanceId if record exists, else use userId + date
+    const params = selectedLog.attendance
+      ? { attendanceId: selectedLog.attendance.id }
+      : { userId: selectedLog.employee.id, date: (selectedLog as any).dateStr as string }
+
+    const res = await overrideAttendance(params, overrideStatus as any, overrideReason)
     setIsOverriding(false)
     
     if (res.success) {
       toast.success("Status absensi berhasil diubah")
       setModalOpen(false)
-      // Refresh the page data
       startTransition(() => {
         router.refresh()
       })
@@ -403,17 +410,23 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
               </div>
 
               
-              {/* Override / Dispensasi Section */}
-              {selectedLog.attendance && (
+              {/* Override / Dispensasi Section — available even with no record on past dates */}
+              {(selectedLog.attendance || (selectedLog as any).isPastDate) && !(selectedLog as any).isOffDay && (
                 <div className="pt-4 mt-4 border-t border-border space-y-3">
                   <div className="flex items-center gap-2 mb-2">
                     <h4 className="font-semibold text-sm">Ubah Status (Dispensasi)</h4>
-                    {selectedLog.attendance.isOverridden && (
+                    {selectedLog.attendance?.isOverridden && (
                       <span className="text-[10px] bg-warning/20 text-warning px-2 py-0.5 rounded-full font-bold">TER-OVERRIDE</span>
                     )}
                   </div>
+
+                  {!selectedLog.attendance && (
+                    <div className="bg-destructive/5 border border-destructive/20 rounded-md p-2.5 text-xs text-destructive mb-3">
+                      Karyawan ini tidak memiliki catatan absensi pada tanggal ini. Mengubah status akan membuat catatan baru secara manual.
+                    </div>
+                  )}
                   
-                  {selectedLog.attendance.isOverridden && selectedLog.attendance.overrideReason && (
+                  {selectedLog.attendance?.isOverridden && selectedLog.attendance?.overrideReason && (
                     <div className="bg-muted p-2 rounded-md text-xs mb-3 border border-border">
                       <span className="font-bold">Alasan Override Sebelumnya: </span> 
                       {selectedLog.attendance.overrideReason}
@@ -432,6 +445,9 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
                         <option value="LATE">Telat</option>
                         <option value="ALPHA">Alpha</option>
                         <option value="ON_LEAVE">Izin/Cuti</option>
+                        <option value="TIDAK_ABSEN">Tidak Absen (Mangkir)</option>
+                        <option value="FORGOT_CHECKIN">Lupa Check-in</option>
+                        <option value="FORGOT_CHECKOUT">Lupa Check-out</option>
                       </select>
                     </div>
                     <div className="space-y-1.5">

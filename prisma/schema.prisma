@@ -28,6 +28,7 @@ enum AttendanceStatus {
   FORGOT_CHECKOUT
   ON_LEAVE
   HOLIDAY
+  TIDAK_ABSEN
 }
 
 enum LeaveType {
@@ -201,6 +202,8 @@ model User {
   broadcastsCreated   Broadcast[]
   broadcastFilters    BroadcastFilterUser[]
   userDevices         UserDevice[]
+  payrollConfig       UserPayrollConfig?
+  payrollSlips        PayrollSlip[]
 }
 
 model UserDevice {
@@ -593,4 +596,79 @@ model ShiftAssignment {
 
   user  User  @relation(fields: [userId], references: [id])
   shift Shift @relation(fields: [shiftId], references: [id])
+}
+
+// ============================================================
+// PAYROLL
+// ============================================================
+
+/// Per-employee salary configuration. Carries forward to new periods.
+/// When boss changes this, old PayrollSlips remain untouched.
+model UserPayrollConfig {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  baseSalary26Days Int      @default(0)  // Total target salary for a standard 26-day month
+  uangMakan        Int      @default(0)  // Meal allowance
+  transport        Int      @default(0)  // Transport allowance
+  bpjs             Int      @default(0)  // BPJS deduction
+  pph21            Int      @default(0)  // Tax deduction
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Frozen payroll snapshot for a specific 26th–25th period.
+/// Regenerating replaces the record; old periods remain intact.
+model PayrollSlip {
+  id              String   @id @default(cuid())
+  userId          String
+  periodStart     DateTime // Always the 26th of the previous month (UTC midnight)
+  periodEnd       DateTime // Always the 25th of the current month (UTC midnight)
+
+  // ── Snapshot of config at generation time ──────────────────────
+  baseSalary26Days Int
+  uangMakan        Int     @default(0)
+  transport        Int     @default(0)
+  bpjs             Int     @default(0)
+  pph21            Int     @default(0)
+
+  // ── Calculated working day info ────────────────────────────────
+  scheduledWorkDays  Int   // How many working days fell in this period (25/26/27)
+  dailyRate          Int   // baseSalary26Days / 26 (stored as snapshot)
+  hourlyRate         Int   // dailyRate / shift hours
+
+  // ── Pendapatan (Earnings) ──────────────────────────────────────
+  gajiPokok          Int   // baseSalary (adjusted for working days) - uangMakan - transport
+  lembur             Int   @default(0) // Approved overtime pay
+  totalPendapatan    Int   // gajiPokok + uangMakan + transport + lembur
+
+  // ── Potongan (Deductions) ─────────────────────────────────────
+  potonganIzin       Int   @default(0) // Unpaid leave days * daily rate
+  potonganTerlambat  Int   @default(0) // Count of late/forgot * 20,000
+  potonganLainnya    Int   @default(0) // Other custom deductions (e.g. BPJS, PPh21 already in bpjs/pph21)
+  totalPotongan      Int   // bpjs + pph21 + potonganIzin + potonganTerlambat
+
+  // ── Net ───────────────────────────────────────────────────────
+  totalPenerimaan    Int   // totalPendapatan - totalPotongan
+
+  // ── Attendance Summary (for payslip display) ──────────────────
+  kehadiran          Int   @default(0)
+  ketidakhadiran     Int   @default(0)
+  cuti               Int   @default(0)
+  izin               Int   @default(0)
+  sakit              Int   @default(0)
+  terlambat          Int   @default(0)
+  lupaAbsen          Int   @default(0)
+  izinSetengahHari   Int   @default(0)
+
+  // ── Notes ─────────────────────────────────────────────────────
+  notes              String?
+  generatedAt        DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, periodStart])
 }
