@@ -103,7 +103,7 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
       */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          @page { size: A4 landscape; margin: 15mm; }
+          @page { size: A4 landscape; margin: 0; }
           body, main { 
             background-color: white !important; 
             -webkit-print-color-adjust: exact;
@@ -114,6 +114,7 @@ export function RekapClient({ recapList, deptStats, startDate, endDate, availabl
              width: 100%; 
              max-width: none; 
              margin: 0; 
+             padding: 15mm !important;
              box-shadow: none; 
              border: none;
              background-color: white !important;

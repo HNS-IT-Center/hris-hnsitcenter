@@ -48,7 +48,7 @@ export function PayslipPrintView({ slip }: { slip: PayrollSlip & { user: any } }
       {/* ── Print CSS ─────────────────────────────────────────────────────── */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
-          @page { size: A4 portrait; margin: 15mm; }
+          @page { size: A4 portrait; margin: 0; }
 
           /* Force white background everywhere */
           body, html { background: white !important; }
@@ -61,10 +61,10 @@ export function PayslipPrintView({ slip }: { slip: PayrollSlip & { user: any } }
           /* Remove dashboard layout padding */
           main, .dashboard-main-content { padding: 0 !important; margin: 0 !important; }
 
-          /* The grey page wrapper becomes transparent */
-          .slip-page-bg { background: white !important; padding: 0 !important; }
+          /* The grey page wrapper becomes transparent and handles the print margins safely */
+          .slip-page-bg { background: white !important; padding: 15mm !important; }
 
-          /* The A4 card fills the page */
+          /* The A4 card fills the printable area */
           .slip-a4-card {
             box-shadow: none !important;
             border-radius: 0 !important;

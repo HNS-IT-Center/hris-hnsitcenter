@@ -29,3 +29,16 @@ export async function markNotificationAsRead(id: string) {
     return { success: false, error: error.message }
   }
 }
+
+export async function markAllNotificationsAsRead(userId: string) {
+  try {
+    await prisma.appNotification.updateMany({
+      where: { userId, isRead: false },
+      data: { isRead: true }
+    })
+    revalidatePath('/', 'layout')
+    return { success: true }
+  } catch (error: any) {
+    return { success: false, error: error.message }
+  }
+}

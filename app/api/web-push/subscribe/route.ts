@@ -16,13 +16,15 @@ export async function POST(req: Request) {
     })
 
     if (existing) {
-      // Update if userId is different
-      if (existing.userId !== userId) {
-        await prisma.pushSubscription.update({
-          where: { id: existing.id },
-          data: { userId },
-        })
-      }
+      // Always update keys, as the browser might reuse the endpoint but generate new encryption keys
+      await prisma.pushSubscription.update({
+        where: { id: existing.id },
+        data: { 
+          userId,
+          p256dh: subscription.keys?.p256dh || '',
+          auth: subscription.keys?.auth || ''
+        },
+      })
       return NextResponse.json({ success: true, message: 'Updated subscription' })
     }
 

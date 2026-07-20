@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-import { getAppNotifications, markNotificationAsRead } from "@/app/actions/notification"
+import { getAppNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/app/actions/notification"
 
 interface TopbarProps {
   title: string
@@ -49,6 +49,12 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
   const handleMarkAsRead = async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
     await markNotificationAsRead(id)
+  }
+
+  const handleMarkAllAsRead = async () => {
+    if (!user?.id) return
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
+    await markAllNotificationsAsRead(user.id)
   }
 
   const unread = notifications.filter((n) => !n.isRead).length
@@ -120,8 +126,13 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
             <DropdownMenuLabel className="flex items-center justify-between">
               <div>
                 Notifikasi
-                <div className="text-[10px] font-normal text-muted-foreground">
+                <div className="text-[10px] font-normal text-muted-foreground flex items-center gap-2">
                   {unread === 0 ? "Semua telah dibaca" : `${unread} belum dibaca`}
+                  {unread > 0 && (
+                    <button onClick={handleMarkAllAsRead} className="text-primary hover:underline ml-1">
+                      (Tandai semua dibaca)
+                    </button>
+                  )}
                 </div>
               </div>
               {user?.id && <PushSubscriber userId={user.id} />}
