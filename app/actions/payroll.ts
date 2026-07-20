@@ -160,7 +160,7 @@ export async function _generatePayrollSlipInternal(
     const startMins = sh * 60 + sm
     let endMins = eh * 60 + em
     if (endMins <= startMins) endMins += 24 * 60 // overnight shift
-    shiftHours = (endMins - startMins) / 60
+    shiftHours = Math.max(1, ((endMins - startMins) / 60) - 1) // Subtract 1 hour for break
   }
   const hourlyRate = shiftHours > 0 ? Math.round(dailyRate / shiftHours) : 0
 

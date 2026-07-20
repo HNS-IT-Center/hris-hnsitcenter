@@ -179,6 +179,12 @@ export async function submitAttendance(data: {
     let shiftStart = parseTimeStr(shift.startTime, now)
     let shiftEnd = parseTimeStr(shift.endTime, now)
 
+    // Adjust for regular Half Day (e.g. Saturday)
+    const dayOfWeek = today.getUTCDay()
+    if (user.halfDays.includes(dayOfWeek)) {
+      shiftEnd = parseTimeStr('14:00', now)
+    }
+
     // 4. Check for Approved Leaves today
     const approvedLeave = await prisma.leaveRequest.findFirst({
       where: {

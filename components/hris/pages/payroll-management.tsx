@@ -74,7 +74,7 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
     const startMins = sh * 60 + sm
     let endMins = eh * 60 + em
     if (endMins <= startMins) endMins += 24 * 60
-    shiftHours = (endMins - startMins) / 60
+    shiftHours = Math.max(1, ((endMins - startMins) / 60) - 1) // Subtract 1 hour break
   }
   const dailyRate = Math.round(base / 26)
   const hourlyRate = shiftHours > 0 ? Math.round(dailyRate / shiftHours) : 0
@@ -308,7 +308,7 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
           <p className="text-sm text-muted-foreground">Atur gaji karyawan & publish slip gaji.</p>
         </div>
         {/* Period Navigator & Actions */}
-        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <Button
             onClick={() => setShowPublishDialog(true)}
             disabled={isPending || totalWithSlip === 0 || !isPublishable}
@@ -414,11 +414,11 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
                 <div className="flex items-center gap-3 text-sm flex-wrap">
                   {cfg ? (
                     <>
-                      <div className="text-center hidden sm:block">
+                      <div className="text-center sm:text-left">
                         <p className="text-[10px] text-muted-foreground">Gaji/26hr</p>
                         <p className="font-semibold text-foreground text-xs">{formatRp(cfg.baseSalary26Days)}</p>
                       </div>
-                      <div className="text-center hidden sm:block">
+                      <div className="text-center sm:text-left">
                         <p className="text-[10px] text-muted-foreground">Per Hari</p>
                         <p className="font-semibold text-foreground text-xs">{formatRp(dailyRate)}</p>
                       </div>
