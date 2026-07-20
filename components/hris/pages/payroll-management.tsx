@@ -102,7 +102,8 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
           type="number"
           value={value === 0 ? "" : value}
           onChange={(e) => onChange(parseInt(e.target.value) || 0)}
-          className="pl-9 h-9"
+          onWheel={(e) => (e.target as HTMLElement).blur()}
+          className="pl-9 h-9 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           placeholder="0"
           min={0}
         />
@@ -148,7 +149,8 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
               type="number"
               value={base === 0 ? "" : base}
               onChange={(e) => setBase(parseInt(e.target.value) || 0)}
-              className="pl-9 h-9 font-semibold"
+              onWheel={(e) => (e.target as HTMLElement).blur()}
+              className="pl-9 h-9 font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               placeholder="0"
               min={0}
             />
@@ -187,9 +189,11 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
       </div>
 
       <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
-        <p className="font-medium text-foreground mb-1">Preview Gaji Pokok</p>
-        <p>Gaji Pokok = Total Gaji − Uang Makan − Transport</p>
-        <p className="font-semibold text-foreground mt-1">{formatRp(base - uangMakan - transport)}</p>
+        <p className="font-medium text-foreground mb-1">Preview Struktur Gaji</p>
+        <p>Gaji Pokok (75%)</p>
+        <p className="font-semibold text-foreground mt-0.5 mb-2">{formatRp(Math.round(base * 0.75))}</p>
+        <p>Tunjangan Lainnya (Sisa)</p>
+        <p className="font-semibold text-foreground mt-0.5">{formatRp(Math.round(base - Math.round(base * 0.75) - uangMakan - transport))}</p>
       </div>
 
       <div className="flex gap-2 pt-1">
