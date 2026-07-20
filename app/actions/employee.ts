@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import bcrypt from 'bcryptjs'
+import { generateNextEmployeeId } from '@/lib/utils/employee-id'
 
 export async function getEmployees() {
   console.log("Cache bust action")
@@ -103,8 +104,11 @@ export async function createEmployee(data: {
       passwordHash = await bcrypt.hash(data.password, salt)
     }
 
+    const employeeId = await generateNextEmployeeId()
+
     const newUser = await prisma.user.create({
       data: {
+        employeeId,
         name: data.name,
         email: data.email,
         passwordHash,

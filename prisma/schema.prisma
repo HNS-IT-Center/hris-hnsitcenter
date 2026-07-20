@@ -143,6 +143,7 @@ model Shift {
 
 model User {
   id              String    @id @default(cuid())
+  employeeId      String?   @unique
   // SSO-sourced fields (populated on first SSO login)
   ssoId           String?   @unique  // The `id` from the SSO JWT payload
   email           String    @unique
@@ -622,6 +623,7 @@ model UserPayrollConfig {
 /// Regenerating replaces the record; old periods remain intact.
 model PayrollSlip {
   id              String   @id @default(cuid())
+  slug            String?  @unique // Clean URL slug: e.g. hns-0001-jun-2026
   userId          String
   periodStart     DateTime // Always the 26th of the previous month (UTC midnight)
   periodEnd       DateTime // Always the 25th of the current month (UTC midnight)

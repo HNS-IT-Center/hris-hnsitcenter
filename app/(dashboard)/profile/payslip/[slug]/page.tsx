@@ -11,9 +11,9 @@ export const metadata: Metadata = {
 export default async function PayslipPage({
   params,
 }: {
-  params: Promise<{ slipId: string }>
+  params: Promise<{ slug: string }>
 }) {
-  const { slipId } = await params
+  const { slug } = await params
   const ssoUser = await getServerUser()
 
   const dbUser = await prisma.user.findUnique({
@@ -22,13 +22,14 @@ export default async function PayslipPage({
   })
   if (!dbUser) redirect("/login")
 
-  // Fetch the slip — must belong to this user (or HRD/BOSS can view any)
+  // Fetch the slip by slug
   const slip = await prisma.payrollSlip.findUnique({
-    where: { id: slipId },
+    where: { slug },
     include: {
       user: {
         select: {
           id: true,
+          employeeId: true,
           name: true,
           positionName: true,
           departmentName: true,

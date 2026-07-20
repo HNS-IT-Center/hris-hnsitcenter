@@ -351,7 +351,7 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
                   </p>
                   <button
                     className="text-xs text-primary hover:underline mt-0.5 flex items-center gap-1 ml-auto"
-                    onClick={() => router.push(`/profile/payslip/${slip.id}`)}
+                    onClick={() => router.push(`/profile/payslip/${slip.slug}`)}
                     title="Lihat & Cetak Slip Gaji"
                   >
                     <FileText className="h-3 w-3" />

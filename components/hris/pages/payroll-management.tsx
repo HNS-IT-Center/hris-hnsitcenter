@@ -256,8 +256,8 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
   }
 
   const handleViewSlip = (employee: Employee) => {
-    if (employee.currentSlip) {
-      router.push(`/profile/payslip/${employee.currentSlip.id}`)
+    if (employee.currentSlip && employee.currentSlip.slug) {
+      router.push(`/hrd/payroll/preview/${employee.currentSlip.slug}`)
     } else {
       toast.error("Slip gaji belum digenerate untuk periode ini.")
     }

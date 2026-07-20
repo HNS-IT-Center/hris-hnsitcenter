@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { Role } from '@prisma/client'
 
 import { SSOUser } from '@/lib/auth'
+import { generateNextEmployeeId } from '@/lib/utils/employee-id'
 
 export async function syncUserFromSSO(payload: SSOUser) {
   const { id, email, name, globalRole, departmentName, departmentId: ssoDepartmentId, positionId: ssoPositionId, positionName } = payload
@@ -79,10 +80,14 @@ export async function syncUserFromSSO(payload: SSOUser) {
       },
     })
   } else {
+    // Generate a sequential HNS-XXXX employee ID
+    const employeeId = await generateNextEmployeeId()
+
     // If they don't exist, they are auto-provisioned seamlessly!
     await prisma.user.create({
       data: {
         ssoId: id,
+        employeeId,
         email,
         name,
         role,

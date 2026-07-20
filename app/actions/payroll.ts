@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { format } from 'date-fns'
 import { getServerUser } from '@/lib/auth'
 import { getPayrollPeriodByMonth } from '@/lib/utils/date'
 
@@ -306,9 +307,14 @@ async function _generatePayrollSlipInternal(
   // 16. Upsert the snapshot.
   // IMPORTANT: regenerating always resets isPublished=false so employees
   // see the old data until HRD explicitly republishes.
+  
+  const periodSlugName = format(new Date(periodEnd), 'MMM-yyyy').toLowerCase()
+  const slug = user.employeeId ? `${user.employeeId}-${periodSlugName}`.toLowerCase() : null
+
   await prisma.payrollSlip.upsert({
     where: { userId_periodStart: { userId, periodStart } },
     update: {
+      slug,
       periodEnd,
       baseSalary26Days,
       uangMakan,
@@ -334,13 +340,12 @@ async function _generatePayrollSlipInternal(
       terlambat,
       lupaAbsen,
       izinSetengahHari,
-      notes: overrides?.notes ?? null,
-      isPublished: false, // Reset to false — HRD must republish after any salary change
-      generatedAt: new Date(),
-      updatedAt: new Date(),
+      notes: overrides?.notes,
+      isPublished: false,
     },
     create: {
       userId,
+      slug,
       periodStart,
       periodEnd,
       baseSalary26Days,
