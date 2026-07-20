@@ -141,7 +141,7 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
   }
 
   const workInfo = [
-    { label: "ID Karyawan", value: user.username ?? user.id.slice(0, 8).toUpperCase(), icon: IdCard },
+    { label: "ID Karyawan", value: user.employeeId ?? user.id.slice(0, 8).toUpperCase(), icon: IdCard },
     { label: "Email", value: user.email, icon: Mail },
     { label: "Departemen", value: user.department?.name ?? user.departmentName ?? "—", icon: Briefcase },
     { label: "Toko", value: user.store?.name ?? "Belum diatur", icon: MapPin },

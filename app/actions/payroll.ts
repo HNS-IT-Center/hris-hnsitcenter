@@ -117,7 +117,7 @@ export async function getPayrollConfig(userId: string) {
 // INTERNAL SLIP CALCULATOR (no auth check — called internally)
 // ============================================================
 
-async function _generatePayrollSlipInternal(
+export async function _generatePayrollSlipInternal(
   userId: string,
   year: number,
   month: number,

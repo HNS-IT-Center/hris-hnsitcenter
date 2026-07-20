@@ -131,7 +131,7 @@ export function PayslipPrintView({ slip }: { slip: PayrollSlip & { user: any } }
           {/* ── Employee Info ────────────────────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-4 px-6 py-4 bg-gray-50 border-b border-gray-200">
             <div className="space-y-1">
-              <InfoRow label="Nama / NIK" value={slip.user?.name?.toUpperCase()} bold />
+              <InfoRow label="Nama / NIK" value={`${slip.user?.name?.toUpperCase()} - ${slip.user?.employeeId ?? '-'}`} bold />
               <InfoRow label="Divisi / Jabatan" value={slip.user?.positionName ?? slip.user?.department?.name ?? slip.user?.departmentName ?? "—"} />
               <InfoRow label="Tgl Mulai Bekerja" value={slip.user?.joinDate ? format(new Date(slip.user.joinDate), "dd/MM/yyyy") : "—"} />
               <InfoRow label="Gaji Bulan" value={format(new Date(slip.periodEnd), "MMMM yyyy", { locale: id }).toUpperCase()} bold />
