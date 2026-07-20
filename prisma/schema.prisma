@@ -641,7 +641,8 @@ model PayrollSlip {
   hourlyRate         Int   // dailyRate / shift hours
 
   // ── Pendapatan (Earnings) ──────────────────────────────────────
-  gajiPokok          Int   // baseSalary (adjusted for working days) - uangMakan - transport
+  gajiPokok          Int   // 75% of baseSalary26Days
+  tunjanganLainnya   Int   @default(0) // The remaining to reach the scaled base salary
   lembur             Int   @default(0) // Approved overtime pay
   totalPendapatan    Int   // gajiPokok + uangMakan + transport + lembur
 

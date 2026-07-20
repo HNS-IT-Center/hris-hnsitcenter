@@ -141,7 +141,7 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
       {/* 3-way synced salary fields */}
       <div className="grid grid-cols-3 gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
         <div className="space-y-1 col-span-3 sm:col-span-1">
-          <label className="text-xs font-medium">Gaji Total (26 Hari)</label>
+          <label className="text-xs font-medium">Total Gaji (Base)</label>
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
             <Input

@@ -295,8 +295,11 @@ export async function _generatePayrollSlipInternal(
   const lembur = Math.round(lemburHours * hourlyRate)
 
   // 13. Assemble pendapatan
-  const gajiPokok = adjustedBaseSalary - uangMakan - transport
-  const totalPendapatan = gajiPokok + uangMakan + transport + lembur
+  // Gaji Pokok is strictly 75% of the static baseSalary26Days.
+  const gajiPokok = Math.round(baseSalary26Days * 0.75)
+  // Tunjangan lainnya acts as the buffer that absorbs the calendar scaling (25/27 days)
+  const tunjanganLainnya = Math.round(adjustedBaseSalary - gajiPokok - uangMakan - transport)
+  const totalPendapatan = gajiPokok + tunjanganLainnya + uangMakan + transport + lembur
 
   // 14. Assemble potongan
   const totalPotongan = bpjs + pph21 + potonganIzin + potonganTerlambat
@@ -326,6 +329,7 @@ export async function _generatePayrollSlipInternal(
       dailyRate,
       hourlyRate,
       gajiPokok,
+      tunjanganLainnya,
       lembur,
       totalPendapatan,
       potonganIzin,
@@ -358,6 +362,7 @@ export async function _generatePayrollSlipInternal(
       dailyRate,
       hourlyRate,
       gajiPokok,
+      tunjanganLainnya,
       lembur,
       totalPendapatan,
       potonganIzin,

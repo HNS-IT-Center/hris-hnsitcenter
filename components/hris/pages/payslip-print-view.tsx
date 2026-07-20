@@ -24,6 +24,7 @@ export function PayslipPrintView({ slip }: { slip: PayrollSlip & { user: any } }
       { label: "Gaji Pokok", value: slip.gajiPokok },
       { label: "Tunjangan Transport", value: slip.transport },
       { label: "Uang Makan", value: slip.uangMakan },
+      { label: "Tunjangan Lainnya", value: slip.tunjanganLainnya },
       { label: "Lembur", value: slip.lembur },
     ],
     potongan: [
