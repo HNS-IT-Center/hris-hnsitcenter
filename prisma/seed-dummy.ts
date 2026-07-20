@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { Role, Shift, Store, Department } from '@prisma/client'
 import { prisma } from '../lib/prisma'
 import { addDays, format, isWeekend, parseISO, startOfDay, endOfDay } from 'date-fns'
+import { generateNextEmployeeId } from '../lib/utils/employee-id'
 
 async function main() {
   console.log('🌱 Memulai proses seeding massive dummy data...')
@@ -38,8 +39,11 @@ async function main() {
     const shift = shifts[i % shifts.length]
     const dept = depts[i % depts.length]
 
+    const employeeId = await generateNextEmployeeId()
+
     const user = await prisma.user.create({
       data: {
+        employeeId,
         email: `dummy_${i + 1}@dummy.local`,
         name: `${fName} ${lName}`,
         passwordHash: 'Password123!', // Standar password dummy
