@@ -1,20 +1,19 @@
 "use client"
 
 import { GlassCard } from "@/components/hris/shared"
-import { Briefcase, Building2, Camera, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, EyeOff, FileText, Printer, Wallet } from "lucide-react"
+import { Briefcase, Building2, Camera, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, EyeOff, FileText, Wallet } from "lucide-react"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
 import type { getEmployeePayrollSlips } from "@/app/actions/payroll"
 import { useState, useTransition, useRef } from "react"
+import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { updateProfilePhoneNumber, updateProfileAvatar } from "@/app/actions/profile"
 import { updatePassword } from "@/app/actions/auth-local"
 import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
-import { PayslipPrintView } from "@/components/hris/pages/payslip-print-view"
 
 type LeaveQuota = Awaited<ReturnType<typeof getMyLeaveQuota>>
 type PayrollSlip = Awaited<ReturnType<typeof getEmployeePayrollSlips>>[number]
@@ -52,6 +51,7 @@ const ROLE_LABELS: Record<string, string> = {
 }
 
 export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlips = [] }: { user: UserProfile; leaveQuota: LeaveQuota; hasPassword?: boolean; payrollSlips?: PayrollSlip[] }) {
+  const router = useRouter()
   const joinDate = new Date(user.joinDate).toLocaleDateString("id-ID", {
     day: "numeric",
     month: "long",
@@ -62,7 +62,6 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
   const [phoneInput, setPhoneInput] = useState(user.phoneNumber ?? "")
   const [currentPhone, setCurrentPhone] = useState(user.phoneNumber ?? "")
   const [isPending, startTransition] = useTransition()
-  const [selectedSlip, setSelectedSlip] = useState<PayrollSlip | null>(null)
   
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -352,7 +351,7 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
                   </p>
                   <button
                     className="text-xs text-primary hover:underline mt-0.5 flex items-center gap-1 ml-auto"
-                    onClick={() => setSelectedSlip(slip as any)}
+                    onClick={() => router.push(`/profile/payslip/${slip.id}`)}
                     title="Lihat & Cetak Slip Gaji"
                   >
                     <FileText className="h-3 w-3" />
@@ -364,25 +363,6 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
           </div>
         </GlassCard>
       )}
-
-      {/* ── Slip Gaji Viewer / Print Dialog ── */}
-      <Dialog open={!!selectedSlip} onOpenChange={(open) => { if (!open) setSelectedSlip(null) }}>
-        <DialogContent className="max-w-4xl w-full max-h-[95vh] overflow-y-auto p-0">
-          <DialogHeader className="sr-only">
-            <DialogTitle>Slip Gaji</DialogTitle>
-          </DialogHeader>
-          {selectedSlip && (
-            <div className="p-4 sm:p-6">
-              <div className="flex justify-end mb-4 no-print">
-                <Button variant="ghost" size="sm" onClick={() => setSelectedSlip(null)} className="text-xs">
-                  Tutup
-                </Button>
-              </div>
-              <PayslipPrintView slip={selectedSlip as any} />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
