@@ -14,6 +14,7 @@ import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
+import { PayslipPrintView } from "@/components/hris/pages/payslip-print-view"
 
 type LeaveQuota = Awaited<ReturnType<typeof getMyLeaveQuota>>
 type PayrollSlip = Awaited<ReturnType<typeof getEmployeePayrollSlips>>[number]
@@ -61,6 +62,7 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
   const [phoneInput, setPhoneInput] = useState(user.phoneNumber ?? "")
   const [currentPhone, setCurrentPhone] = useState(user.phoneNumber ?? "")
   const [isPending, startTransition] = useTransition()
+  const [selectedSlip, setSelectedSlip] = useState<PayrollSlip | null>(null)
   
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -341,7 +343,7 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
                     Periode {format(new Date(slip.periodStart), "d MMM", { locale: id })} – {format(new Date(slip.periodEnd), "d MMM yyyy", { locale: id })}
                   </p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {slip.scheduledWorkDays} hari kerja · Digenerate {format(new Date(slip.generatedAt), "d MMM yyyy HH:mm", { locale: id })}
+                    {slip.scheduledWorkDays} hari kerja &middot; {format(new Date(slip.periodEnd), "MMMM yyyy", { locale: id })}
                   </p>
                 </div>
                 <div className="text-right shrink-0 ml-4">
@@ -350,11 +352,11 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
                   </p>
                   <button
                     className="text-xs text-primary hover:underline mt-0.5 flex items-center gap-1 ml-auto"
-                    onClick={() => window.print()}
-                    title="Cetak Slip Gaji"
+                    onClick={() => setSelectedSlip(slip as any)}
+                    title="Lihat & Cetak Slip Gaji"
                   >
-                    <Printer className="h-3 w-3" />
-                    Lihat
+                    <FileText className="h-3 w-3" />
+                    Lihat & Cetak
                   </button>
                 </div>
               </div>
@@ -362,6 +364,25 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
           </div>
         </GlassCard>
       )}
+
+      {/* ── Slip Gaji Viewer / Print Dialog ── */}
+      <Dialog open={!!selectedSlip} onOpenChange={(open) => { if (!open) setSelectedSlip(null) }}>
+        <DialogContent className="max-w-4xl w-full max-h-[95vh] overflow-y-auto p-0">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Slip Gaji</DialogTitle>
+          </DialogHeader>
+          {selectedSlip && (
+            <div className="p-4 sm:p-6">
+              <div className="flex justify-end mb-4 no-print">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedSlip(null)} className="text-xs">
+                  Tutup
+                </Button>
+              </div>
+              <PayslipPrintView slip={selectedSlip as any} />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

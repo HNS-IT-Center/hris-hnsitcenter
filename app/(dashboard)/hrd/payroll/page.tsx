@@ -27,7 +27,8 @@ export default async function Page({
 
   const { periodStart, periodEnd } = getPayrollPeriodByMonth(year, month)
 
-  const employees = await getAllEmployeesPayrollSummary()
+  // Pass year & month so the summary query can check the current-period slip status
+  const employees = await getAllEmployeesPayrollSummary(year, month)
 
   return (
     <PayrollManagement

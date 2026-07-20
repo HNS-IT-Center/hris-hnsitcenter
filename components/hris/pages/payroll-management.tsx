@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useTransition, useMemo, useRef } from "react"
+import { useState, useTransition, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { format } from "date-fns"
@@ -13,12 +13,11 @@ import {
   FileText,
   Printer,
   RefreshCw,
-  User,
   Building2,
-  Wallet,
-  TrendingDown,
   CheckCircle2,
+  AlertTriangle,
   Send,
+  Clock,
 } from "lucide-react"
 import { GlassCard } from "@/components/hris/shared"
 import { Button } from "@/components/ui/button"
@@ -53,9 +52,9 @@ function getInitials(name: string) {
   return name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()
 }
 
-// ─── Payslip Print View ───────────────────────────────────────────────────────
+// ─── Payslip Print View (HRD modal) ──────────────────────────────────────────
 
-function PayslipPrintView({ slip, onClose }: { slip: PayrollSlip & { user: any }; onClose: () => void }) {
+function PayslipPrintViewModal({ slip, onClose }: { slip: PayrollSlip & { user: any }; onClose: () => void }) {
   const handlePrint = () => window.print()
   const periodLabel = format(new Date(slip.periodStart), "MMMM yyyy", { locale: id })
 
@@ -84,24 +83,24 @@ function PayslipPrintView({ slip, onClose }: { slip: PayrollSlip & { user: any }
   return (
     <div className="space-y-4">
       {/* Print controls (hidden on print) */}
-      <div className="flex items-center justify-between print:hidden">
-        <h3 className="font-semibold text-foreground">Preview Slip Gaji</h3>
+      <div className="flex items-center justify-between no-print">
+        <h3 className="font-semibold text-foreground">Preview Slip Gaji — {periodLabel}</h3>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={onClose}>Tutup</Button>
           <Button size="sm" onClick={handlePrint} className="gap-1.5">
             <Printer className="h-4 w-4" />
-            Cetak
+            Cetak PDF
           </Button>
         </div>
       </div>
 
-      {/* The actual payslip — styled for A4 print */}
+      {/* The actual payslip */}
       <div
         id="payslip-content"
-        className="bg-white text-black rounded-lg shadow-lg overflow-hidden print:shadow-none print:rounded-none"
+        className="bg-white text-black rounded-lg shadow-lg overflow-hidden"
         style={{ fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif", fontSize: "12px" }}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="flex justify-between items-start p-5 pb-3 border-b-2 border-gray-800">
           <div>
             <div className="font-bold text-base leading-snug">PT SENTRAL BERKAT TEKNOLOGI</div>
@@ -112,7 +111,7 @@ function PayslipPrintView({ slip, onClose }: { slip: PayrollSlip & { user: any }
           </div>
         </div>
 
-        {/* ── Employee Info ── */}
+        {/* Employee Info */}
         <div className="grid grid-cols-2 gap-1 px-5 py-3 text-[11px] border-b border-gray-200">
           <div className="space-y-0.5">
             <div className="flex gap-2"><span className="w-36 text-gray-500">Nama / NIK</span><span className="font-semibold">{slip.user?.name?.toUpperCase()}</span></div>
@@ -126,9 +125,8 @@ function PayslipPrintView({ slip, onClose }: { slip: PayrollSlip & { user: any }
           </div>
         </div>
 
-        {/* ── Pendapatan & Potongan ── */}
+        {/* Pendapatan & Potongan */}
         <div className="grid grid-cols-2 gap-0 border-b border-gray-200">
-          {/* Pendapatan */}
           <div className="border-r border-gray-200 p-4">
             <div className="font-bold text-[11px] mb-2 text-gray-700 uppercase tracking-wide">Pendapatan</div>
             {rows.pendapatan.map((r) => (
@@ -145,7 +143,6 @@ function PayslipPrintView({ slip, onClose }: { slip: PayrollSlip & { user: any }
             </div>
           </div>
 
-          {/* Potongan */}
           <div className="p-4">
             <div className="font-bold text-[11px] mb-2 text-gray-700 uppercase tracking-wide">Potongan</div>
             {rows.potongan.map((r) => (
@@ -163,7 +160,7 @@ function PayslipPrintView({ slip, onClose }: { slip: PayrollSlip & { user: any }
           </div>
         </div>
 
-        {/* ── Kehadiran Summary ── */}
+        {/* Kehadiran Summary */}
         <div className="p-4 border-b border-gray-200">
           <div className="font-bold text-[11px] mb-2 text-gray-700 uppercase tracking-wide">Rangkuman Informasi Kehadiran</div>
           <div className="grid grid-cols-2 gap-x-8 gap-y-0.5">
@@ -182,7 +179,7 @@ function PayslipPrintView({ slip, onClose }: { slip: PayrollSlip & { user: any }
           </div>
         </div>
 
-        {/* ── Footer ── */}
+        {/* Footer */}
         <div className="grid grid-cols-2 gap-4 p-4 items-end">
           <div>
             <p className="text-[10px] text-gray-500 leading-relaxed">
@@ -212,9 +209,12 @@ function PayslipPrintView({ slip, onClose }: { slip: PayrollSlip & { user: any }
 
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          #payslip-content, #payslip-content * { visibility: visible; }
-          #payslip-content { position: fixed; inset: 0; width: 100%; margin: 0; padding: 0; }
+          @page { size: A4 portrait; margin: 15mm; }
+          body, main { background-color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+          .no-print, [data-radix-dialog-overlay], [data-radix-dialog-portal] > *:not([data-radix-dialog-content]) { display: none !important; }
+          [data-radix-dialog-content] { position: fixed !important; inset: 0 !important; width: 100% !important; max-width: 100% !important; height: auto !important; overflow: visible !important; border: none !important; box-shadow: none !important; background: white !important; padding: 0 !important; margin: 0 !important; border-radius: 0 !important; }
+          #app-sidebar, #app-topbar, nav, header, .topbar, .dashboard-main-content > *:not([data-radix-dialog-portal]) { display: none !important; }
+          #payslip-content { display: block !important; box-shadow: none !important; border-radius: 0 !important; }
         }
       `}</style>
     </div>
@@ -250,7 +250,7 @@ function ConfigEditor({ employee, onClose, onSaved }: { employee: Employee; onCl
     startTransition(async () => {
       const res = await upsertPayrollConfig(employee.id, { baseSalary26Days: base, uangMakan, transport, bpjs, pph21 })
       if (res.success) {
-        toast.success("Konfigurasi gaji berhasil disimpan")
+        toast.success("Konfigurasi gaji disimpan & slip periode ini digenerate otomatis")
         onSaved()
         onClose()
       } else {
@@ -292,6 +292,18 @@ function ConfigEditor({ employee, onClose, onSaved }: { employee: Employee; onCl
           <p className="text-xs text-muted-foreground">{employee.department?.name} · {employee.shift?.name}</p>
         </div>
       </div>
+
+      {/* Current slip status info */}
+      {employee.currentSlip && (
+        <div className="flex items-center gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20 text-xs text-warning">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+          <span>
+            {employee.currentSlip.isPublished
+              ? "Slip periode ini sudah dipublish. Menyimpan perubahan akan mereset status publish — HRD perlu publish ulang."
+              : "Slip periode ini sudah digenerate (belum dipublish). Perubahan akan otomatis diperbarui."}
+          </span>
+        </div>
+      )}
 
       {/* 3-way synced salary fields */}
       <div className="grid grid-cols-3 gap-3 p-3 bg-primary/5 rounded-lg border border-primary/20">
@@ -350,7 +362,7 @@ function ConfigEditor({ employee, onClose, onSaved }: { employee: Employee; onCl
       <div className="flex gap-2 pt-1">
         <Button variant="outline" className="flex-1" onClick={onClose} disabled={isPending}>Batal</Button>
         <Button className="flex-1" onClick={handleSave} disabled={isPending}>
-          {isPending ? "Menyimpan..." : "Simpan Konfigurasi"}
+          {isPending ? "Menyimpan & Generate..." : "Simpan Konfigurasi"}
         </Button>
       </div>
     </div>
@@ -364,9 +376,7 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
   const [isPending, startTransition] = useTransition()
   const [configTarget, setConfigTarget] = useState<Employee | null>(null)
   const [slipPreview, setSlipPreview] = useState<(PayrollSlip & { user: any }) | null>(null)
-  const [generatingId, setGeneratingId] = useState<string | null>(null)
-  const [isGeneratingAll, setIsGeneratingAll] = useState(false)
-  const [showGenerateDialog, setShowGenerateDialog] = useState(false)
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null)
   const [showPublishDialog, setShowPublishDialog] = useState(false)
   const [search, setSearch] = useState("")
 
@@ -387,28 +397,16 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
     })
   }
 
-  const handleGenerate = async (employee: Employee) => {
-    setGeneratingId(employee.id)
+  // Manual regenerate for a single employee (e.g. after attendance was corrected)
+  const handleRegenerate = async (employee: Employee) => {
+    setRegeneratingId(employee.id)
     const res = await generatePayrollSlip(employee.id, currentYear, currentMonth)
-    setGeneratingId(null)
+    setRegeneratingId(null)
     if (res.success) {
-      toast.success(`Slip gaji ${employee.name} berhasil dibuat!`)
+      toast.success(`Slip gaji ${employee.name} diperbarui`)
       router.refresh()
     } else {
-      toast.error(res.error)
-    }
-  }
-
-  const handleGenerateAll = async () => {
-    setIsGeneratingAll(true)
-    const res = await generateAllPayrollSlips(currentYear, currentMonth)
-    setIsGeneratingAll(false)
-    setShowGenerateDialog(false)
-    if (res.success) {
-      toast.success(res.message)
-      router.refresh()
-    } else {
-      toast.error(res.error)
+      toast.error((res as any).error)
     }
   }
 
@@ -437,44 +435,40 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
 
   const periodLabel = `${format(new Date(periodStart), "d MMM", { locale: id })} – ${format(new Date(periodEnd), "d MMM yyyy", { locale: id })}`
 
+  // Summary stats
+  const totalConfigured = employees.filter(e => e.payrollConfig).length
+  const totalWithSlip = employees.filter(e => e.currentSlip).length
+  const totalPublished = employees.filter(e => e.currentSlip?.isPublished).length
+  const totalNeedRepublish = employees.filter(e => e.currentSlip && !e.currentSlip.isPublished && e.payrollConfig).length
+
   return (
     <div className="space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-bold text-foreground">Manajemen Payroll</h1>
-          <p className="text-sm text-muted-foreground">Atur & generate slip gaji karyawan.</p>
+          <p className="text-sm text-muted-foreground">Atur gaji karyawan & publish slip gaji.</p>
         </div>
         {/* Period Navigator & Actions */}
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
-          <Button 
-            onClick={() => setShowGenerateDialog(true)}
-            disabled={isGeneratingAll || isPending}
+          <Button
+            onClick={() => setShowPublishDialog(true)}
+            disabled={isPending || totalWithSlip === 0}
             className="gap-1.5"
             variant="default"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Generate Semua
-          </Button>
-          
-          <Button 
-            onClick={() => setShowPublishDialog(true)}
-            disabled={isGeneratingAll || isPending}
-            className="gap-1.5"
-            variant="outline"
           >
             <Send className="h-4 w-4" />
             Publish Semua
           </Button>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" className="h-9 w-9 bg-input" onClick={() => navigateMonth(-1)} disabled={isPending || isGeneratingAll}>
+            <Button variant="outline" size="icon" className="h-9 w-9 bg-input" onClick={() => navigateMonth(-1)} disabled={isPending}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="px-3 py-1.5 rounded-md bg-input border text-sm font-medium min-w-[160px] text-center">
               {periodLabel}
             </div>
-            <Button variant="outline" size="icon" className="h-9 w-9 bg-input" onClick={() => navigateMonth(1)} disabled={isPending || isGeneratingAll}>
+            <Button variant="outline" size="icon" className="h-9 w-9 bg-input" onClick={() => navigateMonth(1)} disabled={isPending}>
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
@@ -482,24 +476,41 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <GlassCard className="p-4 text-center">
           <p className="text-2xl font-bold text-primary">{employees.length}</p>
           <p className="text-xs text-muted-foreground">Total Karyawan</p>
         </GlassCard>
         <GlassCard className="p-4 text-center">
-          <p className="text-2xl font-bold text-success">
-            {employees.filter(e => e.payrollConfig).length}
-          </p>
+          <p className="text-2xl font-bold text-success">{totalConfigured}</p>
           <p className="text-xs text-muted-foreground">Terkonfigurasi</p>
         </GlassCard>
         <GlassCard className="p-4 text-center">
-          <p className="text-2xl font-bold text-warning">
-            {employees.filter(e => !e.payrollConfig).length}
+          <p className="text-2xl font-bold text-foreground">{totalWithSlip}</p>
+          <p className="text-xs text-muted-foreground">Slip Dibuat</p>
+        </GlassCard>
+        <GlassCard className="p-4 text-center">
+          <p className={`text-2xl font-bold ${totalNeedRepublish > 0 ? "text-warning" : "text-success"}`}>
+            {totalPublished}
           </p>
-          <p className="text-xs text-muted-foreground">Belum Diatur</p>
+          <p className="text-xs text-muted-foreground">
+            {totalNeedRepublish > 0 ? `${totalNeedRepublish} perlu publish ulang` : "Dipublish"}
+          </p>
         </GlassCard>
       </div>
+
+      {/* Republish warning banner */}
+      {totalNeedRepublish > 0 && (
+        <GlassCard className="p-3 border-warning/30 bg-warning/5">
+          <div className="flex items-center gap-2 text-sm text-warning">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              <strong>{totalNeedRepublish} karyawan</strong> memiliki slip yang belum/perlu dipublish ulang setelah perubahan gaji.
+              Klik <strong>Publish Semua</strong> agar karyawan dapat melihat slip terbaru.
+            </span>
+          </div>
+        </GlassCard>
+      )}
 
       {/* Search */}
       <GlassCard className="p-3">
@@ -516,7 +527,8 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
         {filteredEmployees.map((emp) => {
           const cfg = emp.payrollConfig
           const dailyRate = cfg ? Math.round(cfg.baseSalary26Days / 26) : 0
-          const isGenerating = generatingId === emp.id
+          const slip = emp.currentSlip
+          const isRegenerating = regeneratingId === emp.id
 
           return (
             <GlassCard key={emp.id} className="p-4">
@@ -539,8 +551,8 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
                   </div>
                 </div>
 
-                {/* Salary Info */}
-                <div className="flex items-center gap-4 text-sm">
+                {/* Salary Info + Slip Status */}
+                <div className="flex items-center gap-3 text-sm flex-wrap">
                   {cfg ? (
                     <>
                       <div className="text-center hidden sm:block">
@@ -555,6 +567,23 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
                   ) : (
                     <span className="text-xs text-warning bg-warning/10 px-2 py-1 rounded-full">Belum dikonfigurasi</span>
                   )}
+
+                  {/* Slip status badge */}
+                  {slip ? (
+                    slip.isPublished ? (
+                      <span className="flex items-center gap-1 text-xs text-success bg-success/10 px-2 py-1 rounded-full">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Published
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-xs text-warning bg-warning/10 px-2 py-1 rounded-full">
+                        <Clock className="h-3 w-3" />
+                        Draft
+                      </span>
+                    )
+                  ) : cfg ? (
+                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">Belum digenerate</span>
+                  ) : null}
                 </div>
 
                 {/* Actions */}
@@ -568,25 +597,26 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
                     <Settings className="h-3.5 w-3.5" />
                     Atur Gaji
                   </Button>
-                  <Button
-                    size="sm"
-                    className="gap-1.5 h-8 text-xs"
-                    onClick={() => handleGenerate(emp)}
-                    disabled={!cfg || isGenerating}
-                    title={!cfg ? "Konfigurasi gaji terlebih dahulu" : "Generate Payslip"}
-                  >
-                    {isGenerating ? (
-                      <><RefreshCw className="h-3.5 w-3.5 animate-spin" />Proses...</>
-                    ) : (
-                      <><RefreshCw className="h-3.5 w-3.5" />Generate</>
-                    )}
-                  </Button>
+                  {/* Regenerate button — only shown if a slip already exists (manual recalc after attendance fix) */}
+                  {slip && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 h-8 text-xs"
+                      onClick={() => handleRegenerate(emp)}
+                      disabled={isRegenerating}
+                      title="Kalkulasi ulang slip berdasarkan absensi terkini"
+                    >
+                      <RefreshCw className={`h-3.5 w-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
                     className="gap-1.5 h-8 text-xs"
                     onClick={() => handleViewSlip(emp)}
-                    title="Lihat Slip Gaji"
+                    disabled={!slip}
+                    title={slip ? "Lihat Slip Gaji" : "Slip belum tersedia"}
                   >
                     <FileText className="h-3.5 w-3.5" />
                   </Button>
@@ -620,36 +650,10 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
             <DialogTitle className="sr-only">Slip Gaji</DialogTitle>
           </DialogHeader>
           {slipPreview && (
-            <PayslipPrintView
+            <PayslipPrintViewModal
               slip={slipPreview}
               onClose={() => setSlipPreview(null)}
             />
-          )}
-        </DialogContent>
-      </Dialog>
-      {/* Generate All Dialog */}
-      <Dialog open={showGenerateDialog} onOpenChange={(open) => { if (!isGeneratingAll) setShowGenerateDialog(open) }}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{isGeneratingAll ? "Memproses Slip Gaji..." : "Generate Semua Slip Gaji"}</DialogTitle>
-          </DialogHeader>
-          {isGeneratingAll ? (
-            <div className="flex flex-col items-center justify-center py-8 space-y-4">
-              <RefreshCw className="h-10 w-10 text-primary animate-spin" />
-              <p className="text-center text-sm text-muted-foreground">
-                Sistem sedang memproses slip gaji untuk seluruh karyawan aktif. Mohon jangan tutup halaman ini.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4 pt-4">
-              <p className="text-sm text-foreground">
-                Apakah Anda yakin ingin men-generate slip gaji untuk SEMUA karyawan aktif pada periode <b>{periodLabel}</b>?
-              </p>
-              <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => setShowGenerateDialog(false)}>Batal</Button>
-                <Button onClick={handleGenerateAll}>Ya, Generate</Button>
-              </div>
-            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -670,9 +674,15 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
           ) : (
             <div className="space-y-4 pt-4">
               <p className="text-sm text-foreground">
-                Apakah Anda yakin ingin mem-publish SEMUA slip gaji untuk periode ini? 
-                Karyawan akan mendapatkan akses untuk melihatnya di halaman profil mereka.
+                Publish <strong>{totalWithSlip}</strong> slip gaji periode <strong>{periodLabel}</strong>?
+                Karyawan akan dapat melihat slip di halaman profil mereka.
               </p>
+              {totalNeedRepublish > 0 && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-warning/10 border border-warning/20 text-xs text-warning">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <span>{totalNeedRepublish} slip belum dipublish karena ada perubahan gaji. Publish sekarang untuk memperbarui yang dilihat karyawan.</span>
+                </div>
+              )}
               <div className="flex gap-2 justify-end">
                 <Button variant="outline" onClick={() => setShowPublishDialog(false)}>Batal</Button>
                 <Button onClick={handlePublishAll}>Ya, Publish</Button>

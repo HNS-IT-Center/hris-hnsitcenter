@@ -83,6 +83,11 @@ export async function calculateWorkingDays(userId: string, periodStart: Date, pe
 // PAYROLL CONFIG (per-employee)
 // ============================================================
 
+/**
+ * Saves/updates salary config for an employee.
+ * AUTO-GENERATES a draft payslip for the current period immediately.
+ * The generated slip is isPublished=false until HRD publishes.
+ */
 export async function upsertPayrollConfig(userId: string, config: PayrollConfigInput) {
   const admin = await requireHrdOrBoss()
   if (!admin) return { success: false, error: 'Unauthorized.' }
@@ -93,6 +98,12 @@ export async function upsertPayrollConfig(userId: string, config: PayrollConfigI
     create: { userId, ...config }
   })
 
+  // Auto-generate draft slip for the current payroll period
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() + 1
+  await _generatePayrollSlipInternal(userId, year, month, config)
+
   revalidatePath('/hrd/payroll')
   return { success: true }
 }
@@ -102,18 +113,15 @@ export async function getPayrollConfig(userId: string) {
 }
 
 // ============================================================
-// GENERATE / REGENERATE PAYROLL SLIP (SNAPSHOT)
+// INTERNAL SLIP CALCULATOR (no auth check — called internally)
 // ============================================================
 
-export async function generatePayrollSlip(
+async function _generatePayrollSlipInternal(
   userId: string,
   year: number,
   month: number,
   overrides?: Partial<PayrollConfigInput> & { notes?: string }
 ) {
-  const admin = await requireHrdOrBoss()
-  if (!admin) return { success: false, error: 'Unauthorized.' }
-
   // 1. Determine period
   const { periodStart, periodEnd } = getPayrollPeriodByMonth(year, month)
 
@@ -134,6 +142,11 @@ export async function generatePayrollSlip(
   const transport        = overrides?.transport        ?? cfg?.transport        ?? 0
   const bpjs             = overrides?.bpjs             ?? cfg?.bpjs             ?? 0
   const pph21            = overrides?.pph21            ?? cfg?.pph21            ?? 0
+
+  if (baseSalary26Days === 0) {
+    // No salary configured — skip silently
+    return { success: true, skipped: true }
+  }
 
   // 4. Calculate daily & hourly rates
   const dailyRate = Math.round(baseSalary26Days / 26)
@@ -233,7 +246,6 @@ export async function generatePayrollSlip(
 
   // Tally leave types
   for (const leave of leaveRequests) {
-    // Count days in this leave that fall within the period
     const ls = leave.startDate > periodStart ? leave.startDate : periodStart
     const le = leave.endDate < periodEnd ? leave.endDate : periodEnd
     const days = Math.round((le.getTime() - ls.getTime()) / (1000 * 60 * 60 * 24)) + 1
@@ -250,9 +262,7 @@ export async function generatePayrollSlip(
   }
 
   // 11. Calculate deductions
-  // Tidak Absen + Izin Tidak Dibayar (PERSONAL, SICK without letter) = unpaid
   const unpaidDays = ketidakhadiran + izin
-  // Sick with letter (isPaid=true) doesn't deduct
   const unpaidSickDays = leaveRequests
     .filter(l => l.type === 'SICK' && !l.isPaid)
     .reduce((acc, l) => {
@@ -263,10 +273,10 @@ export async function generatePayrollSlip(
 
   const potonganIzin = (unpaidDays + unpaidSickDays) * dailyRate
 
-  // Flat 20,000 deductions
+  // Flat 20,000 deductions per late/forgot incident
   const flatPenalties = (terlambat + lupaAbsen) * 20000
 
-  // Half-day permission deductions: calculate from leave requests
+  // Half-day permission deductions
   let potonganHalfDay = 0
   for (const leave of leaveRequests) {
     if (leave.type === 'HALF_DAY' && leave.unpaidHours && leave.unpaidHours > 0) {
@@ -293,7 +303,9 @@ export async function generatePayrollSlip(
   // 15. Net
   const totalPenerimaan = totalPendapatan - totalPotongan
 
-  // 16. Upsert the snapshot
+  // 16. Upsert the snapshot.
+  // IMPORTANT: regenerating always resets isPublished=false so employees
+  // see the old data until HRD explicitly republishes.
   await prisma.payrollSlip.upsert({
     where: { userId_periodStart: { userId, periodStart } },
     update: {
@@ -323,7 +335,7 @@ export async function generatePayrollSlip(
       lupaAbsen,
       izinSetengahHari,
       notes: overrides?.notes ?? null,
-      isPublished: false, // Reset to false on regenerate
+      isPublished: false, // Reset to false — HRD must republish after any salary change
       generatedAt: new Date(),
       updatedAt: new Date(),
     },
@@ -356,22 +368,56 @@ export async function generatePayrollSlip(
       lupaAbsen,
       izinSetengahHari,
       notes: overrides?.notes ?? null,
+      isPublished: false,
     }
   })
 
+  return { success: true }
+}
+
+// ============================================================
+// GENERATE / REGENERATE PAYROLL SLIP (public, auth-checked)
+// ============================================================
+
+export async function generatePayrollSlip(
+  userId: string,
+  year: number,
+  month: number,
+  overrides?: Partial<PayrollConfigInput> & { notes?: string }
+) {
+  const admin = await requireHrdOrBoss()
+  if (!admin) return { success: false, error: 'Unauthorized.' }
+
+  const result = await _generatePayrollSlipInternal(userId, year, month, overrides)
   revalidatePath('/hrd/payroll')
   revalidatePath('/profile')
-  return { success: true }
+  return result
 }
 
 // ============================================================
 // READ PAYROLL SLIPS
 // ============================================================
 
+/**
+ * Returns published payslips for an employee's Profile page.
+ * Includes the user relation so the PayslipPrintView can render the full slip.
+ */
 export async function getEmployeePayrollSlips(userId: string) {
   return prisma.payrollSlip.findMany({
     where: { userId, isPublished: true },
-    orderBy: { periodStart: 'desc' }
+    orderBy: { periodStart: 'desc' },
+    include: {
+      user: {
+        select: {
+          name: true,
+          positionName: true,
+          departmentName: true,
+          joinDate: true,
+          store: { select: { name: true } },
+          department: { select: { name: true } },
+        }
+      }
+    }
   })
 }
 
@@ -383,11 +429,16 @@ export async function getPayrollSlip(userId: string, periodStart: Date) {
 }
 
 /**
- * Lists all active employees with their payroll config for the HRD payroll management page.
+ * Lists all active employees with their payroll config and current-period slip status.
  */
-export async function getAllEmployeesPayrollSummary() {
+export async function getAllEmployeesPayrollSummary(year?: number, month?: number) {
   const admin = await requireHrdOrBoss()
   if (!admin) return []
+
+  const now = new Date()
+  const y = year ?? now.getFullYear()
+  const m = month ?? (now.getMonth() + 1)
+  const { periodStart } = getPayrollPeriodByMonth(y, m)
 
   const employees = await prisma.user.findMany({
     where: { isActive: true, role: { not: 'BOSS' } },
@@ -397,10 +448,18 @@ export async function getAllEmployeesPayrollSummary() {
       department: { select: { name: true } },
       store: { select: { name: true } },
       shift: { select: { name: true, startTime: true, endTime: true } },
+      payrollSlips: {
+        where: { periodStart },
+        select: { id: true, isPublished: true, generatedAt: true, totalPenerimaan: true }
+      }
     }
   })
 
-  return employees
+  return employees.map(emp => ({
+    ...emp,
+    currentSlip: emp.payrollSlips[0] ?? null,
+    payrollSlips: undefined, // don't send the full array
+  }))
 }
 
 // ============================================================
@@ -423,15 +482,13 @@ export async function generateAllPayrollSlips(year: number, month: number) {
   let successCount = 0
   let failCount = 0
 
-  // Process in chunks of 10 to avoid overwhelming the database connection pool,
-  // but still gain massive speed improvements through parallel execution.
+  // Process in chunks of 10 to avoid overwhelming the database connection pool
   const CHUNK_SIZE = 10
   for (let i = 0; i < employees.length; i += CHUNK_SIZE) {
     const chunk = employees.slice(i, i + CHUNK_SIZE)
-    
-    // Execute all 10 employees concurrently
+
     const results = await Promise.all(
-      chunk.map(emp => generatePayrollSlip(emp.id, year, month))
+      chunk.map(emp => _generatePayrollSlipInternal(emp.id, year, month))
     )
 
     for (const res of results) {
@@ -459,6 +516,7 @@ export async function publishAllPayrollSlips(year: number, month: number) {
   })
 
   revalidatePath('/hrd/payroll')
+  revalidatePath('/profile')
   return { success: true, message: `Berhasil mem-publish ${result.count} slip gaji.` }
 }
 
@@ -474,5 +532,3 @@ export async function togglePublishPayrollSlip(userId: string, periodStart: Date
   revalidatePath('/hrd/payroll')
   return { success: true }
 }
-
-
