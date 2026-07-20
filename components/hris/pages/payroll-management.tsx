@@ -23,7 +23,7 @@ import { GlassCard } from "@/components/hris/shared"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { upsertPayrollConfig, generatePayrollSlip, getPayrollSlip, generateAllPayrollSlips, publishAllPayrollSlips } from "@/app/actions/payroll"
+import { upsertPayrollConfig, generatePayrollSlip, getPayrollSlip, generateAllPayrollSlips, publishAllPayrollSlips, togglePublishPayrollSlip } from "@/app/actions/payroll"
 import type { getAllEmployeesPayrollSummary } from "@/app/actions/payroll"
 import type { PayrollSlip } from "@prisma/client"
 
@@ -56,7 +56,7 @@ function getInitials(name: string) {
 
 // ─── Config Editor ────────────────────────────────────────────────────────────
 
-function ConfigEditor({ employee, onClose, onSaved }: { employee: Employee; onClose: () => void; onSaved: () => void }) {
+function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }: { employee: Employee; currentYear: number; currentMonth: number; onClose: () => void; onSaved: () => void }) {
   const [isPending, startTransition] = useTransition()
 
   const cfg = employee.payrollConfig
@@ -81,7 +81,7 @@ function ConfigEditor({ employee, onClose, onSaved }: { employee: Employee; onCl
 
   const handleSave = () => {
     startTransition(async () => {
-      const res = await upsertPayrollConfig(employee.id, { baseSalary26Days: base, uangMakan, transport, bpjs, pph21 })
+      const res = await upsertPayrollConfig(employee.id, { baseSalary26Days: base, uangMakan, transport, bpjs, pph21 }, currentYear, currentMonth)
       if (res.success) {
         toast.success("Konfigurasi gaji disimpan & slip periode ini digenerate otomatis")
         onSaved()
@@ -229,7 +229,6 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
     })
   }
 
-  // Manual regenerate for a single employee (e.g. after attendance was corrected)
   const handleRegenerate = async (employee: Employee) => {
     setRegeneratingId(employee.id)
     const res = await generatePayrollSlip(employee.id, currentYear, currentMonth)
@@ -240,6 +239,20 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
     } else {
       toast.error((res as any).error)
     }
+  }
+
+  const handleTogglePublish = (employee: Employee) => {
+    const isPublished = !!employee.currentSlip?.isPublished
+    const action = isPublished ? "Menarik" : "Mem-publish"
+    startTransition(async () => {
+      const res = await togglePublishPayrollSlip(employee.id, currentYear, currentMonth, !isPublished)
+      if (res.success) {
+        toast.success(res.message)
+        router.refresh()
+      } else {
+        toast.error(res.error)
+      }
+    })
   }
 
   const handlePublishAll = async () => {
@@ -258,8 +271,18 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
   const handleViewSlip = (employee: Employee) => {
     if (employee.currentSlip && employee.currentSlip.slug) {
       router.push(`/hrd/payroll/preview/${employee.currentSlip.slug}`)
+    } else if (employee.payrollConfig) {
+      toast.info(`Menyiapkan slip ${employee.name}...`)
+      startTransition(async () => {
+        const res = await generatePayrollSlip(employee.id, currentYear, currentMonth)
+        if (res.success && res.slip?.slug) {
+          router.push(`/hrd/payroll/preview/${res.slip.slug}`)
+        } else {
+          toast.error(res.error || "Gagal menyiapkan slip gaji.")
+        }
+      })
     } else {
-      toast.error("Slip gaji belum digenerate untuk periode ini.")
+      toast.error("Karyawan belum dikonfigurasi gajinya.")
     }
   }
 
@@ -442,13 +465,25 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
                       <RefreshCw className={`h-3.5 w-3.5 ${isRegenerating ? "animate-spin" : ""}`} />
                     </Button>
                   )}
+                  {slip && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`gap-1.5 h-8 text-xs ${slip.isPublished ? "text-success hover:text-success/80" : "text-muted-foreground hover:text-foreground"}`}
+                      onClick={() => handleTogglePublish(emp)}
+                      disabled={isPending}
+                      title={slip.isPublished ? "Tarik (Unpublish) Slip Gaji" : "Publish Slip Gaji ini"}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="sm"
                     className="gap-1.5 h-8 text-xs"
                     onClick={() => handleViewSlip(emp)}
-                    disabled={!slip}
-                    title={slip ? "Lihat Slip Gaji" : "Slip belum tersedia"}
+                    disabled={!slip && !cfg}
+                    title={slip ? "Lihat Slip Gaji" : (cfg ? "Siapkan dan Lihat Slip" : "Slip belum tersedia (Atur Gaji dulu)")}
                   >
                     <FileText className="h-3.5 w-3.5" />
                   </Button>
@@ -468,6 +503,8 @@ export function PayrollManagement({ employees, periodStart, periodEnd, currentYe
           {configTarget && (
             <ConfigEditor
               employee={configTarget}
+              currentYear={currentYear}
+              currentMonth={currentMonth}
               onClose={() => setConfigTarget(null)}
               onSaved={() => router.refresh()}
             />

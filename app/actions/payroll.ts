@@ -89,7 +89,7 @@ export async function calculateWorkingDays(userId: string, periodStart: Date, pe
  * AUTO-GENERATES a draft payslip for the current period immediately.
  * The generated slip is isPublished=false until HRD publishes.
  */
-export async function upsertPayrollConfig(userId: string, config: PayrollConfigInput) {
+export async function upsertPayrollConfig(userId: string, config: PayrollConfigInput, targetYear?: number, targetMonth?: number) {
   const admin = await requireHrdOrBoss()
   if (!admin) return { success: false, error: 'Unauthorized.' }
 
@@ -99,10 +99,10 @@ export async function upsertPayrollConfig(userId: string, config: PayrollConfigI
     create: { userId, ...config }
   })
 
-  // Auto-generate draft slip for the current payroll period
+  // Auto-generate draft slip for the requested payroll period
   const now = new Date()
-  const year = now.getFullYear()
-  const month = now.getMonth() + 1
+  const year = targetYear ?? now.getFullYear()
+  const month = targetMonth ?? (now.getMonth() + 1)
   await _generatePayrollSlipInternal(userId, year, month, config)
 
   revalidatePath('/hrd/payroll')
@@ -310,11 +310,12 @@ export async function _generatePayrollSlipInternal(
   
   const periodSlugName = format(new Date(periodEnd), 'MMM-yyyy').toLowerCase()
   const slug = user.employeeId ? `${user.employeeId}-${periodSlugName}`.toLowerCase() : null
-
-  await prisma.payrollSlip.upsert({
+  
+  const slip = await prisma.payrollSlip.upsert({
     where: { userId_periodStart: { userId, periodStart } },
     update: {
       slug,
+      generatedAt: new Date(),
       periodEnd,
       baseSalary26Days,
       uangMakan,
@@ -340,7 +341,7 @@ export async function _generatePayrollSlipInternal(
       terlambat,
       lupaAbsen,
       izinSetengahHari,
-      notes: overrides?.notes,
+      notes: overrides?.notes ?? undefined,
       isPublished: false,
     },
     create: {
@@ -377,7 +378,7 @@ export async function _generatePayrollSlipInternal(
     }
   })
 
-  return { success: true }
+  return { success: true, slip }
 }
 
 // ============================================================
@@ -525,15 +526,21 @@ export async function publishAllPayrollSlips(year: number, month: number) {
   return { success: true, message: `Berhasil mem-publish ${result.count} slip gaji.` }
 }
 
-export async function togglePublishPayrollSlip(userId: string, periodStart: Date, publish: boolean) {
+export async function togglePublishPayrollSlip(userId: string, year: number, month: number, isPublished: boolean) {
   const admin = await requireHrdOrBoss()
   if (!admin) return { success: false, error: 'Unauthorized.' }
 
-  await prisma.payrollSlip.update({
-    where: { userId_periodStart: { userId, periodStart } },
-    data: { isPublished: publish }
-  })
+  const { periodStart } = getPayrollPeriodByMonth(year, month)
 
-  revalidatePath('/hrd/payroll')
-  return { success: true }
+  try {
+    await prisma.payrollSlip.update({
+      where: { userId_periodStart: { userId, periodStart } },
+      data: { isPublished }
+    })
+    revalidatePath('/hrd/payroll')
+    revalidatePath('/profile')
+    return { success: true, message: isPublished ? 'Slip berhasil di-publish.' : 'Publish slip dibatalkan.' }
+  } catch (error) {
+    return { success: false, error: 'Slip belum digenerate.' }
+  }
 }
