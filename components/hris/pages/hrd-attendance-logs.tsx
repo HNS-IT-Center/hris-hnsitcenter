@@ -84,7 +84,11 @@ function getInitials(name: string) {
 
 function formatTime(dt: Date | string | null | undefined) {
   if (!dt) return "—"
-  return new Date(dt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
+  return new Intl.DateTimeFormat("id-ID", { 
+    hour: "2-digit", 
+    minute: "2-digit",
+    timeZone: "Asia/Jakarta" 
+  }).format(new Date(dt))
 }
 
 export function HrdAttendanceLogs({ initialData, hrdStoreCoords }: { initialData: LogData, hrdStoreCoords?: { lat: number, lng: number, name: string } }) {

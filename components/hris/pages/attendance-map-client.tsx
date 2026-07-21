@@ -207,9 +207,9 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   <div className="text-right">
                     <p className="text-xs font-bold">
                       {mapMode === "checkIn" ? (
-                        log.att?.checkIn ? new Date(log.att.checkIn).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "--:--"
+                        log.att?.checkIn ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.att.checkIn)) : "--:--"
                       ) : (
-                        log.att?.checkOut ? new Date(log.att.checkOut).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "--:--"
+                        log.att?.checkOut ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.att.checkOut)) : "--:--"
                       )}
                     </p>
                     <p className={cn("text-[10px] font-semibold mt-0.5", isLate ? "text-destructive" : "text-emerald-500")}>
@@ -321,9 +321,9 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Waktu</p>
                             <p className="font-mono font-semibold text-sm">
                               {mapMode === "checkIn" ? (
-                                log.att?.checkIn ? new Date(log.att.checkIn).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "--:--"
+                                log.att?.checkIn ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.att.checkIn)) : "--:--"
                               ) : (
-                                log.att?.checkOut ? new Date(log.att.checkOut).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "--:--"
+                                log.att?.checkOut ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.att.checkOut)) : "--:--"
                               )}
                             </p>
                           </div>
