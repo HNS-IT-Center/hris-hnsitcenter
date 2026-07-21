@@ -46,6 +46,50 @@ export async function submitLeaveRequest(data: {
   halfDayTime?: string
 }) {
   try {
+    // 1. Overlap validation
+    const overlapping = await prisma.leaveRequest.findFirst({
+      where: {
+        userId: data.userId,
+        status: { in: ['PENDING', 'APPROVED'] },
+        startDate: { lte: data.endDate },
+        endDate: { gte: data.startDate }
+      }
+    })
+    
+    if (overlapping) {
+      return { success: false, error: 'Terdapat pengajuan izin yang bertabrakan pada rentang tanggal tersebut.' }
+    }
+
+    // 2. Strict totalDays calculation (Server-Side Truth)
+    let calculatedTotalDays = 0
+    if (data.type === 'HALF_DAY') {
+       calculatedTotalDays = 1
+    } else {
+       const user = await prisma.user.findUnique({
+         where: { id: data.userId },
+         select: { weeklyOffDays: true }
+       })
+       const holidays = await prisma.holidayAssignment.findMany({
+         where: {
+           OR: [{ applyToAll: true }, { userId: data.userId }]
+         },
+         include: { holidayMarker: true }
+       })
+       const holidayMs = holidays.map(h => new Date(h.holidayMarker.date).setHours(0,0,0,0))
+       const start = new Date(data.startDate).setHours(0,0,0,0)
+       const end = new Date(data.endDate).setHours(0,0,0,0)
+       
+       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+         if (user?.weeklyOffDays.includes(new Date(d).getDay())) continue
+         if (holidayMs.includes(d)) continue
+         calculatedTotalDays++
+       }
+       
+       if (calculatedTotalDays === 0) {
+         return { success: false, error: 'Tidak ada hari kerja pada rentang tanggal ini.' }
+       }
+    }
+
     let unpaidHours = 0
     if (data.type === 'HALF_DAY' && data.halfDayTime && data.halfDayType) {
       const user = await prisma.user.findUnique({ where: { id: data.userId }, include: { shift: true } })
@@ -71,7 +115,7 @@ export async function submitLeaveRequest(data: {
         status: 'PENDING',
         startDate: data.startDate,
         endDate: data.endDate,
-        totalDays: data.totalDays,
+        totalDays: calculatedTotalDays,
         reason: data.reason,
         sickNoteUrl: data.sickNoteUrl,
         sickNoteFileName: data.sickNoteFileName,
@@ -132,7 +176,10 @@ export async function approveLeaveRequest(
   rejectReason?: string
 ) {
   try {
-    const request = await prisma.leaveRequest.findUnique({ where: { id } })
+    const request = await prisma.leaveRequest.findUnique({ 
+      where: { id },
+      include: { user: { select: { lastQuotaResetDate: true } } }
+    })
     if (!request) return { success: false, error: 'Pengajuan tidak ditemukan.' }
 
     // Lock constraint: Cannot edit if endDate (WIB day) has already passed
@@ -145,10 +192,13 @@ export async function approveLeaveRequest(
 
     let quotaChange = 0
     if (request.type === 'ANNUAL_LEAVE') {
-       if (approved && request.status !== 'APPROVED') {
-          quotaChange = -Math.ceil(request.totalDays)
-       } else if (!approved && request.status === 'APPROVED') {
-          quotaChange = Math.ceil(request.totalDays)
+       const isCurrentPeriod = !request.user.lastQuotaResetDate || request.startDate >= request.user.lastQuotaResetDate
+       if (isCurrentPeriod) {
+         if (approved && request.status !== 'APPROVED') {
+            quotaChange = -Math.ceil(request.totalDays)
+         } else if (!approved && request.status === 'APPROVED') {
+            quotaChange = Math.ceil(request.totalDays)
+         }
        }
     }
 

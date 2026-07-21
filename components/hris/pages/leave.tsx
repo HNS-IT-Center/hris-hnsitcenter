@@ -76,9 +76,24 @@ function getInitials(name: string) {
   return name.split(" ").slice(0, 2).map(n => n[0]).join("").toUpperCase()
 }
 
+function calculateWorkingDays(startDate: Date, endDate: Date, weeklyOffDays: number[], holidays: string[]) {
+  const start = new Date(startDate.setHours(0, 0, 0, 0))
+  const end = new Date(endDate.setHours(0, 0, 0, 0))
+  const holidayMs = holidays.map(h => new Date(h).setHours(0, 0, 0, 0))
+  
+  let workingDays = 0
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const dayOfWeek = d.getDay()
+    if (weeklyOffDays.includes(dayOfWeek)) continue
+    if (holidayMs.includes(d.getTime())) continue
+    workingDays++
+  }
+  return workingDays
+}
+
 // ─── REQUEST FORM ──────────────────────────────────────────────────────────────
 
-function RequestForm({ userId, onDone }: { userId: string; onDone: () => void }) {
+function RequestForm({ userId, weeklyOffDays, holidays, onDone }: { userId: string; weeklyOffDays: number[]; holidays: string[]; onDone: () => void }) {
   const [type, setType] = useState<"ANNUAL_LEAVE" | "SICK" | "PERSONAL" | "HALF_DAY">("ANNUAL_LEAVE")
   const [date, setDate] = useState<{ from?: Date; to?: Date } | undefined>()
   const [reason, setReason] = useState("")
@@ -86,14 +101,22 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
   const [halfDayTime, setHalfDayTime] = useState("")
   const [isPending, startTransition] = useTransition()
 
+  let calculatedDays = 0
+  if (date?.from && date?.to) {
+    if (type === "HALF_DAY") {
+      calculatedDays = 1 // As per user request, Half Day consumes 1 day
+    } else {
+      calculatedDays = calculateWorkingDays(date.from, date.to, weeklyOffDays, holidays)
+    }
+  }
+
   const handleSubmit = () => {
     if (!date?.from || !date?.to) return toast.error("Pilih rentang tanggal.")
     const start = date.from
     const end = date.to
     if (end < start) return toast.error("Tanggal selesai tidak boleh lebih awal dari tanggal mulai.")
     if (type === "HALF_DAY" && !halfDayTime) return toast.error("Pilih waktu untuk izin setengah hari.")
-
-    const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    if (calculatedDays === 0 && type !== "HALF_DAY") return toast.error("Tidak ada hari kerja pada rentang tanggal ini.")
 
     startTransition(async () => {
       const res = await submitLeaveRequest({
@@ -101,7 +124,7 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
         type,
         startDate: start,
         endDate: end,
-        totalDays: diffDays,
+        totalDays: calculatedDays,
         reason,
         halfDayType: type === "HALF_DAY" ? halfDayType : undefined,
         halfDayTime: type === "HALF_DAY" ? halfDayTime : undefined,
@@ -175,6 +198,12 @@ function RequestForm({ userId, onDone }: { userId: string; onDone: () => void })
             />
           </PopoverContent>
         </Popover>
+        {date?.from && date?.to && (
+          <p className="mt-1 text-xs text-muted-foreground font-medium flex items-center gap-1">
+            <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+            {calculatedDays} hari kerja akan digunakan
+          </p>
+        )}
       </div>
 
       {type === "HALF_DAY" && (
@@ -461,10 +490,12 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
 
 // ─── EMPLOYEE VIEW ─────────────────────────────────────────────────────────────
 
-function EmployeeView({ userId, leaveRequests, leaveQuota }: {
+function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holidays }: {
   userId: string
   leaveRequests: LeaveRequest[]
   leaveQuota: LeaveQuota
+  weeklyOffDays: number[]
+  holidays: string[]
 }) {
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<LeaveStatus>("all")
@@ -563,7 +594,7 @@ function EmployeeView({ userId, leaveRequests, leaveQuota }: {
               <DialogTitle>Ajukan Izin / Cuti</DialogTitle>
               <DialogDescription>Lengkapi formulir berikut untuk mengajukan izin.</DialogDescription>
             </DialogHeader>
-            <RequestForm userId={userId} onDone={() => setOpen(false)} />
+            <RequestForm userId={userId} weeklyOffDays={weeklyOffDays} holidays={holidays} onDone={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
       </div>
@@ -644,10 +675,10 @@ function EmployeeView({ userId, leaveRequests, leaveQuota }: {
 export function LeavePage(
   props:
     | { role: "hrd"; allRequests: AllRequest[] }
-    | { role: "employee"; userId: string; leaveRequests: LeaveRequest[]; leaveQuota: LeaveQuota }
+    | { role: "employee"; userId: string; leaveRequests: LeaveRequest[]; leaveQuota: LeaveQuota; weeklyOffDays: number[]; holidays: string[] }
 ) {
   if (props.role === "hrd") return <HrdView allRequests={props.allRequests} />
-  return <EmployeeView userId={props.userId} leaveRequests={props.leaveRequests} leaveQuota={props.leaveQuota} />
+  return <EmployeeView userId={props.userId} leaveRequests={props.leaveRequests} leaveQuota={props.leaveQuota} weeklyOffDays={props.weeklyOffDays} holidays={props.holidays} />
 }
 
 function EmptyState() {
