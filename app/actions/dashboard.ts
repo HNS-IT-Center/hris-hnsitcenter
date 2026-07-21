@@ -180,16 +180,24 @@ export async function getHrdDashboardData(dateStr?: string) {
  * - Off days / holidays: excluded from the "not shown up" logic
  */
 export async function getHrdAttendanceLogs(dateStr?: string) {
-  // Parse the target date
+  // Parse the target date using WIB timezone offset
   const target = dateStr ? new Date(dateStr) : new Date()
-  const day = new Date(
-    Date.UTC(target.getFullYear(), target.getMonth(), target.getDate())
-  )
+  
+  // Format the target date into WIB YYYY-MM-DD
+  const formatter = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Jakarta" })
+  const wibDateStr = formatter.format(target) // e.g. "2026-07-21"
+  const [year, month, date] = wibDateStr.split('-').map(Number)
+  
+  // The database stores midnight UTC for that WIB date
+  const day = new Date(Date.UTC(year, month - 1, date))
 
-  // Determine if the selected date is in the past (strictly before today UTC midnight)
-  const todayMidnight = new Date()
-  todayMidnight.setUTCHours(0, 0, 0, 0)
-  const isPastDate = day < todayMidnight
+  // Determine if the selected date is in the past
+  const now = new Date()
+  const todayWibStr = formatter.format(now)
+  const [tYear, tMonth, tDate] = todayWibStr.split('-').map(Number)
+  const todayWibMidnightUtc = new Date(Date.UTC(tYear, tMonth - 1, tDate))
+  
+  const isPastDate = day < todayWibMidnightUtc
 
   const [employees, attendances, leaves] = await Promise.all([
     prisma.user.findMany({

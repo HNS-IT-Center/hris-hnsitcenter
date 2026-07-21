@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet"
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet"
 import MarkerClusterGroup from "react-leaflet-cluster"
 import "leaflet/dist/leaflet.css"
 import L from "leaflet"
@@ -27,7 +27,6 @@ const customIcon = new L.Icon({
   shadowSize: [41, 41],
 })
 
-// Custom HTML icon for profile pics
 const createProfileIcon = (avatarUrl?: string | null, name: string = "", opacity: number = 1) => {
   const initials = name.split(" ").slice(0, 2).map((n) => n[0]).join("").toUpperCase()
   const content = avatarUrl 
@@ -40,6 +39,18 @@ const createProfileIcon = (avatarUrl?: string | null, name: string = "", opacity
     iconSize: [40, 40],
     iconAnchor: [20, 20],
     popupAnchor: [0, -20],
+  })
+}
+
+const createClusterCustomIcon = function (cluster: any) {
+  const count = cluster.getChildCount()
+  return L.divIcon({
+    html: `<div class="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden bg-primary flex flex-col items-center justify-center text-primary-foreground font-bold text-sm hover:scale-110 transition-transform">
+      <span>${count}</span>
+      <span class="text-[8px] font-normal leading-none -mt-0.5">Staf</span>
+    </div>`,
+    className: 'custom-leaflet-cluster',
+    iconSize: L.point(40, 40, true),
   })
 }
 
@@ -80,12 +91,28 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
     return null
   }
 
+  // Determine anomaly status
+  const getIsAnomaly = (log: any, mode: "checkIn" | "checkOut") => {
+    if (mode === "checkIn") {
+      return log.attendance?.lateMinutes > 0
+    } else {
+      if (!log.attendance?.checkOutTime || !log.employee?.shift?.endTime) return false
+      const checkOutTime = new Date(log.attendance.checkOutTime)
+      const [endH, endM] = log.employee.shift.endTime.split(':').map(Number)
+      
+      const formatter = new Intl.DateTimeFormat("id-ID", { hour: "numeric", minute: "numeric", timeZone: "Asia/Jakarta" })
+      const formatted = formatter.format(checkOutTime)
+      const [coH, coM] = formatted.replace('.', ':').split(':').map(Number)
+      
+      return (coH * 60 + coM) < (endH * 60 + endM)
+    }
+  }
+
   // Handle snap to employee
   const handleSnapToEmployee = (log: any) => {
     const coords = getCoords(log)
     if (coords) {
       setCenter(coords)
-      setZoom(17)
       setActiveLogId(log.employee.id)
     }
   }
@@ -97,7 +124,6 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
     const targetStore = storeObjects.find(s => s.name === storeName)
     if (targetStore && targetStore.latitude && targetStore.longitude) {
       setCenter([targetStore.latitude, targetStore.longitude])
-      setZoom(17)
     } else {
       // Fallback to first employee
       const firstInStore = logs.find((l: any) => l.employee.store?.name === storeName && getCoords(l))
@@ -105,7 +131,6 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
         const coords = getCoords(firstInStore)
         if (coords) {
           setCenter(coords)
-          setZoom(17)
         }
       }
     }
@@ -177,7 +202,8 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
             const isVisible = matchesSearch && matchesDept && matchesStore
             if (!isVisible) return null
 
-            const isLate = mapMode === "checkIn" ? log.attendance?.lateMinutes > 0 : false
+            const isAnomaly = getIsAnomaly(log, mapMode)
+            const anomalyText = mapMode === "checkIn" ? (isAnomaly ? "Telat" : "Tepat Waktu") : (isAnomaly ? "Pulang Cepat" : "Tepat Waktu")
 
             return (
               <motion.div
@@ -212,8 +238,8 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                         log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
                       )}
                     </p>
-                    <p className={cn("text-[10px] font-semibold mt-0.5", isLate ? "text-destructive" : "text-emerald-500")}>
-                      {isLate ? "Telat" : "Tepat Waktu"}
+                    <p className={cn("text-[10px] font-semibold mt-0.5", isAnomaly ? "text-destructive" : "text-emerald-500")}>
+                      {anomalyText}
                     </p>
                   </div>
                 </div>
@@ -243,9 +269,14 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
             const isVisible = storeFilter === "Semua" || storeFilter === store.name
             if (!isVisible) return null
             return (
-              <Marker
-                key={store.id}
-                position={[store.latitude, store.longitude]}
+              <div key={store.id}>
+                <Circle 
+                  center={[store.latitude, store.longitude]} 
+                  radius={100} 
+                  pathOptions={{ color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.1, weight: 1 }} 
+                />
+                <Marker
+                  position={[store.latitude, store.longitude]}
                 icon={L.divIcon({
                   className: "custom-leaflet-marker",
                   html: `<div class="w-12 h-12 flex flex-col items-center justify-center bg-transparent"><div class="w-8 h-8 rounded-full bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center text-white"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg></div><div class="mt-1 bg-white/90 px-2 py-0.5 rounded shadow text-[10px] font-bold text-center whitespace-nowrap">${store.name}</div></div>`,
@@ -253,7 +284,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   iconAnchor: [24, 24],
                   popupAnchor: [0, -24],
                 })}
-                zIndexOffset={1000}
+                zIndexOffset={0}
               >
                 <Popup className="custom-popup">
                   <div className="p-1 text-center">
@@ -262,11 +293,12 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   </div>
                 </Popup>
               </Marker>
+              </div>
             )
           })}
 
           <MarkerClusterGroup
-            chunkedLoading
+            iconCreateFunction={createClusterCustomIcon}
             maxClusterRadius={40}
             spiderfyOnMaxZoom={true}
             showCoverageOnHover={false}
@@ -283,13 +315,15 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
               // If not filtered, we reduce opacity heavily instead of hiding
               const opacity = isFiltered ? 1 : 0.2
 
-              const isLate = mapMode === "checkIn" ? log.attendance?.lateMinutes > 0 : false
+              const isAnomaly = getIsAnomaly(log, mapMode)
+              const anomalyText = mapMode === "checkIn" ? (isAnomaly ? "Telat" : "Tepat Waktu") : (isAnomaly ? "Pulang Cepat" : "Tepat Waktu")
 
               return (
                 <Marker 
                   key={log.employee.id} 
                   position={coords}
                   icon={createProfileIcon(log.employee.avatarUrl, log.employee.name, opacity)}
+                  zIndexOffset={1000}
                   eventHandlers={{
                     click: () => {
                       setActiveLogId(log.employee.id)
@@ -316,8 +350,8 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-2 mt-1">
-                          <div className="rounded bg-muted/50 p-2 text-center">
+                        <div className="flex items-center justify-between rounded bg-muted/50 p-2 mt-1">
+                          <div>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Waktu</p>
                             <p className="font-mono font-semibold text-sm">
                               {mapMode === "checkIn" ? (
@@ -327,21 +361,25 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                               )}
                             </p>
                           </div>
-                          <div className={cn("rounded p-2 text-center flex flex-col items-center justify-center", isLate ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600")}>
-                            {isLate ? <X className="h-4 w-4 mb-0.5" /> : <Check className="h-4 w-4 mb-0.5" />}
-                            <p className="text-[10px] font-bold uppercase">{isLate ? "Telat" : "Tepat Waktu"}</p>
+                          <div className={cn("rounded px-2 py-1 flex items-center gap-1", isAnomaly ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600")}>
+                            {isAnomaly ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                            <p className="text-[10px] font-bold uppercase">{anomalyText}</p>
                           </div>
                         </div>
 
-                        {((mapMode === "checkIn" ? log.attendance?.checkInSelfieUrl : log.attendance?.checkOutSelfieUrl)) && (
-                          <div className="mt-2 rounded-md overflow-hidden h-32 w-full bg-black">
+                        <div className="mt-2 rounded-md overflow-hidden h-32 w-full bg-muted flex flex-col items-center justify-center">
+                          {((mapMode === "checkIn" ? log.attendance?.checkInSelfieUrl : log.attendance?.checkOutSelfieUrl)) ? (
                             <img 
                               src={mapMode === "checkIn" ? log.attendance?.checkInSelfieUrl : log.attendance?.checkOutSelfieUrl} 
                               alt="Selfie" 
                               className="h-full w-full object-cover"
                             />
-                          </div>
-                        )}
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-muted-foreground opacity-60">
+                              <span className="text-[10px] uppercase font-bold tracking-widest mt-1 opacity-50">TIDAK ADA FOTO</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </Popup>
                   )}
@@ -353,7 +391,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `
-        .custom-leaflet-marker {
+        .custom-leaflet-marker, .custom-leaflet-cluster {
           background: transparent;
           border: none;
         }

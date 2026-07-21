@@ -203,7 +203,7 @@ async function main() {
         data: {
           userId: user.id,
           storeId: user.storeId,
-          date: startOfDay(currentDate),
+          date: currentDate,
           checkInTime: checkInDate,
           checkOutTime: checkOutDate,
           checkInLat: store.latitude + (Math.random() - 0.5) * 0.0005,
