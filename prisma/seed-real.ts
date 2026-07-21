@@ -206,6 +206,10 @@ async function main() {
           date: startOfDay(currentDate),
           checkInTime: checkInDate,
           checkOutTime: checkOutDate,
+          checkInLat: store.latitude + (Math.random() - 0.5) * 0.005,
+          checkInLng: store.longitude + (Math.random() - 0.5) * 0.005,
+          checkOutLat: checkOutDate ? store.latitude + (Math.random() - 0.5) * 0.005 : null,
+          checkOutLng: checkOutDate ? store.longitude + (Math.random() - 0.5) * 0.005 : null,
           status: isLate ? 'LATE' : 'PRESENT'
         }
       })

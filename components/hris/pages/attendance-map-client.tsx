@@ -112,13 +112,13 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
   }
 
   return (
-    <div className="flex h-[calc(100vh-12rem)] min-h-[600px] w-full flex-col md:flex-row gap-4 overflow-hidden rounded-xl border bg-background p-2">
+    <div className="flex h-[calc(100vh-12rem)] min-h-[800px] md:min-h-[600px] w-full flex-col md:flex-row gap-4 overflow-hidden rounded-xl border bg-background p-2">
       
       {/* SIDEBAR (Game UI) */}
       <motion.div 
         initial={{ x: -50, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        className="flex w-full flex-col gap-4 md:w-80 lg:w-96 shrink-0 h-full overflow-hidden"
+        className="flex w-full flex-col gap-4 md:w-80 lg:w-96 shrink-0 h-[350px] md:h-full overflow-hidden"
       >
         <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-1">
           <button
@@ -224,7 +224,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
       </motion.div>
 
       {/* MAP CANVAS */}
-      <div className="relative flex-1 overflow-hidden rounded-lg border bg-muted">
+      <div className="relative flex-1 min-h-[400px] md:min-h-0 overflow-hidden rounded-lg border bg-muted">
         <MapContainer
           center={center}
           zoom={zoom}
