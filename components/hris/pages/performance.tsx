@@ -55,6 +55,7 @@ export function PerformancePage({
   month: number // 1-indexed
   summary?: { hadir: number, telat: number, alpha: number, izin: number, cuti: number }
   periodLabel?: string
+  weeklyOffDays?: number[]
 }) {
   const router = useRouter()
 
@@ -149,6 +150,13 @@ export function PerformancePage({
               status = 'ON_LEAVE'
             }
 
+            const rawDate = new Date(Date.UTC(year, month - 1, day))
+            const isOffDay = weeklyOffDays?.includes(rawDate.getUTCDay())
+            const today = new Date()
+            const isToday = rawDate.getUTCFullYear() === today.getFullYear() && 
+                            rawDate.getUTCMonth() === today.getMonth() && 
+                            rawDate.getUTCDate() === today.getDate()
+
             return (
               <button
                 key={day}
@@ -160,8 +168,9 @@ export function PerformancePage({
                   }
                 }}
                 className={cn(
-                  "flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card/40 text-sm text-foreground transition-colors",
-                  dayEvents.length > 0 && "hover:bg-muted/60 cursor-pointer",
+                  "flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border text-sm text-foreground transition-colors",
+                  isToday ? "border-emerald-500/50 bg-emerald-500/10" : (isOffDay ? "border-destructive/20 bg-destructive/10" : "border-border bg-card/40"),
+                  (!isToday && !isOffDay && dayEvents.length > 0) && "hover:bg-muted/60 cursor-pointer",
                   dayEvents.length === 0 && "cursor-default"
                 )}
               >

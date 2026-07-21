@@ -501,13 +501,18 @@ export function CalendarManagerPage() {
               if (day === null) return <div key={`empty-${i}`} className="aspect-square" />
               const iso = toISO(cursor.year, cursor.month, day)
               const dayEvents = eventsByDate[iso] ?? []
+              const isSunday = new Date(cursor.year, cursor.month, day).getDay() === 0
+              const today = new Date()
+              const isToday = iso === toISO(today.getFullYear(), today.getMonth(), today.getDate())
+              
               return (
                 <button
                   key={iso}
                   onClick={() => openForDate(iso)}
                   className={cn(
-                    "group flex aspect-square flex-col items-start gap-1 rounded-lg border border-transparent p-1.5 text-left transition-colors hover:border-border hover:bg-muted/60",
-                    dayEvents.length > 0 && "bg-muted/40",
+                    "group flex aspect-square flex-col items-start gap-1 rounded-lg border p-1.5 text-left transition-colors hover:border-border hover:bg-muted/60",
+                    isToday ? "border-emerald-500/50 bg-emerald-500/10" : (isSunday ? "border-destructive/20 bg-destructive/10" : "border-transparent"),
+                    (!isToday && !isSunday && dayEvents.length > 0) && "bg-muted/40",
                   )}
                 >
                   <span className="text-xs font-medium text-foreground">{day}</span>

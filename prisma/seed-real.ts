@@ -133,10 +133,10 @@ async function main() {
 
   console.log(`✅ Berhasil membuat ${dbUsers.length} karyawan.`)
 
-  console.log('📅 Mem-build riwayat absensi (1 Maret 2026 - 20 Juli 2026)...')
+  console.log('📅 Mem-build riwayat absensi (1 Maret 2026 - 21 Juli 2026)...')
   
   const startDate = parseISO('2026-03-01T00:00:00Z')
-  const endDate = parseISO('2026-07-20T23:59:59Z')
+  const endDate = parseISO('2026-07-21T23:59:59Z')
 
   const totalDays = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
   let countAttendance = 0
@@ -206,10 +206,10 @@ async function main() {
           date: startOfDay(currentDate),
           checkInTime: checkInDate,
           checkOutTime: checkOutDate,
-          checkInLat: store.latitude + (Math.random() - 0.5) * 0.005,
-          checkInLng: store.longitude + (Math.random() - 0.5) * 0.005,
-          checkOutLat: checkOutDate ? store.latitude + (Math.random() - 0.5) * 0.005 : null,
-          checkOutLng: checkOutDate ? store.longitude + (Math.random() - 0.5) * 0.005 : null,
+          checkInLat: store.latitude + (Math.random() - 0.5) * 0.0005,
+          checkInLng: store.longitude + (Math.random() - 0.5) * 0.0005,
+          checkOutLat: checkOutDate ? store.latitude + (Math.random() - 0.5) * 0.0005 : null,
+          checkOutLng: checkOutDate ? store.longitude + (Math.random() - 0.5) * 0.0005 : null,
           status: isLate ? 'LATE' : 'PRESENT'
         }
       })
