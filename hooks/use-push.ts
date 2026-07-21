@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 
 function urlBase64ToUint8Array(base64String: string) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
@@ -56,8 +57,9 @@ export function usePush(userId?: string) {
         body: JSON.stringify({ userId, subscription: sub })
       })
       return true
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to subscribe to push', e)
+      toast.error('Gagal mengaktifkan notifikasi: ' + (e?.message || 'Error unknown'))
       return false
     }
   }
@@ -74,8 +76,9 @@ export function usePush(userId?: string) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ endpoint: subscription.endpoint })
       })
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to unsubscribe', e)
+      toast.error('Gagal menonaktifkan notifikasi: ' + (e?.message || 'Error unknown'))
     }
   }
 

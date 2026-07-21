@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { AttendanceMap } from "./attendance-map"
 import { toast } from "sonner"
 import { type DateRange } from "react-day-picker"
 import { GlassCard } from "@/components/hris/shared"
@@ -24,7 +25,8 @@ import {
   Map,
   CalendarIcon,
   Download,
-  Filter
+  Filter,
+  Table
 } from "lucide-react"
 import {
   Dialog,
@@ -106,6 +108,7 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
   }, [isPending])
 
   // Filters
+  const [viewMode, setViewMode] = useState<"table" | "map">("table")
   const [deptFilter, setDeptFilter] = useState("Semua")
   const [storeFilter, setStoreFilter] = useState("Semua")
   

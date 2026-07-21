@@ -29,6 +29,8 @@ import {
   Plus,
   X,
   ExternalLink,
+  Search,
+  ChevronLeft,
   Clock,
   Stethoscope,
   User,
@@ -38,6 +40,7 @@ import {
   Timer,
   Ban,
 } from "lucide-react"
+import { submitOvertimeRequest } from "@/app/actions/overtime"
 import { submitLeaveRequest, approveLeaveRequest, type getAllLeaveRequests, type getMyLeaveRequests } from "@/app/actions/leave"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
 
@@ -242,6 +245,9 @@ function RequestForm({ userId, weeklyOffDays, holidays, onDone }: { userId: stri
 // ─── HRD VIEW ─────────────────────────────────────────────────────────────────
 
 function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const ITEMS_PER_PAGE = 15
   const [isPending, startTransition] = useTransition()
   const [tab, setTab] = useState<LeaveStatus>("all")
   const [rejectReason, setRejectReason] = useState("")
@@ -277,6 +283,10 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
   }
 
   const filtered = allRequests.filter(r => {
+    if (search) {
+      const s = search.toLowerCase()
+      if (!r.user.name.toLowerCase().includes(s) && !r.reason?.toLowerCase().includes(s) && !LEAVE_TYPE_CONFIG[r.type]?.label.toLowerCase().includes(s)) return false
+    }
     const rDate = new Date(r.startDate)
     if (rDate.getMonth() !== month || rDate.getFullYear() !== year) return false
     if (tab !== "all" && r.status !== tab) return false
@@ -284,6 +294,8 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
   })
 
   const isExpired = (endDate: Date) => Date.now() > new Date(endDate).getTime() + 86400000
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
+  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
 
   const MONTHS = Array.from({ length: 12 }, (_, i) => ({
     value: i,
@@ -316,6 +328,16 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
         </div>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Cari nama, tipe, atau alasan..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+          className="pl-9 bg-background"
+        />
+      </div>
+
       {/* Status filter tabs */}
       <div className="flex flex-wrap gap-2">
         {(["all", "PENDING", "APPROVED", "REJECTED"] as const).map((s) => {
@@ -325,7 +347,7 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
           return (
             <button
               key={s}
-              onClick={() => setTab(s)}
+              onClick={() => { setTab(s); setPage(1); }}
               className={cn(
                 "flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-all",
                 isActive
@@ -356,7 +378,7 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
         <EmptyState />
       ) : (
         <div className="space-y-3">
-          {filtered.map((r) => {
+          {paginated.map((r) => {
             const cfg = LEAVE_TYPE_CONFIG[r.type] ?? LEAVE_TYPE_CONFIG.ANNUAL_LEAVE
             const statusCfg = STATUS_CONFIG[r.status] ?? STATUS_CONFIG.PENDING
             const Icon = cfg.icon
@@ -373,8 +395,8 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
                   {/* Left: Avatar + Info */}
                   <div className="flex items-start gap-3">
                     {/* Employee Avatar */}
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground">
-                      {initials}
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground overflow-hidden">
+                      {r.user.avatarUrl ? <img src={r.user.avatarUrl} alt={r.user.name} className="h-full w-full object-cover" /> : initials}
                     </div>
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -484,11 +506,136 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
           })}
         </div>
       )}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="gap-1.5"
+          >
+            <ChevronLeft className="h-4 w-4" /> Sebelumnya
+          </Button>
+          <div className="text-sm font-medium text-muted-foreground">
+            Halaman {page} dari {totalPages}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="gap-1.5"
+          >
+            Selanjutnya <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-6 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="gap-1.5"
+          >
+            <ChevronLeft className="h-4 w-4" /> Sebelumnya
+          </Button>
+          <div className="text-sm font-medium text-muted-foreground">
+            Halaman {page} dari {totalPages}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="gap-1.5"
+          >
+            Selanjutnya <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   )
 }
 
 // ─── EMPLOYEE VIEW ─────────────────────────────────────────────────────────────
+
+function RequestLemburForm({ onDone }: { onDone: () => void }) {
+  const [isPending, startTransition] = useTransition()
+  const [date, setDate] = useState<Date>()
+  const [startTime, setStartTime] = useState<Date>()
+  const [endTime, setEndTime] = useState<Date>()
+  const [task, setTask] = useState("")
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!date || !startTime || !endTime || !task) return toast.error("Mohon lengkapi semua field")
+
+    const sTime = new Date(date)
+    sTime.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0)
+    
+    const eTime = new Date(date)
+    eTime.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0)
+
+    if (eTime <= sTime) {
+      return toast.error("Waktu selesai harus lebih dari waktu mulai")
+    }
+
+    startTransition(async () => {
+      const res = await submitOvertimeRequest({
+        overtimeDate: date,
+        startTime: sTime,
+        endTime: eTime,
+        task
+      })
+      if (res.success) {
+        toast.success("Lembur berhasil diajukan")
+        onDone()
+      } else {
+        toast.error(res.error)
+      }
+    })
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label>Tanggal Lembur (Bisa pilih tanggal sebelumnya)</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !date && "text-muted-foreground")}>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {date ? format(date, "PPP", { locale: localeID }) : <span>Pilih Tanggal</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <CalendarComponent mode="single" selected={date} onSelect={setDate} initialFocus />
+          </PopoverContent>
+        </Popover>
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Jam Mulai</Label>
+          <TimePicker date={startTime} setDate={setStartTime} />
+        </div>
+        <div className="space-y-2">
+          <Label>Jam Selesai</Label>
+          <TimePicker date={endTime} setDate={setEndTime} />
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label>Tugas / Pekerjaan</Label>
+        <Textarea placeholder="Jelaskan apa yang dikerjakan saat lembur..." value={task} onChange={e => setTask(e.target.value)} required />
+      </div>
+      <DialogFooter className="mt-4">
+        <Button type="button" variant="outline" onClick={onDone} disabled={isPending}>Batal</Button>
+        <Button type="submit" disabled={isPending}>{isPending ? "Mengajukan..." : "Ajukan Lembur"}</Button>
+      </DialogFooter>
+    </form>
+  )
+}
 
 function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holidays }: {
   userId: string
@@ -498,8 +645,12 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
   holidays: string[]
 }) {
   const [open, setOpen] = useState(false)
+  const [openLembur, setOpenLembur] = useState(false)
   const [tab, setTab] = useState<LeaveStatus>("all")
   const [isUploading, setIsUploading] = useState(false)
+  const [search, setSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const ITEMS_PER_PAGE = 15
 
   const handleUpload = async (id: string, file: File) => {
     setIsUploading(true)
@@ -528,7 +679,13 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
     reader.readAsDataURL(file)
   }
 
-  const filtered = tab === "all" ? leaveRequests : leaveRequests.filter((r) => r.status === tab)
+  let filtered = tab === "all" ? leaveRequests : leaveRequests.filter((r) => r.status === tab)
+  if (search) {
+    const s = search.toLowerCase()
+    filtered = filtered.filter(r => r.reason?.toLowerCase().includes(s) || LEAVE_TYPE_CONFIG[r.type]?.label.toLowerCase().includes(s))
+  }
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
+  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
   const usedPercent = Math.min(100, (leaveQuota.used / leaveQuota.total) * 100)
 
   return (
@@ -561,6 +718,16 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
         </div>
       </GlassCard>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Cari tipe atau alasan..."
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+          className="pl-9 bg-background"
+        />
+      </div>
+
       {/* Filter tabs + Submit button */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-2">
@@ -570,7 +737,7 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
             return (
               <button
                 key={s}
-                onClick={() => setTab(s)}
+                onClick={() => { setTab(s); setPage(1); }}
                 className={cn(
                   "rounded-lg border px-3 py-1.5 text-sm font-medium transition-all",
                   isActive
@@ -583,10 +750,11 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
             )
           })}
         </div>
+        <div className="flex gap-2 w-full sm:w-auto">
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button className="gap-1.5 w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/90">
-              <Plus className="h-4 w-4" /> Ajukan Izin
+            <Button className="gap-1.5 flex-1 sm:flex-none bg-primary text-primary-foreground hover:bg-primary/90">
+              <Plus className="h-4 w-4" /> Izin
             </Button>
           </DialogTrigger>
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
@@ -597,6 +765,21 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
             <RequestForm userId={userId} weeklyOffDays={weeklyOffDays} holidays={holidays} onDone={() => setOpen(false)} />
           </DialogContent>
         </Dialog>
+        <Dialog open={openLembur} onOpenChange={setOpenLembur}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="gap-1.5 flex-1 sm:flex-none text-primary border-primary/20 hover:bg-primary/10">
+              <Timer className="h-4 w-4" /> Lembur
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Ajukan Lembur</DialogTitle>
+              <DialogDescription>Lengkapi formulir untuk mencatat jam lembur Anda.</DialogDescription>
+            </DialogHeader>
+            <RequestLemburForm onDone={() => setOpenLembur(false)} />
+          </DialogContent>
+        </Dialog>
+        </div>
       </div>
 
       {/* Leave Request Cards */}
@@ -604,7 +787,7 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
         <EmptyState />
       ) : (
         <div className="space-y-3">
-          {filtered.map((r) => {
+          {paginated.map((r) => {
             const cfg = LEAVE_TYPE_CONFIG[r.type] ?? LEAVE_TYPE_CONFIG.ANNUAL_LEAVE
             const statusCfg = STATUS_CONFIG[r.status] ?? STATUS_CONFIG.PENDING
             const Icon = cfg.icon

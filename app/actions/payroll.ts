@@ -290,9 +290,22 @@ export async function _generatePayrollSlipInternal(
   // 12. Calculate overtime pay
   let lemburHours = 0
   for (const ot of overtimeRequests) {
-    if (ot.totalHours) lemburHours += ot.totalHours
+    if (!ot.totalHours) continue
+    let actualHours = ot.totalHours
+    const att = attendanceMap.get(ot.overtimeDate.toISOString().slice(0, 10))
+    if (att?.checkOut && ot.endTime) {
+      const expectedEnd = new Date(ot.endTime).getTime()
+      const actualEnd = new Date(att.checkOut).getTime()
+      const missedMs = expectedEnd - actualEnd
+      // If check-out is more than 15 minutes (900000 ms) early
+      if (missedMs > 900000) {
+        const missedHours = Math.ceil(missedMs / (1000 * 60 * 60))
+        actualHours = Math.max(0, actualHours - missedHours)
+      }
+    }
+    lemburHours += actualHours
   }
-  const lembur = Math.round(lemburHours * hourlyRate)
+  const lembur = Math.round(lemburHours * 20000)
 
   // 13. Assemble pendapatan
   // Gaji Pokok is strictly 75% of the static baseSalary26Days.
