@@ -9,6 +9,8 @@ import { useRouter } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ImageCropperDialog } from "@/components/hris/shared/image-cropper"
 import { updateProfilePhoneNumber, updateProfileAvatar } from "@/app/actions/profile"
 import { updatePassword } from "@/app/actions/auth-local"
 import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
@@ -24,6 +26,7 @@ type UserProfile = {
   email: string
   username?: string | null
   avatarUrl?: string | null
+  avatarOriginalUrl?: string | null
   role: string
   positionName?: string | null
   departmentName?: string | null
@@ -93,24 +96,54 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
     })
   }
 
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  const [cropDialogOpen, setCropDialogOpen] = useState(false)
+  const [uncroppedImageSrc, setUncroppedImageSrc] = useState<string | null>(null)
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     
+    const objectUrl = URL.createObjectURL(file)
+    setUncroppedImageSrc(objectUrl)
+    setCropDialogOpen(true)
+    
+    e.target.value = ''
+  }
+
+  const handleViewAdjust = () => {
+    if (user.avatarOriginalUrl) {
+      setUncroppedImageSrc(user.avatarOriginalUrl)
+      setCropDialogOpen(true)
+    } else if (user.avatarUrl) {
+      setUncroppedImageSrc(user.avatarUrl)
+      setCropDialogOpen(true)
+    }
+  }
+
+  async function handleCroppedImage(croppedBase64: string) {
+    if (!uncroppedImageSrc) return
     setIsUploading(true)
     try {
-      const compressed = await compressToWebP(file, 0.90)
-      const base64 = await fileToBase64(compressed)
+      // Create a Blob from the object URL to process the original file
+      const response = await fetch(uncroppedImageSrc)
+      const blob = await response.blob()
+      
+      const compressedOriginal = await compressToWebP(new File([blob], "original.jpg", { type: blob.type }), 0.90)
+      const originalBase64 = await fileToBase64(compressedOriginal)
       
       const res = await fetch('/api/upload/avatar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileBase64: base64, userId: user.id })
+        body: JSON.stringify({ 
+          fileBase64: croppedBase64, 
+          originalBase64: originalBase64,
+          userId: user.id 
+        })
       })
       const data = await res.json()
       
       if (res.ok && data.url) {
-        const updateRes = await updateProfileAvatar(data.url)
+        const updateRes = await updateProfileAvatar(data.url, data.originalUrl)
         if (updateRes.success) {
           toast.success("Foto profil berhasil diperbarui")
         } else {
@@ -153,30 +186,59 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
     <div className="space-y-6">
       <div className="rounded-2xl border border-primary/20 bg-primary p-6 shadow-sm text-primary-foreground">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center">
-          <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 text-2xl font-bold overflow-hidden relative shrink-0">
-              {user.avatarUrl ? (
-                <img
-                  src={user.avatarUrl}
-                  alt={user.name}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                getInitials(user.name)
-              )}
-              {/* Hover overlay */}
-              <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
-                {isUploading ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Upload className="h-5 w-5 text-white" />}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <div className="relative group cursor-pointer outline-none">
+                <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-primary-foreground/15 text-2xl font-bold overflow-hidden relative shrink-0">
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    getInitials(user.name)
+                  )}
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isUploading ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Upload className="h-5 w-5 text-white" />}
+                  </div>
+                </div>
+                {/* Always-visible camera badge — tells user the photo is editable */}
+                <div className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-primary bg-primary-foreground shadow-md">
+                  {isUploading
+                    ? <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
+                    : <Camera className="h-3.5 w-3.5 text-primary" />}
+                </div>
               </div>
-            </div>
-            {/* Always-visible camera badge — tells user the photo is editable */}
-            <div className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-primary bg-primary-foreground shadow-md">
-              {isUploading
-                ? <Loader2 className="h-3.5 w-3.5 text-primary animate-spin" />
-                : <Camera className="h-3.5 w-3.5 text-primary" />}
-            </div>
-            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {(user.avatarOriginalUrl || user.avatarUrl) && (
+                <DropdownMenuItem onClick={handleViewAdjust}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  <span>Lihat / Sesuaikan Foto</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                <span>Ubah Foto</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} disabled={isUploading} />
+          
+          {uncroppedImageSrc && (
+            <ImageCropperDialog
+              open={cropDialogOpen}
+              onOpenChange={(val) => {
+                setCropDialogOpen(val)
+                if (!val) setUncroppedImageSrc(null)
+              }}
+              imageSrc={uncroppedImageSrc}
+              onComplete={handleCroppedImage}
+            />
+          )}
           <div className="text-center sm:text-left">
             <h2 className="text-xl font-bold">{user.name}</h2>
             <p className="text-primary-foreground/80">{user.positionName ?? ROLE_LABELS[user.role] ?? user.role}</p>

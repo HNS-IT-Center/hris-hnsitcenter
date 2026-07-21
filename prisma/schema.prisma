@@ -151,6 +151,7 @@ model User {
   name            String
   username        String?   @unique
   avatarUrl       String?
+  avatarOriginalUrl String?
   phoneNumber     String?
   role            Role      @default(EMPLOYEE)
   

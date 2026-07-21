@@ -31,12 +31,12 @@ export async function updateProfilePhoneNumber(phoneNumber: string) {
   }
 }
 
-export async function updateProfileAvatar(avatarUrl: string) {
+export async function updateProfileAvatar(avatarUrl: string, avatarOriginalUrl?: string | null) {
   try {
     const ssoUser = await getServerUser()
     await prisma.user.update({
       where: { email: ssoUser.email },
-      data: { avatarUrl }
+      data: { avatarUrl, avatarOriginalUrl }
     })
 
     revalidatePath('/profile')

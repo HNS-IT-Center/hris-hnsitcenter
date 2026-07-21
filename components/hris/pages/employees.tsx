@@ -31,13 +31,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2, Eye, EyeOff, ArrowUpDown, Phone, AlertTriangle } from "lucide-react"
+import { Briefcase, ChevronRight, Download, MapPin, Search, CalendarIcon, Upload, Lock, Plus, Trash2, Eye, EyeOff, ArrowUpDown, Phone, AlertTriangle, Loader2, Camera } from "lucide-react"
 import { format, addDays } from "date-fns"
 import { id } from "date-fns/locale"
 import { type DateRange } from "react-day-picker"
 
 import { updateEmployee, createEmployee, toggleDeviceBlock, deleteEmployee } from "@/app/actions/employee"
-import { compressToWebP } from "@/lib/utils/file"
+import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ImageCropperDialog } from "@/components/hris/shared/image-cropper"
 import { DatePickerWithRange } from "@/components/hris/shared/date-range-picker"
 import { useTransition } from "react"
 
@@ -200,24 +202,54 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
     })
   }
 
-  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  const [cropDialogOpen, setCropDialogOpen] = useState(false)
+  const [uncroppedImageSrc, setUncroppedImageSrc] = useState<string | null>(null)
+
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file || !draft) return
     
+    const objectUrl = URL.createObjectURL(file)
+    setUncroppedImageSrc(objectUrl)
+    setCropDialogOpen(true)
+    
+    e.target.value = ''
+  }
+
+  const handleViewAdjust = () => {
+    if (!draft) return
+    if (draft.avatarOriginalUrl) {
+      setUncroppedImageSrc(draft.avatarOriginalUrl)
+      setCropDialogOpen(true)
+    } else if (draft.avatarUrl) {
+      setUncroppedImageSrc(draft.avatarUrl)
+      setCropDialogOpen(true)
+    }
+  }
+
+  async function handleCroppedImage(croppedBase64: string) {
+    if (!uncroppedImageSrc || !draft) return
     setIsUploading(true)
     try {
-      const compressed = await compressToWebP(file, 0.90)
-      const base64 = await fileToBase64(compressed)
+      const response = await fetch(uncroppedImageSrc)
+      const blob = await response.blob()
+      
+      const compressedOriginal = await compressToWebP(new File([blob], "original.jpg", { type: blob.type }), 0.90)
+      const originalBase64 = await fileToBase64(compressedOriginal)
       
       const res = await fetch('/api/upload/avatar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileBase64: base64, userId: draft.id })
+        body: JSON.stringify({ 
+          fileBase64: croppedBase64, 
+          originalBase64: originalBase64,
+          userId: draft.id 
+        })
       })
       const data = await res.json()
       
       if (res.ok && data.url) {
-        setDraft({ ...draft, avatarUrl: data.url })
+        setDraft({ ...draft, avatarUrl: data.url, avatarOriginalUrl: data.originalUrl })
         toast.success("Foto profil berhasil diunggah")
       } else {
         toast.error("Gagal mengunggah foto profil", { description: data.error })
@@ -242,6 +274,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
       leaveQuotaRemaining: draft.leaveQuotaRemaining,
       isActive: draft.isActive,
       avatarUrl: draft.avatarUrl,
+      avatarOriginalUrl: draft.avatarOriginalUrl,
     })
 
     toast.promise(promise, {
@@ -567,15 +600,49 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
             <>
               <DialogHeader className="p-6 pb-0">
                 <div className="flex items-center gap-4">
-                  <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/15 text-xl font-semibold text-secondary overflow-hidden relative shrink-0">
-                      {draft.avatarUrl ? <img src={draft.avatarUrl} alt="" className="h-full w-full object-cover" /> : draft.name.charAt(0)}
-                      <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="h-5 w-5 text-white" />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <div className="relative group cursor-pointer outline-none">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-secondary/15 text-xl font-semibold text-secondary overflow-hidden relative shrink-0">
+                          {draft.avatarUrl ? <img src={draft.avatarUrl} alt="" className="h-full w-full object-cover" /> : draft.name.charAt(0)}
+                          <div className="absolute inset-0 bg-black/40 items-center justify-center flex opacity-0 group-hover:opacity-100 transition-opacity">
+                            {isUploading ? <Loader2 className="h-5 w-5 text-white animate-spin" /> : <Upload className="h-5 w-5 text-white" />}
+                          </div>
+                        </div>
+                        {/* Camera icon to signify it's editable */}
+                        <div className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-background bg-secondary text-secondary-foreground shadow-sm">
+                          {isUploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+                        </div>
                       </div>
-                    </div>
-                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={isUploading} />
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      {(draft.avatarOriginalUrl || draft.avatarUrl) && (
+                        <DropdownMenuItem onClick={handleViewAdjust}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          <span>Lihat / Sesuaikan Foto</span>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="mr-2 h-4 w-4" />
+                        <span>Ubah Foto</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileSelect} disabled={isUploading} />
+                  
+                  {uncroppedImageSrc && (
+                    <ImageCropperDialog
+                      open={cropDialogOpen}
+                      onOpenChange={(val) => {
+                        setCropDialogOpen(val)
+                        if (!val) setUncroppedImageSrc(null)
+                      }}
+                      imageSrc={uncroppedImageSrc}
+                      onComplete={handleCroppedImage}
+                    />
+                  )}
+
                   <div className="min-w-0 flex-1">
                     <DialogTitle className="break-words leading-tight">{draft.name}</DialogTitle>
                     <DialogDescription className="truncate">

@@ -42,6 +42,7 @@ export async function updateEmployee(id: string, data: {
   leaveQuotaRemaining?: number
   isActive?: boolean
   avatarUrl?: string | null
+  avatarOriginalUrl?: string | null
 }) {
   try {
     const updatedUser = await prisma.user.update({
@@ -57,6 +58,7 @@ export async function updateEmployee(id: string, data: {
         leaveQuotaRemaining: data.leaveQuotaRemaining,
         isActive: data.isActive,
         avatarUrl: data.avatarUrl,
+        avatarOriginalUrl: data.avatarOriginalUrl,
       },
     })
     
