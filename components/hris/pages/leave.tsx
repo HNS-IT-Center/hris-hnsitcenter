@@ -573,11 +573,13 @@ function RequestLemburForm({ onDone }: { onDone: () => void }) {
     e.preventDefault()
     if (!date || !startTime || !endTime || !task) return toast.error("Mohon lengkapi semua field")
 
+    const [sHour, sMin] = startTime.split(":")
     const sTime = new Date(date)
-    sTime.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0)
+    sTime.setHours(parseInt(sHour), parseInt(sMin), 0, 0)
     
+    const [eHour, eMin] = endTime.split(":")
     const eTime = new Date(date)
-    eTime.setHours(endTime.getHours(), endTime.getMinutes(), 0, 0)
+    eTime.setHours(parseInt(eHour), parseInt(eMin), 0, 0)
 
     if (eTime <= sTime) {
       return toast.error("Waktu selesai harus lebih dari waktu mulai")
@@ -618,11 +620,11 @@ function RequestLemburForm({ onDone }: { onDone: () => void }) {
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Jam Mulai</Label>
-          <TimePicker date={startTime} setDate={setStartTime} />
+          <TimePicker value={startTime} onChange={setStartTime} />
         </div>
         <div className="space-y-2">
           <Label>Jam Selesai</Label>
-          <TimePicker date={endTime} setDate={setEndTime} />
+          <TimePicker value={endTime} onChange={setEndTime} />
         </div>
       </div>
       <div className="space-y-2">

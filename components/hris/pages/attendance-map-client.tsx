@@ -74,8 +74,8 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
 
   // Determine if a log has coordinates for the current mode
   const getCoords = (log: any): [number, number] | null => {
-    const lat = mapMode === "checkIn" ? log.att?.checkInLat : log.att?.checkOutLat
-    const lng = mapMode === "checkIn" ? log.att?.checkInLng : log.att?.checkOutLng
+    const lat = mapMode === "checkIn" ? log.attendance?.checkInLat : log.attendance?.checkOutLat
+    const lng = mapMode === "checkIn" ? log.attendance?.checkInLng : log.attendance?.checkOutLng
     if (lat && lng) return [lat, lng]
     return null
   }
@@ -177,7 +177,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
             const isVisible = matchesSearch && matchesDept && matchesStore
             if (!isVisible) return null
 
-            const isLate = mapMode === "checkIn" ? log.att?.lateMinutes > 0 : false
+            const isLate = mapMode === "checkIn" ? log.attendance?.lateMinutes > 0 : false
 
             return (
               <motion.div
@@ -207,9 +207,9 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   <div className="text-right">
                     <p className="text-xs font-bold">
                       {mapMode === "checkIn" ? (
-                        log.att?.checkIn ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.att.checkIn)) : "--:--"
+                        log.attendance?.checkInTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkInTime)) : "--:--"
                       ) : (
-                        log.att?.checkOut ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.att.checkOut)) : "--:--"
+                        log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
                       )}
                     </p>
                     <p className={cn("text-[10px] font-semibold mt-0.5", isLate ? "text-destructive" : "text-emerald-500")}>
@@ -283,7 +283,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
               // If not filtered, we reduce opacity heavily instead of hiding
               const opacity = isFiltered ? 1 : 0.2
 
-              const isLate = mapMode === "checkIn" ? log.att?.lateMinutes > 0 : false
+              const isLate = mapMode === "checkIn" ? log.attendance?.lateMinutes > 0 : false
 
               return (
                 <Marker 
@@ -321,9 +321,9 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Waktu</p>
                             <p className="font-mono font-semibold text-sm">
                               {mapMode === "checkIn" ? (
-                                log.att?.checkIn ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.att.checkIn)) : "--:--"
+                                log.attendance?.checkInTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkInTime)) : "--:--"
                               ) : (
-                                log.att?.checkOut ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.att.checkOut)) : "--:--"
+                                log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
                               )}
                             </p>
                           </div>
@@ -333,10 +333,10 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                           </div>
                         </div>
 
-                        {((mapMode === "checkIn" ? log.att?.checkInSelfieUrl : log.att?.checkOutSelfieUrl)) && (
+                        {((mapMode === "checkIn" ? log.attendance?.checkInSelfieUrl : log.attendance?.checkOutSelfieUrl)) && (
                           <div className="mt-2 rounded-md overflow-hidden h-32 w-full bg-black">
                             <img 
-                              src={mapMode === "checkIn" ? log.att?.checkInSelfieUrl : log.att?.checkOutSelfieUrl} 
+                              src={mapMode === "checkIn" ? log.attendance?.checkInSelfieUrl : log.attendance?.checkOutSelfieUrl} 
                               alt="Selfie" 
                               className="h-full w-full object-cover"
                             />
