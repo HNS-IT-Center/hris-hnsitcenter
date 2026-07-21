@@ -113,8 +113,11 @@ export function BroadcastPage({ departments, stores, shifts, users, broadcasts: 
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>()
   const [scheduleTime, setScheduleTime] = useState("09:00")
 
-  // Logs collapse
   const [logsExpanded, setLogsExpanded] = useState(true)
+
+  const [searchQuery, setSearchQuery] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 10
 
   const [isPending, startTransition] = useTransition()
 
@@ -122,6 +125,42 @@ export function BroadcastPage({ departments, stores, shifts, users, broadcasts: 
     () => users.filter(u => u.name.toLowerCase().includes(userSearch.toLowerCase())),
     [users, userSearch]
   )
+
+  const processedBroadcasts = useMemo(() => {
+    return initialBroadcasts.map(b => {
+      const hasDepts = b.filterDepts.length > 0
+      const hasStores = b.filterStores.length > 0
+      const hasShifts = b.filterShifts.length > 0
+      const hasUsers = b.filterUsers.length > 0
+      const hasAnyFilter = hasDepts || hasStores || hasShifts || hasUsers
+      const recipientSummary = !hasAnyFilter
+        ? "Semua karyawan"
+        : [
+            hasDepts && `${b.filterDepts.length} dept`,
+            hasStores && `${b.filterStores.length} toko`,
+            hasShifts && `${b.filterShifts.length} shift`,
+            hasUsers && `${b.filterUsers.length} individu`,
+          ].filter(Boolean).join(", ")
+          
+      return { ...b, recipientSummary }
+    })
+  }, [initialBroadcasts])
+  
+  const filteredBroadcasts = useMemo(() => {
+    if (!searchQuery.trim()) return processedBroadcasts
+    const q = searchQuery.toLowerCase()
+    return processedBroadcasts.filter(b => 
+      b.title.toLowerCase().includes(q) || 
+      b.message.toLowerCase().includes(q) ||
+      b.recipientSummary.toLowerCase().includes(q)
+    )
+  }, [processedBroadcasts, searchQuery])
+  
+  const totalPages = Math.max(1, Math.ceil(filteredBroadcasts.length / ITEMS_PER_PAGE))
+  const paginatedBroadcasts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredBroadcasts.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredBroadcasts, currentPage])
 
   const toggleId = (ids: string[], setIds: (v: string[]) => void, id: string) => {
     setIds(ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id])
@@ -445,47 +484,48 @@ export function BroadcastPage({ departments, stores, shifts, users, broadcasts: 
                 <Megaphone className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-semibold text-foreground">Log Broadcast</h3>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-bold text-muted-foreground">
-                  {initialBroadcasts.length}
+                  {filteredBroadcasts.length}
                 </span>
               </div>
               {logsExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
             </div>
 
             {logsExpanded && (
-              <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
-                {initialBroadcasts.length === 0 ? (
-                  <div className="py-10 text-center">
-                    <Megaphone className="mx-auto h-8 w-8 text-muted-foreground/40" />
-                    <p className="mt-2 text-sm text-muted-foreground">Belum ada broadcast.</p>
-                  </div>
-                ) : (
-                  initialBroadcasts.map(b => {
-                    const tagCfg = TAG_CONFIG[b.tag] ?? TAG_CONFIG.NOTICE
-                    const TagIcon = tagCfg.icon
-                    const scheduledTime = b.scheduledAt
-                      ? format(new Date(b.scheduledAt), "dd MMM yyyy HH:mm", { locale: localeID })
-                      : null
-                    const sentTime = b.sentAt
-                      ? format(new Date(b.sentAt), "dd MMM yyyy HH:mm", { locale: localeID })
-                      : null
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Cari judul, pesan, atau audiens..."
+                    className="h-8 bg-input pl-8 text-sm"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value)
+                      setCurrentPage(1)
+                    }}
+                  />
+                </div>
+                
+                <div className="space-y-2 max-h-[70vh] overflow-y-auto pr-1">
+                  {paginatedBroadcasts.length === 0 ? (
+                    <div className="py-10 text-center">
+                      <Megaphone className="mx-auto h-8 w-8 text-muted-foreground/40" />
+                      <p className="mt-2 text-sm text-muted-foreground">Tidak ada broadcast ditemukan.</p>
+                    </div>
+                  ) : (
+                    paginatedBroadcasts.map(b => {
+                      const tagCfg = TAG_CONFIG[b.tag] ?? TAG_CONFIG.NOTICE
+                      const TagIcon = tagCfg.icon
+                      const scheduledTime = b.scheduledAt
+                        ? format(new Date(b.scheduledAt), "dd MMM yyyy HH:mm", { locale: localeID })
+                        : null
+                      const sentTime = b.sentAt
+                        ? format(new Date(b.sentAt), "dd MMM yyyy HH:mm", { locale: localeID })
+                        : null
+                      
+                      const recipientSummary = b.recipientSummary
 
-                    // Determine recipient summary
-                    const hasDepts = b.filterDepts.length > 0
-                    const hasStores = b.filterStores.length > 0
-                    const hasShifts = b.filterShifts.length > 0
-                    const hasUsers = b.filterUsers.length > 0
-                    const hasAnyFilter = hasDepts || hasStores || hasShifts || hasUsers
-                    const recipientSummary = !hasAnyFilter
-                      ? "Semua karyawan"
-                      : [
-                          hasDepts && `${b.filterDepts.length} dept`,
-                          hasStores && `${b.filterStores.length} toko`,
-                          hasShifts && `${b.filterShifts.length} shift`,
-                          hasUsers && `${b.filterUsers.length} individu`,
-                        ].filter(Boolean).join(", ")
-
-                    return (
-                      <div key={b.id} className="rounded-xl border border-border bg-card/50 p-3 space-y-1.5">
+                      return (
+                        <div key={b.id} className="rounded-xl border border-border bg-card/50 p-3 space-y-1.5">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2 min-w-0">
                             <div className={cn("mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md", tagCfg.bg)}>
@@ -523,7 +563,35 @@ export function BroadcastPage({ departments, stores, shifts, users, broadcasts: 
                         </div>
                       </div>
                     )
-                  })
+                    })
+                  )}
+                </div>
+
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between pt-2 border-t border-border mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="h-8 px-2 text-xs"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" /> Prev
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Hal {currentPage} dari {totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="h-8 px-2 text-xs"
+                    >
+                      Next <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
                 )}
               </div>
             )}

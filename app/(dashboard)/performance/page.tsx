@@ -12,7 +12,7 @@ export default async function Page({
   const ssoUser = await getServerUser()
   const dbUser = await prisma.user.findUnique({
     where: { email: ssoUser.email },
-    select: { id: true },
+    select: { id: true, departmentId: true, storeId: true, shiftId: true },
   })
   if (!dbUser) return null
 
@@ -49,11 +49,18 @@ export default async function Page({
     }
   }
 
-  // Fetch events. Normally we'd filter by scope, but let's grab all for the month to filter on the client.
+  // Fetch events. Filter by the user's scope so they don't see events meant for others.
   const [events, leaves] = await Promise.all([
     prisma.calendarEvent.findMany({
       where: {
         date: { gte: startOfMonth, lte: endOfMonth },
+        OR: [
+          { scope: 'all' },
+          ...(dbUser.departmentId ? [{ scope: 'department', scopeValue: dbUser.departmentId }] : []),
+          ...(dbUser.shiftId ? [{ scope: 'shift', scopeValue: dbUser.shiftId }] : []),
+          ...(dbUser.storeId ? [{ scope: 'store', scopeValue: dbUser.storeId }] : []),
+          { scope: 'individual', scopeValue: { contains: dbUser.id } }
+        ]
       }
     }),
     prisma.leaveRequest.findMany({

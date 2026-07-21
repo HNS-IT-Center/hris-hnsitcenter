@@ -14,23 +14,26 @@ export async function getEmployeeDashboardData(userId: string) {
 
   const today = todayUTC()
 
-  const [user, monthlyAttendance, recentLeaves, recentBroadcasts, todayRecord] =
-    await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          avatarUrl: true,
-          leaveQuotaRemaining: true,
-          shift: { select: { name: true, startTime: true, endTime: true } },
-          store: { select: { name: true } },
-          department: { select: { name: true } },
-          positionName: true,
-        },
-      }),
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      avatarUrl: true,
+      leaveQuotaRemaining: true,
+      departmentId: true,
+      storeId: true,
+      shiftId: true,
+      shift: { select: { name: true, startTime: true, endTime: true } },
+      store: { select: { name: true } },
+      department: { select: { name: true } },
+      positionName: true,
+    },
+  })
 
+  const [monthlyAttendance, recentLeaves, recentBroadcasts, todayRecord] =
+    await Promise.all([
       prisma.attendance.findMany({
         where: {
           userId,
@@ -46,6 +49,25 @@ export async function getEmployeeDashboardData(userId: string) {
       }),
 
       prisma.broadcast.findMany({
+        where: {
+          OR: [
+            // No filters (all employees)
+            {
+              filterDepts: { none: {} },
+              filterStores: { none: {} },
+              filterShifts: { none: {} },
+              filterUsers: { none: {} },
+            },
+            // Or matches user's department
+            ...(user?.departmentId ? [{ filterDepts: { some: { departmentId: user.departmentId } } }] : []),
+            // Or matches user's store
+            ...(user?.storeId ? [{ filterStores: { some: { storeId: user.storeId } } }] : []),
+            // Or matches user's shift
+            ...(user?.shiftId ? [{ filterShifts: { some: { shiftId: user.shiftId } } }] : []),
+            // Or matches user directly
+            { filterUsers: { some: { userId } } },
+          ],
+        },
         orderBy: { createdAt: 'desc' },
         take: 3,
         select: {

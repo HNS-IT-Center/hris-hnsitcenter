@@ -733,9 +733,9 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
                             selected={draft.joinDate}
                             onSelect={(d) => d && setDraft({ ...draft, joinDate: d })}
                             initialFocus
-                            captionLayout="dropdown-buttons"
-                            fromYear={1990}
-                            toYear={2030}
+                            captionLayout="dropdown"
+                            startMonth={new Date(1990, 0)}
+                            endMonth={new Date(2030, 11)}
                             className="rounded-md border"
                           />
                         </div>

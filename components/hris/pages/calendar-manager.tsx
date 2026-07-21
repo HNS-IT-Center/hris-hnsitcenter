@@ -86,13 +86,13 @@ function EmployeeMultiSelect({
   employees
 }: {
   selected: string[]
-  onChange: (names: string[]) => void
+  onChange: (ids: string[]) => void
   employees: { id: string, name: string, departmentName: string | null }[]
 }) {
   const [open, setOpen] = useState(false)
 
-  function toggle(name: string) {
-    onChange(selected.includes(name) ? selected.filter((n) => n !== name) : [...selected, name])
+  function toggle(id: string) {
+    onChange(selected.includes(id) ? selected.filter((n) => n !== id) : [...selected, id])
   }
 
   return (
@@ -110,13 +110,13 @@ function EmployeeMultiSelect({
         <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
           <Command>
             <CommandInput placeholder="Cari karyawan..." />
-            <CommandList>
+            <CommandList className="max-h-[250px] overflow-y-auto">
               <CommandEmpty>Karyawan tidak ditemukan.</CommandEmpty>
               <CommandGroup>
                 {employees.map((e) => {
-                  const isSel = selected.includes(e.name)
+                  const isSel = selected.includes(e.id)
                   return (
-                    <CommandItem key={e.id} value={e.name} onSelect={() => toggle(e.name)}>
+                    <CommandItem key={e.id} value={`${e.name} ${e.id}`} onSelect={() => toggle(e.id)}>
                       <span
                         className={cn(
                           "mr-2 flex h-4 w-4 items-center justify-center rounded border",
@@ -138,19 +138,23 @@ function EmployeeMultiSelect({
 
       {selected.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {selected.map((name) => (
-            <Badge key={name} variant="secondary" className="gap-1 pr-1">
-              {name}
-              <button
-                type="button"
-                onClick={() => toggle(name)}
-                className="rounded-full p-0.5 hover:bg-foreground/10"
-                aria-label={`Hapus ${name}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
+          {selected.map((id) => {
+            const emp = employees.find(e => e.id === id)
+            if (!emp) return null
+            return (
+              <Badge key={id} variant="secondary" className="gap-1 pr-1">
+                {emp.name}
+                <button
+                  type="button"
+                  onClick={() => toggle(id)}
+                  className="rounded-full p-0.5 hover:bg-foreground/10"
+                  aria-label={`Hapus ${emp.name}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </Badge>
+            )
+          })}
         </div>
       )}
     </div>

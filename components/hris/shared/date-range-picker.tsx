@@ -68,9 +68,9 @@ export function DatePickerWithRange({
             selected={date}
             onSelect={setDate}
             numberOfMonths={isMobile ? 1 : 2}
-            captionLayout="dropdown-buttons"
-            fromYear={1990}
-            toYear={2030}
+            captionLayout="dropdown"
+            startMonth={new Date(1990, 0)}
+            endMonth={new Date(2030, 11)}
           />
         </PopoverContent>
       </Popover>
