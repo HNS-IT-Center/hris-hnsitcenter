@@ -210,6 +210,8 @@ async function main() {
           checkInLng: store.longitude + (Math.random() - 0.5) * 0.0005,
           checkOutLat: checkOutDate ? store.latitude + (Math.random() - 0.5) * 0.0005 : null,
           checkOutLng: checkOutDate ? store.longitude + (Math.random() - 0.5) * 0.0005 : null,
+          checkInPhotoUrl: user.avatarUrl,
+          checkOutPhotoUrl: checkOutDate ? user.avatarUrl : null,
           status: isLate ? 'LATE' : 'PRESENT'
         }
       })

@@ -54,11 +54,11 @@ const createClusterCustomIcon = function (cluster: any) {
   })
 }
 
-function MapController({ center, zoom }: { center: [number, number], zoom: number }) {
+function MapController({ center }: { center: [number, number] }) {
   const map = useMap()
   useEffect(() => {
-    map.flyTo(center, zoom, { duration: 1.5 })
-  }, [center, zoom, map])
+    map.flyTo(center, map.getZoom(), { duration: 1.0 })
+  }, [center, map])
   return null
 }
 
@@ -251,13 +251,8 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
 
       {/* MAP CANVAS */}
       <div className="relative flex-1 min-h-[400px] md:min-h-0 overflow-hidden rounded-lg border bg-muted">
-        <MapContainer
-          center={center}
-          zoom={zoom}
-          style={{ height: "100%", width: "100%" }}
-          zoomControl={false}
-        >
-          <MapController center={center} zoom={zoom} />
+        <MapContainer center={center} zoom={16} maxZoom={22} scrollWheelZoom={true} className="h-full w-full z-0">
+          <MapController center={center} />
           
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -327,7 +322,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   eventHandlers={{
                     click: () => {
                       setActiveLogId(log.employee.id)
-                      setCenter(coords)
+                      // Do not setCenter here because flyTo will instantly close the Leaflet popup
                     }
                   }}
                 >
@@ -368,9 +363,9 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                         </div>
 
                         <div className="mt-2 rounded-md overflow-hidden h-32 w-full bg-muted flex flex-col items-center justify-center">
-                          {((mapMode === "checkIn" ? log.attendance?.checkInSelfieUrl : log.attendance?.checkOutSelfieUrl)) ? (
+                          {((mapMode === "checkIn" ? log.attendance?.checkInPhotoUrl : log.attendance?.checkOutPhotoUrl)) ? (
                             <img 
-                              src={mapMode === "checkIn" ? log.attendance?.checkInSelfieUrl : log.attendance?.checkOutSelfieUrl} 
+                              src={mapMode === "checkIn" ? log.attendance?.checkInPhotoUrl : log.attendance?.checkOutPhotoUrl} 
                               alt="Selfie" 
                               className="h-full w-full object-cover"
                             />
