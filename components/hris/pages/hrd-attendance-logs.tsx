@@ -181,7 +181,15 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Log Absensi Karyawan</h1>
+          <div className="flex items-center gap-4"><h1 className="text-xl font-bold text-foreground">Log Absensi Karyawan</h1>
+          <div className="flex bg-muted p-1 rounded-lg">
+            <button onClick={() => setViewMode("table")} className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === "table" ? "bg-background shadow text-foreground" : "text-muted-foreground"}`}>
+              <Table className="h-4 w-4" /> Tabel
+            </button>
+            <button onClick={() => setViewMode("map")} className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === "map" ? "bg-background shadow text-foreground" : "text-muted-foreground"}`}>
+              <Map className="h-4 w-4" /> Peta
+            </button>
+          </div></div>
           <p className="text-sm text-muted-foreground">Pantau status kehadiran seluruh karyawan.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
