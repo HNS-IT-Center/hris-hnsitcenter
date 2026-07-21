@@ -87,7 +87,7 @@ function formatTime(dt: Date | string | null | undefined) {
   return new Date(dt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
 }
 
-export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
+export function HrdAttendanceLogs({ initialData, hrdStoreCoords }: { initialData: LogData, hrdStoreCoords?: { lat: number, lng: number, name: string } }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const [tab, setTab] = useState("all")
@@ -252,7 +252,7 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
       </div>
 
       {viewMode === "map" ? (
-        <AttendanceMap initialData={initialData} />
+        <AttendanceMap initialData={initialData} hrdStoreCoords={hrdStoreCoords} />
       ) : (
         <>
           {/* Filter tabs & Dropdowns */}

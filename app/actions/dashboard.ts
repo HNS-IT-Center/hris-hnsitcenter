@@ -201,7 +201,7 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
         positionName: true,
         departmentName: true,
         weeklyOffDays: true,
-        store: { select: { name: true } },
+        store: { select: { id: true, name: true, latitude: true, longitude: true } },
         shift: { select: { name: true, startTime: true, endTime: true } },
       },
       orderBy: { name: 'asc' },

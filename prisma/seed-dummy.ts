@@ -68,7 +68,7 @@ async function main() {
       }
     })
     
-    dummyUsers.push(user)
+    dummyUsers.push({ ...user, _store: store })
   }
 
   console.log(`✅ Berhasil membuat ${dummyUsers.length} karyawan dummy.`)
@@ -156,8 +156,10 @@ async function main() {
           date: currentDate,
           checkInTime: checkInDate,
           status: isLate ? 'LATE' : 'PRESENT',
-          checkInLat: -6.2088,
-          checkInLng: 106.8456,
+          checkInLat: user._store.latitude + (Math.random() - 0.5) * 0.005,
+          checkInLng: user._store.longitude + (Math.random() - 0.5) * 0.005,
+          checkOutLat: checkOutDate ? user._store.latitude + (Math.random() - 0.5) * 0.005 : null,
+          checkOutLng: checkOutDate ? user._store.longitude + (Math.random() - 0.5) * 0.005 : null,
           checkOutTime: checkOutDate,
           isForgotCheckout: forgotCheckout,
         }

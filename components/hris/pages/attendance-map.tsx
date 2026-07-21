@@ -12,6 +12,6 @@ const AttendanceMapClient = dynamic(() => import("./attendance-map-client"), {
   ),
 })
 
-export function AttendanceMap({ initialData }: { initialData: any }) {
-  return <AttendanceMapClient initialData={initialData} />
+export function AttendanceMap({ initialData, hrdStoreCoords }: { initialData: any, hrdStoreCoords?: { lat: number, lng: number, name: string } }) {
+  return <AttendanceMapClient initialData={initialData} hrdStoreCoords={hrdStoreCoords} />
 }

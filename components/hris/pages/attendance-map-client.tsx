@@ -51,19 +51,26 @@ function MapController({ center, zoom }: { center: [number, number], zoom: numbe
   return null
 }
 
-export default function AttendanceMapClient({ initialData }: { initialData: any }) {
+export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { initialData: any, hrdStoreCoords?: { lat: number, lng: number, name: string } }) {
   const logs = initialData.logs || []
   
   const [mapMode, setMapMode] = useState<"checkIn" | "checkOut">("checkIn")
   const [search, setSearch] = useState("")
   const [deptFilter, setDeptFilter] = useState("Semua")
   const [storeFilter, setStoreFilter] = useState("Semua")
-  const [center, setCenter] = useState<[number, number]>([-6.200000, 106.816666])
-  const [zoom, setZoom] = useState(12)
+  
+  const defaultCenter: [number, number] = hrdStoreCoords ? [hrdStoreCoords.lat, hrdStoreCoords.lng] : [-6.200000, 106.816666]
+  const [center, setCenter] = useState<[number, number]>(defaultCenter)
+  const [zoom, setZoom] = useState(hrdStoreCoords ? 16 : 12)
   const [activeLogId, setActiveLogId] = useState<string | null>(null)
 
   const departments = Array.from(new Set(logs.map((l: any) => l.employee.departmentName).filter(Boolean))) as string[]
-  const stores = Array.from(new Set(logs.map((l: any) => l.employee.store?.name).filter(Boolean))) as string[]
+  const storeObjects = Array.from(new Map(logs.filter((l: any) => l.employee.store).map((l: any) => [l.employee.store.id, l.employee.store])).values()) as any[]
+  const stores = storeObjects.map(s => s.name)
+  if (hrdStoreCoords && !stores.includes(hrdStoreCoords.name)) {
+    stores.push(hrdStoreCoords.name)
+    storeObjects.push({ id: "hrd-store", name: hrdStoreCoords.name, latitude: hrdStoreCoords.lat, longitude: hrdStoreCoords.lng })
+  }
 
   // Determine if a log has coordinates for the current mode
   const getCoords = (log: any): [number, number] | null => {
@@ -86,13 +93,20 @@ export default function AttendanceMapClient({ initialData }: { initialData: any 
   // Handle snap to store
   const handleSnapToStore = (storeName: string) => {
     setStoreFilter(storeName)
-    // Find the first employee in this store to center on
-    const firstInStore = logs.find((l: any) => l.employee.store?.name === storeName && getCoords(l))
-    if (firstInStore) {
-      const coords = getCoords(firstInStore)
-      if (coords) {
-        setCenter(coords)
-        setZoom(16)
+    if (storeName === "Semua") return
+    const targetStore = storeObjects.find(s => s.name === storeName)
+    if (targetStore && targetStore.latitude && targetStore.longitude) {
+      setCenter([targetStore.latitude, targetStore.longitude])
+      setZoom(17)
+    } else {
+      // Fallback to first employee
+      const firstInStore = logs.find((l: any) => l.employee.store?.name === storeName && getCoords(l))
+      if (firstInStore) {
+        const coords = getCoords(firstInStore)
+        if (coords) {
+          setCenter(coords)
+          setZoom(17)
+        }
       }
     }
   }
@@ -223,6 +237,33 @@ export default function AttendanceMapClient({ initialData }: { initialData: any 
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
+
+          {storeObjects.map((store) => {
+            if (!store.latitude || !store.longitude) return null
+            const isVisible = storeFilter === "Semua" || storeFilter === store.name
+            if (!isVisible) return null
+            return (
+              <Marker
+                key={store.id}
+                position={[store.latitude, store.longitude]}
+                icon={L.divIcon({
+                  className: "custom-leaflet-marker",
+                  html: `<div class="w-12 h-12 flex flex-col items-center justify-center bg-transparent"><div class="w-8 h-8 rounded-full bg-blue-600 border-2 border-white shadow-lg flex items-center justify-center text-white"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg></div><div class="mt-1 bg-white/90 px-2 py-0.5 rounded shadow text-[10px] font-bold text-center whitespace-nowrap">${store.name}</div></div>`,
+                  iconSize: [48, 48],
+                  iconAnchor: [24, 24],
+                  popupAnchor: [0, -24],
+                })}
+                zIndexOffset={1000}
+              >
+                <Popup className="custom-popup">
+                  <div className="p-1 text-center">
+                    <p className="font-bold text-sm">{store.name}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Lokasi Toko</p>
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          })}
 
           <MarkerClusterGroup
             chunkedLoading
