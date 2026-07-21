@@ -181,15 +181,7 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-4"><h1 className="text-xl font-bold text-foreground">Log Absensi Karyawan</h1>
-          <div className="flex bg-muted p-1 rounded-lg">
-            <button onClick={() => setViewMode("table")} className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === "table" ? "bg-background shadow text-foreground" : "text-muted-foreground"}`}>
-              <Table className="h-4 w-4" /> Tabel
-            </button>
-            <button onClick={() => setViewMode("map")} className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-md transition-all ${viewMode === "map" ? "bg-background shadow text-foreground" : "text-muted-foreground"}`}>
-              <Map className="h-4 w-4" /> Peta
-            </button>
-          </div></div>
+          <h1 className="text-xl font-bold text-foreground">Log Absensi Karyawan</h1>
           <p className="text-sm text-muted-foreground">Pantau status kehadiran seluruh karyawan.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
@@ -247,8 +239,24 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
         ))}
       </div>
 
-      {/* Filter tabs & Dropdowns */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {/* View Toggle */}
+      <div className="flex justify-center sm:justify-start">
+        <div className="flex bg-muted p-1 rounded-lg w-full sm:w-auto">
+          <button onClick={() => setViewMode("table")} className={`flex-1 sm:flex-none justify-center flex items-center gap-2 px-6 py-2 text-sm font-semibold rounded-md transition-all ${viewMode === "table" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            <Table className="h-4 w-4" /> Tampilan Tabel
+          </button>
+          <button onClick={() => setViewMode("map")} className={`flex-1 sm:flex-none justify-center flex items-center gap-2 px-6 py-2 text-sm font-semibold rounded-md transition-all ${viewMode === "map" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            <Map className="h-4 w-4" /> Peta Interaktif
+          </button>
+        </div>
+      </div>
+
+      {viewMode === "map" ? (
+        <AttendanceMap initialData={initialData} />
+      ) : (
+        <>
+          {/* Filter tabs & Dropdowns */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="overflow-x-auto">
           <Tabs value={tab} onValueChange={(v) => { setTab(v); setCurrentPage(1); }}>
             <TabsList className="w-max">
@@ -363,7 +371,7 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
           })}
         </div>
       )}
-
+      
       {/* Pagination Controls */}
       {totalPages > 1 && (
         <div className="flex items-center justify-between text-sm py-2">
@@ -373,6 +381,8 @@ export function HrdAttendanceLogs({ initialData }: { initialData: LogData }) {
             <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</Button>
           </div>
         </div>
+      )}
+      </>
       )}
 
       {/* Details Modal */}
