@@ -369,7 +369,7 @@ export function AttendancePage({ user, store, todayRecord, approvedLeave }: Atte
           )}
 
           {/* Camera / preview area */}
-          <div className="relative mt-4 flex aspect-[3/4] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted">
+          <div className="relative mt-4 flex aspect-[4/5] max-h-[50vh] sm:max-h-[60vh] items-center justify-center overflow-hidden rounded-2xl border border-border bg-muted">
             <video 
               ref={videoRef} 
               autoPlay 

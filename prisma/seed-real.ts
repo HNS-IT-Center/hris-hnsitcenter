@@ -186,6 +186,11 @@ async function main() {
       const forgotCheckout = Math.random() < 0.05
       let checkOutDate = null
       
+      let hasOvertime = false
+      let overtimeHours = 0
+      let overtimeStartDate = null
+      let overtimeEndDate = null
+      
       if (!forgotCheckout) {
         const [endHour, endMin] = shift.endTime.split(':').map(Number)
         checkOutDate = new Date(currentDate)
@@ -196,6 +201,21 @@ async function main() {
         } else {
           // normal checkout
           checkOutDate.setUTCHours(endHour, endMin + Math.floor(Math.random() * 30))
+          
+          // 5% chance of overtime
+          if (Math.random() < 0.05) {
+            hasOvertime = true
+            overtimeHours = Math.floor(Math.random() * 3) + 1 // 1 to 3 hours
+            
+            overtimeStartDate = new Date(currentDate)
+            overtimeStartDate.setUTCHours(endHour, endMin)
+            
+            overtimeEndDate = new Date(currentDate)
+            overtimeEndDate.setUTCHours(endHour + overtimeHours, endMin)
+            
+            // Adjust checkout time to reflect the overtime end plus some buffer
+            checkOutDate.setUTCHours(endHour + overtimeHours, endMin + Math.floor(Math.random() * 15))
+          }
         }
       }
 
@@ -215,6 +235,20 @@ async function main() {
           status: isLate ? 'LATE' : 'PRESENT'
         }
       })
+      
+      if (hasOvertime && overtimeStartDate && overtimeEndDate) {
+        await prisma.overtimeRequest.create({
+          data: {
+            userId: user.id,
+            status: 'APPROVED',
+            overtimeDate: currentDate,
+            startTime: overtimeStartDate,
+            endTime: overtimeEndDate,
+            totalHours: overtimeHours,
+            task: 'Seeder lembur otomatis'
+          }
+        })
+      }
       countAttendance++
     }
   }

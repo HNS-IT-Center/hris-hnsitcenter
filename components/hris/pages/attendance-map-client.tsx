@@ -57,7 +57,10 @@ const createClusterCustomIcon = function (cluster: any) {
 function MapController({ center }: { center: [number, number] }) {
   const map = useMap()
   useEffect(() => {
-    map.flyTo(center, map.getZoom(), { duration: 1.0 })
+    const currentCenter = map.getCenter()
+    if (Math.abs(currentCenter.lat - center[0]) > 0.0001 || Math.abs(currentCenter.lng - center[1]) > 0.0001) {
+      map.flyTo(center, map.getZoom(), { duration: 1.0 })
+    }
   }, [center, map])
   return null
 }
@@ -192,34 +195,53 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
         <div className="flex-1 overflow-y-auto space-y-2 pr-1">
           {logs.map((log: any) => {
             const coords = getCoords(log)
-            if (!coords) return null
+            
+            // Map status to Indonesian label
+            const displayStatusMap: Record<string, string> = {
+              PRESENT: "Hadir",
+              LATE: "Telat",
+              ALPHA: "Alpha",
+              ON_LEAVE: "Izin/Cuti",
+              FORGOT_CHECKOUT: "Lupa Check-out",
+              FORGOT_CHECKIN: "Lupa Check-in",
+              BELUM_ABSEN: "Belum Absen",
+              TIDAK_ABSEN: "Tidak Absen",
+              HOLIDAY: "Libur",
+            }
+            const statusLabel = displayStatusMap[log.displayStatus] || "Belum Absen"
+
+            const isAnomaly = getIsAnomaly(log, mapMode)
+            const anomalyText = mapMode === "checkIn" ? (isAnomaly ? "Telat" : "Tepat Waktu") : (isAnomaly ? "Pulang Cepat" : "Tepat Waktu")
+            const finalText = coords ? anomalyText : statusLabel
 
             // Search filter
-            const matchesSearch = log.employee.name.toLowerCase().includes(search.toLowerCase())
+            const matchesSearch = log.employee.name.toLowerCase().includes(search.toLowerCase()) || 
+                                  finalText.toLowerCase().includes(search.toLowerCase()) ||
+                                  statusLabel.toLowerCase().includes(search.toLowerCase())
             const matchesDept = deptFilter === "Semua" || log.employee.departmentName === deptFilter
             const matchesStore = storeFilter === "Semua" || log.employee.store?.name === storeFilter
             
             const isVisible = matchesSearch && matchesDept && matchesStore
             if (!isVisible) return null
 
-            const isAnomaly = getIsAnomaly(log, mapMode)
-            const anomalyText = mapMode === "checkIn" ? (isAnomaly ? "Telat" : "Tepat Waktu") : (isAnomaly ? "Pulang Cepat" : "Tepat Waktu")
-
             return (
               <motion.div
                 key={log.employee.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                onClick={() => handleSnapToEmployee(log)}
+                onClick={() => {
+                  if (coords) handleSnapToEmployee(log)
+                }}
                 className={cn(
-                  "cursor-pointer rounded-lg border bg-card p-3 shadow-sm transition-all hover:border-primary/50",
-                  activeLogId === log.employee.id ? "border-primary ring-1 ring-primary" : ""
+                  "rounded-lg border bg-card p-3 shadow-sm transition-all",
+                  coords ? "cursor-pointer hover:border-primary/50" : "opacity-60 grayscale cursor-not-allowed",
+                  activeLogId === log.employee.id && coords ? "border-primary ring-1 ring-primary" : ""
                 )}
               >
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
                     {log.employee.avatarUrl ? (
-                      <img src={log.employee.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={log.employee.avatarUrl} alt="" className="h-full w-full object-cover object-center" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center font-bold text-muted-foreground">
                         {log.employee.name.charAt(0)}
@@ -230,7 +252,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                     <p className="truncate font-semibold text-sm">{log.employee.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{log.employee.store?.name || "Tidak ada store"}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <p className="text-xs font-bold">
                       {mapMode === "checkIn" ? (
                         log.attendance?.checkInTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkInTime)) : "--:--"
@@ -238,8 +260,10 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                         log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
                       )}
                     </p>
-                    <p className={cn("text-[10px] font-semibold mt-0.5", isAnomaly ? "text-destructive" : "text-emerald-500")}>
-                      {anomalyText}
+                    <p className={cn("text-[10px] font-semibold mt-0.5", 
+                      !coords ? "text-muted-foreground" : (isAnomaly ? "text-destructive" : "text-emerald-500")
+                    )}>
+                      {finalText}
                     </p>
                   </div>
                 </div>
@@ -330,11 +354,11 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                 >
                   {isFiltered && (
                     <Popup className="custom-popup">
-                      <div className="flex flex-col gap-2 p-1 min-w-[200px]">
-                        <div className="flex items-center gap-3 border-b pb-2">
+                      <div className="flex flex-col gap-1.5 p-1 min-w-[200px]">
+                        <div className="flex items-center gap-3 border-b pb-1.5">
                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
                             {log.employee.avatarUrl ? (
-                              <img src={log.employee.avatarUrl} alt="" className="h-full w-full object-cover" />
+                              <img src={log.employee.avatarUrl} alt="" className="h-full w-full object-cover object-center" />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center font-bold text-muted-foreground">
                                 {log.employee.name.charAt(0)}
@@ -347,7 +371,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                           </div>
                         </div>
                         
-                        <div className="flex items-center justify-between rounded bg-muted/50 p-2 mt-1">
+                        <div className="flex items-center justify-between rounded bg-muted/50 p-1.5 mt-0.5">
                           <div>
                             <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Waktu</p>
                             <p className="font-mono font-semibold text-sm">
@@ -364,12 +388,12 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                           </div>
                         </div>
 
-                        <div className="mt-2 rounded-md overflow-hidden h-32 w-full bg-muted flex flex-col items-center justify-center">
+                        <div className="mt-1 rounded-md overflow-hidden h-24 w-full bg-muted flex flex-col items-center justify-center">
                           {((mapMode === "checkIn" ? log.attendance?.checkInPhotoUrl : log.attendance?.checkOutPhotoUrl)) ? (
                             <img 
                               src={mapMode === "checkIn" ? log.attendance?.checkInPhotoUrl : log.attendance?.checkOutPhotoUrl} 
                               alt="Selfie" 
-                              className="h-full w-full object-cover"
+                              className="h-full w-full object-cover object-center"
                             />
                           ) : (
                             <div className="flex flex-col items-center justify-center text-muted-foreground opacity-60">
