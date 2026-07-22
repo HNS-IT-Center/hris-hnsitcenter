@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet"
 import MarkerClusterGroup from "react-leaflet-cluster"
 import "leaflet/dist/leaflet.css"
@@ -58,14 +58,15 @@ const createClusterCustomIcon = function (cluster: any) {
   })
 }
 
-function MapController({ center }: { center: [number, number] }) {
+function MapController({ center, zoom }: { center: [number, number], zoom: number }) {
   const map = useMap()
   useEffect(() => {
     const currentCenter = map.getCenter()
-    if (Math.abs(currentCenter.lat - center[0]) > 0.0001 || Math.abs(currentCenter.lng - center[1]) > 0.0001) {
-      map.flyTo(center, map.getZoom(), { duration: 1.0 })
+    const currentZoom = map.getZoom()
+    if (Math.abs(currentCenter.lat - center[0]) > 0.0001 || Math.abs(currentCenter.lng - center[1]) > 0.0001 || currentZoom !== zoom) {
+      map.flyTo(center, zoom, { duration: 1.0 })
     }
-  }, [center, map])
+  }, [center, zoom, map])
   return null
 }
 
@@ -130,13 +131,16 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
     const coords = getCoords(log)
     if (coords) {
       setCenter(coords)
+      setZoom(22) // Max zoom to force clusters to open/spiderfy
       setActiveLogId(log.employee.id)
       
-      // Open popup
-      const marker = markerRefs.current[log.employee.id]
-      if (marker) {
-        marker.openPopup()
-      }
+      // Wait for flyTo animation to finish before opening popup
+      setTimeout(() => {
+        const marker = markerRefs.current[log.employee.id]
+        if (marker) {
+          marker.openPopup()
+        }
+      }, 1100)
     }
   }
 
@@ -403,8 +407,8 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
 
       {/* MAP CANVAS */}
       <div className="absolute inset-0 overflow-hidden rounded-xl bg-muted z-0">
-        <MapContainer center={center} zoom={18} maxZoom={22} scrollWheelZoom={true} className="h-full w-full z-0">
-          <MapController center={center} />
+        <MapContainer center={center} zoom={zoom} maxZoom={22} scrollWheelZoom={true} className="h-full w-full z-0">
+          <MapController center={center} zoom={zoom} />
           
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -418,7 +422,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
             const isVisible = storeFilter === "Semua" || storeFilter === store.name
             if (!isVisible) return null
             return (
-              <div key={store.id}>
+              <React.Fragment key={store.id}>
                 <Circle 
                   center={[store.latitude, store.longitude]} 
                   radius={100} 
@@ -442,7 +446,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   </div>
                 </Popup>
               </Marker>
-              </div>
+              </React.Fragment>
             )
           })}
 
