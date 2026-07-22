@@ -16,6 +16,8 @@ export default async function Page() {
       type: "OVERTIME",
       startDate: o.overtimeDate,
       endDate: o.overtimeDate,
+      startTime: o.startTime,
+      endTime: o.endTime,
       totalDays: 0,
       totalHours: o.totalHours,
       reason: o.task,

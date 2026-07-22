@@ -7,7 +7,7 @@ import "leaflet/dist/leaflet.css"
 import L from "leaflet"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, MapPin, Store, Users, Check, X, LogIn, LogOut, ChevronLeft, ChevronRight, List, LayoutGrid } from "lucide-react"
+import { Search, MapPin, Store, Users, Check, X, LogIn, LogOut, ChevronLeft, ChevronRight, List, LayoutGrid, Filter } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 // Fix Leaflet default icon issue
@@ -78,6 +78,12 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
   const [storeFilter, setStoreFilter] = useState("Semua")
   const [showSidebar, setShowSidebar] = useState(true)
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setShowSidebar(false)
+    }
+  }, [])
   
   const defaultCenter: [number, number] = hrdStoreCoords ? [hrdStoreCoords.lat, hrdStoreCoords.lng] : [-6.200000, 106.816666]
   const [center, setCenter] = useState<[number, number]>(defaultCenter)
@@ -157,12 +163,12 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
     <div className="relative flex h-[calc(100vh-12rem)] min-h-[800px] md:min-h-[600px] w-full flex-col overflow-hidden rounded-xl border bg-background md:p-0 p-2 gap-4 md:gap-0">
       
       {/* DESKTOP & MOBILE TOGGLE BUTTON & COLLAPSED SEARCH */}
-      <div className="absolute left-4 top-4 z-[1000] flex items-center gap-2 pointer-events-none dark">
+      <div className="absolute left-4 top-4 z-[1000] flex items-center gap-2 pointer-events-none dark text-white">
         <button 
           onClick={() => setShowSidebar(!showSidebar)}
           className="flex items-center justify-center h-10 w-10 shrink-0 rounded-full border border-border bg-background/90 backdrop-blur-md shadow-md pointer-events-auto hover:bg-muted transition-colors text-foreground"
         >
-          {showSidebar ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          {showSidebar ? <X className="h-5 w-5" /> : <Filter className="h-5 w-5" />}
         </button>
         
         <AnimatePresence>
@@ -187,7 +193,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
 
       {/* SIDEBAR (Absolute Overlay for both Mobile and Desktop) */}
       <div className={cn(
-        "absolute left-4 top-16 bottom-4 z-[1000] flex flex-col shrink-0 overflow-hidden transition-all duration-300 pointer-events-auto dark",
+        "absolute left-4 top-16 bottom-4 z-[1000] flex flex-col shrink-0 overflow-hidden transition-all duration-300 pointer-events-auto dark text-white",
         "bg-background/95 md:bg-background/90 backdrop-blur-md rounded-xl shadow-lg border-border",
         showSidebar ? "w-[calc(100%-2rem)] max-w-sm md:w-80 lg:w-96 opacity-100 translate-x-0 border" : "w-0 opacity-0 -translate-x-10 border-none"
       )}>
@@ -219,7 +225,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
 
         <div className="flex flex-col gap-2">
           <select
-            className="flex h-9 rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none hover:bg-muted/60 transition-colors cursor-pointer"
+            className="flex h-9 rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none hover:bg-muted/60 transition-colors cursor-pointer text-white"
             value={storeFilter}
             onChange={(e) => handleSnapToStore(e.target.value)}
           >
@@ -227,7 +233,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
             {stores.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select
-            className="flex h-9 rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none hover:bg-muted/60 transition-colors cursor-pointer"
+            className="flex h-9 rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none hover:bg-muted/60 transition-colors cursor-pointer text-white"
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
           >
@@ -340,7 +346,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="truncate font-semibold text-sm">{log.employee.name}</p>
+                      <p className="truncate font-semibold text-sm text-white">{log.employee.name}</p>
                       <p className="text-xs text-muted-foreground truncate">{log.employee.store?.name || "Tidak ada store"}</p>
                     </div>
                     <div className="text-right shrink-0">
@@ -370,7 +376,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                       )}
                     </div>
                     <div className="w-full flex flex-col items-center overflow-hidden">
-                      <p className="truncate font-semibold text-[10.5px] leading-tight w-full" title={log.employee.name}>
+                      <p className="truncate font-semibold text-[10.5px] leading-tight w-full text-white" title={log.employee.name}>
                         {log.employee.name.split(' ')[0]}
                       </p>
                       <p className="text-[9px] text-muted-foreground truncate w-full mt-0.5">

@@ -45,6 +45,8 @@ export async function submitOvertimeRequest(data: {
     revalidatePath("/hrd/lembur")
     revalidatePath("/leave")
     revalidatePath("/hrd/leave")
+    revalidatePath("/hrd/dashboard")
+    revalidatePath("/dashboard")
 
     return { success: true, data: req }
   } catch (error: any) {
@@ -96,6 +98,8 @@ export async function approveOvertimeRequest(id: string, approve: boolean, rejec
     revalidatePath("/performance")
     revalidatePath("/leave")
     revalidatePath("/hrd/leave")
+    revalidatePath("/hrd/dashboard")
+    revalidatePath("/dashboard")
 
     return { success: true, data: req }
   } catch (error: any) {
