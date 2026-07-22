@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet"
 import MarkerClusterGroup from "react-leaflet-cluster"
 import "leaflet/dist/leaflet.css"
@@ -44,8 +44,12 @@ const createProfileIcon = (avatarUrl?: string | null, name: string = "", opacity
 
 const createClusterCustomIcon = function (cluster: any) {
   const count = cluster.getChildCount()
+  const children = cluster.getAllChildMarkers()
+  const allFilteredOut = children.every((marker: any) => marker.options.opacity === 0.2)
+  const opacityClass = allFilteredOut ? 'opacity-40 grayscale' : 'opacity-100'
+
   return L.divIcon({
-    html: `<div class="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden bg-primary flex flex-col items-center justify-center text-primary-foreground font-bold text-sm hover:scale-110 transition-transform">
+    html: `<div class="w-10 h-10 rounded-full border-2 border-white shadow-md overflow-hidden bg-primary flex flex-col items-center justify-center text-primary-foreground font-bold text-sm hover:scale-110 transition-transform ${opacityClass}">
       <span>${count}</span>
       <span class="text-[8px] font-normal leading-none -mt-0.5">Staf</span>
     </div>`,
@@ -77,6 +81,8 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
   const [center, setCenter] = useState<[number, number]>(defaultCenter)
   const [zoom, setZoom] = useState(hrdStoreCoords ? 16 : 12)
   const [activeLogId, setActiveLogId] = useState<string | null>(null)
+  
+  const markerRefs = useRef<Record<string, L.Marker>>({})
 
   const departments = Array.from(new Set(logs.map((l: any) => l.employee.departmentName).filter(Boolean))) as string[]
   const storeObjects = Array.from(new Map(logs.filter((l: any) => l.employee.store).map((l: any) => [l.employee.store.id, l.employee.store])).values()) as any[]
@@ -117,6 +123,12 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
     if (coords) {
       setCenter(coords)
       setActiveLogId(log.employee.id)
+      
+      // Open popup
+      const marker = markerRefs.current[log.employee.id]
+      if (marker) {
+        marker.openPopup()
+      }
     }
   }
 
@@ -202,16 +214,46 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
               LATE: "Telat",
               ALPHA: "Alpha",
               ON_LEAVE: "Izin/Cuti",
+              SICK: "Sakit",
               FORGOT_CHECKOUT: "Lupa Check-out",
               FORGOT_CHECKIN: "Lupa Check-in",
               BELUM_ABSEN: "Belum Absen",
               TIDAK_ABSEN: "Tidak Absen",
               HOLIDAY: "Libur",
             }
-            const statusLabel = displayStatusMap[log.displayStatus] || "Belum Absen"
+            let statusLabel = displayStatusMap[log.displayStatus] || "Belum Absen"
+            
+            // Adjust Check Out missing status
+            if (mapMode === "checkOut" && !log.attendance?.checkOutTime) {
+              if (log.attendance?.checkInTime) {
+                statusLabel = "Belum Checkout"
+              }
+            }
 
             const isAnomaly = getIsAnomaly(log, mapMode)
-            const anomalyText = mapMode === "checkIn" ? (isAnomaly ? "Telat" : "Tepat Waktu") : (isAnomaly ? "Pulang Cepat" : "Tepat Waktu")
+            
+            let isLembur = false
+            if (mapMode === "checkOut" && log.attendance?.checkOutTime && log.employee?.shift?.endTime) {
+              const checkOutTime = new Date(log.attendance.checkOutTime)
+              const [endH, endM] = log.employee.shift.endTime.split(':').map(Number)
+              const formatter = new Intl.DateTimeFormat("id-ID", { hour: "numeric", minute: "numeric", timeZone: "Asia/Jakarta" })
+              const formatted = formatter.format(checkOutTime)
+              const [coH, coM] = formatted.replace('.', ':').split(':').map(Number)
+              
+              if ((coH * 60 + coM) > (endH * 60 + endM + 45)) {
+                isLembur = true
+              }
+            }
+            
+            let anomalyText = ""
+            if (mapMode === "checkIn") {
+              anomalyText = isAnomaly ? "Telat" : "Tepat Waktu"
+            } else {
+              if (isAnomaly) anomalyText = "Pulang Cepat"
+              else if (isLembur) anomalyText = "Pulang Lembur"
+              else anomalyText = "Tepat Waktu"
+            }
+
             const finalText = coords ? anomalyText : statusLabel
 
             // Search filter
@@ -261,7 +303,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                       )}
                     </p>
                     <p className={cn("text-[10px] font-semibold mt-0.5", 
-                      !coords ? "text-muted-foreground" : (isAnomaly ? "text-destructive" : "text-emerald-500")
+                      !coords ? "text-muted-foreground" : (isAnomaly ? "text-destructive" : (isLembur ? "text-orange-500" : "text-emerald-500"))
                     )}>
                       {finalText}
                     </p>
@@ -337,7 +379,34 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
               const opacity = isFiltered ? 1 : 0.2
 
               const isAnomaly = getIsAnomaly(log, mapMode)
-              const anomalyText = mapMode === "checkIn" ? (isAnomaly ? "Telat" : "Tepat Waktu") : (isAnomaly ? "Pulang Cepat" : "Tepat Waktu")
+              
+              let isLembur = false
+              if (mapMode === "checkOut" && log.attendance?.checkOutTime && log.employee?.shift?.endTime) {
+                const checkOutTime = new Date(log.attendance.checkOutTime)
+                const [endH, endM] = log.employee.shift.endTime.split(':').map(Number)
+                const formatter = new Intl.DateTimeFormat("id-ID", { hour: "numeric", minute: "numeric", timeZone: "Asia/Jakarta" })
+                const formatted = formatter.format(checkOutTime)
+                const [coH, coM] = formatted.replace('.', ':').split(':').map(Number)
+                
+                if ((coH * 60 + coM) > (endH * 60 + endM + 45)) {
+                  isLembur = true
+                }
+              }
+              
+              let anomalyText = ""
+              if (mapMode === "checkIn") {
+                anomalyText = isAnomaly ? "Telat" : "Tepat Waktu"
+              } else {
+                if (isAnomaly) anomalyText = "Pulang Cepat"
+                else if (isLembur) anomalyText = "Pulang Lembur"
+                else anomalyText = "Tepat Waktu"
+              }
+
+              const timeString = mapMode === "checkIn" ? (
+                log.attendance?.checkInTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkInTime)) : "--:--"
+              ) : (
+                log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
+              )
 
               return (
                 <Marker 
@@ -345,10 +414,14 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   position={coords}
                   icon={createProfileIcon(log.employee.avatarUrl, log.employee.name, opacity)}
                   zIndexOffset={1000}
+                  ref={(m) => {
+                    if (m) {
+                      markerRefs.current[log.employee.id] = m
+                    }
+                  }}
                   eventHandlers={{
                     click: () => {
-                      setActiveLogId(log.employee.id)
-                      // Do not setCenter here because flyTo will instantly close the Leaflet popup
+                      // Do not setActiveLogId to avoid full re-render that un-spiderfies the cluster
                     }
                   }}
                 >
@@ -371,21 +444,13 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                           </div>
                         </div>
                         
-                        <div className="flex items-center justify-between rounded bg-muted/50 p-1.5 mt-0.5">
-                          <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-0.5">Waktu</p>
-                            <p className="font-mono font-semibold text-sm">
-                              {mapMode === "checkIn" ? (
-                                log.attendance?.checkInTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkInTime)) : "--:--"
-                              ) : (
-                                log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
-                              )}
-                            </p>
-                          </div>
-                          <div className={cn("rounded px-2 py-1 flex items-center gap-1", isAnomaly ? "bg-destructive/10 text-destructive" : "bg-emerald-500/10 text-emerald-600")}>
-                            {isAnomaly ? <X className="h-3 w-3" /> : <Check className="h-3 w-3" />}
-                            <p className="text-[10px] font-bold uppercase">{anomalyText}</p>
-                          </div>
+                        <div className="flex flex-col items-center justify-center text-center rounded bg-muted/50 p-1.5 mt-0.5">
+                          <p className="text-[11px] font-medium text-foreground">
+                            Waktu : <span className="font-mono font-bold">{timeString}</span>
+                          </p>
+                          <p className={cn("text-[11px] font-bold mt-0.5", isAnomaly ? "text-destructive" : (isLembur ? "text-orange-500" : "text-emerald-600"))}>
+                            {anomalyText}
+                          </p>
                         </div>
 
                         <div className="mt-1 rounded-md overflow-hidden h-24 w-full bg-muted flex flex-col items-center justify-center">
