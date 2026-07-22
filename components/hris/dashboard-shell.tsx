@@ -66,7 +66,8 @@ export function DashboardShell({ user, pendingApprovalsCount, children }: Dashbo
       target.closest('[role="alertdialog"]') || 
       target.closest('input[type="range"]') || 
       target.closest('.overflow-x-auto') ||
-      target.closest('[data-radix-scroll-area-viewport]')
+      target.closest('[data-radix-scroll-area-viewport]') ||
+      target.closest('.leaflet-container')
     ) {
       return
     }

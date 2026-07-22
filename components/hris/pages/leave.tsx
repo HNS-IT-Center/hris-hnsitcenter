@@ -416,18 +416,28 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
                       <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                         <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
                         {new Date(r.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                        {" "}&mdash;{" "}
-                        {new Date(r.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                        {r.type === 'OVERTIME' ? (
-                          <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
-                            {(r as any).totalHours?.toFixed(1)} jam
-                          </span>
-                        ) : (
-                          <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
-                            {Math.ceil(r.totalDays)} hari
-                          </span>
+                        {r.type !== 'OVERTIME' && (
+                          <>
+                            {" "}&mdash;{" "}
+                            {new Date(r.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                            <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
+                              {Math.ceil(r.totalDays)} hari
+                            </span>
+                          </>
                         )}
                       </p>
+                      {r.type === 'OVERTIME' && (
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Clock className="h-3.5 w-3.5 shrink-0" />
+                          <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
+                            {new Date((r as any).startTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - 
+                            {(r as any).endTime ? new Date((r as any).endTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "..."}
+                          </span>
+                          <span className="rounded bg-emerald-500/10 text-emerald-600 px-1.5 py-0.5 font-bold">
+                            {(r as any).totalHours?.toFixed(1)} jam
+                          </span>
+                        </p>
+                      )}
                       {r.reason && (
                         <p className="mt-2 rounded-lg border border-border/50 bg-muted/40 px-3 py-2 text-sm text-foreground">
                           {r.reason}
@@ -819,15 +829,25 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
                         <p className="font-semibold text-foreground">{cfg.label}</p>
                         <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
                           <CalendarIcon className="h-3 w-3 shrink-0" />
-                          {new Date(r.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
-                          {" "}&mdash;{" "}
-                          {new Date(r.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                          {r.type === 'OVERTIME' ? (
-                            <span className="font-medium text-foreground">{(r as any).totalHours?.toFixed(1)} jam</span>
-                          ) : (
-                            <span className="font-medium text-foreground">{Math.ceil(r.totalDays)} hari</span>
+                          {new Date(r.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                          {r.type !== 'OVERTIME' && (
+                            <>
+                              {" "}&mdash;{" "}
+                              {new Date(r.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+                              <span className="font-medium text-foreground">{Math.ceil(r.totalDays)} hari</span>
+                            </>
                           )}
                         </p>
+                        {r.type === 'OVERTIME' && (
+                          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3 shrink-0" />
+                            <span className="rounded bg-muted px-1 py-0.5 font-medium text-foreground">
+                              {new Date((r as any).startTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - 
+                              {(r as any).endTime ? new Date((r as any).endTime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "..."}
+                            </span>
+                            <span className="font-bold text-emerald-600">{(r as any).totalHours?.toFixed(1)} jam</span>
+                          </p>
+                        )}
                         {r.reason && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{r.reason}</p>}
                         {r.status === 'REJECTED' && (r as any).rejectReason && (
                           <p className="mt-1 flex items-center gap-1 text-xs text-destructive">

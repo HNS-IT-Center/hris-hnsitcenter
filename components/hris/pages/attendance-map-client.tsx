@@ -7,7 +7,7 @@ import "leaflet/dist/leaflet.css"
 import L from "leaflet"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, MapPin, Store, Users, Check, X, LogIn, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, MapPin, Store, Users, Check, X, LogIn, LogOut, ChevronLeft, ChevronRight, List, LayoutGrid } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 // Fix Leaflet default icon issue
@@ -77,6 +77,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
   const [deptFilter, setDeptFilter] = useState("Semua")
   const [storeFilter, setStoreFilter] = useState("Semua")
   const [showSidebar, setShowSidebar] = useState(true)
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   
   const defaultCenter: [number, number] = hrdStoreCoords ? [hrdStoreCoords.lat, hrdStoreCoords.lng] : [-6.200000, 106.816666]
   const [center, setCenter] = useState<[number, number]>(defaultCenter)
@@ -155,11 +156,11 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
   return (
     <div className="relative flex h-[calc(100vh-12rem)] min-h-[800px] md:min-h-[600px] w-full flex-col overflow-hidden rounded-xl border bg-background md:p-0 p-2 gap-4 md:gap-0">
       
-      {/* DESKTOP TOGGLE BUTTON & COLLAPSED SEARCH */}
-      <div className="hidden md:flex absolute left-4 top-4 z-[1000] items-center gap-2 pointer-events-none">
+      {/* DESKTOP & MOBILE TOGGLE BUTTON & COLLAPSED SEARCH */}
+      <div className="absolute left-4 top-4 z-[1000] flex items-center gap-2 pointer-events-none dark">
         <button 
           onClick={() => setShowSidebar(!showSidebar)}
-          className="flex items-center justify-center h-10 w-10 shrink-0 rounded-full border bg-background/90 backdrop-blur-md shadow-md pointer-events-auto hover:bg-muted transition-colors text-foreground"
+          className="flex items-center justify-center h-10 w-10 shrink-0 rounded-full border border-border bg-background/90 backdrop-blur-md shadow-md pointer-events-auto hover:bg-muted transition-colors text-foreground"
         >
           {showSidebar ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
         </button>
@@ -184,24 +185,23 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
         </AnimatePresence>
       </div>
 
-      {/* SIDEBAR (Mobile stacked, Desktop Overlay) */}
+      {/* SIDEBAR (Absolute Overlay for both Mobile and Desktop) */}
       <div className={cn(
-        "flex w-full flex-col shrink-0 overflow-hidden transition-all duration-300 pointer-events-auto",
-        "h-[350px]", // Mobile
-        "md:absolute md:left-4 md:top-16 md:bottom-4 md:z-[1000] md:h-auto md:bg-background/90 md:backdrop-blur-md md:rounded-xl md:shadow-lg", // Desktop base
-        showSidebar ? "md:w-80 lg:w-96 md:opacity-100 md:translate-x-0 md:border" : "md:w-0 md:opacity-0 md:-translate-x-10 md:border-none" // Desktop toggle state
+        "absolute left-4 top-16 bottom-4 z-[1000] flex flex-col shrink-0 overflow-hidden transition-all duration-300 pointer-events-auto dark",
+        "bg-background/95 md:bg-background/90 backdrop-blur-md rounded-xl shadow-lg border-border",
+        showSidebar ? "w-[calc(100%-2rem)] max-w-sm md:w-80 lg:w-96 opacity-100 translate-x-0 border" : "w-0 opacity-0 -translate-x-10 border-none"
       )}>
-        <div className="flex w-full md:w-80 lg:w-96 flex-col h-full gap-4 md:p-3">
+        <div className="flex w-full md:w-80 lg:w-96 flex-col h-full gap-4 p-3 md:p-3">
           <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-1">
           <button
             onClick={() => setMapMode("checkIn")}
-            className={cn("flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-semibold transition-all", mapMode === "checkIn" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
+            className={cn("flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-semibold transition-all hover:bg-background/60 hover:text-foreground", mapMode === "checkIn" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
           >
             <LogIn className="h-4 w-4" /> Check In
           </button>
           <button
             onClick={() => setMapMode("checkOut")}
-            className={cn("flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-semibold transition-all", mapMode === "checkOut" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
+            className={cn("flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-semibold transition-all hover:bg-background/60 hover:text-foreground", mapMode === "checkOut" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
           >
             <LogOut className="h-4 w-4" /> Check Out
           </button>
@@ -211,7 +211,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Cari karyawan..." 
-            className="pl-9" 
+            className="pl-9 hover:bg-muted/60 transition-colors focus:bg-background" 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -219,7 +219,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
 
         <div className="flex flex-col gap-2">
           <select
-            className="flex h-9 rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none"
+            className="flex h-9 rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none hover:bg-muted/60 transition-colors cursor-pointer"
             value={storeFilter}
             onChange={(e) => handleSnapToStore(e.target.value)}
           >
@@ -227,7 +227,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
             {stores.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select
-            className="flex h-9 rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none"
+            className="flex h-9 rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none hover:bg-muted/60 transition-colors cursor-pointer"
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
           >
@@ -236,7 +236,22 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
           </select>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+        <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-lg">
+          <button
+            onClick={() => setViewMode("list")}
+            className={cn("flex-1 flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all hover:bg-background/60 hover:text-foreground", viewMode === "list" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
+          >
+            <List className="h-3.5 w-3.5" /> List
+          </button>
+          <button
+            onClick={() => setViewMode("grid")}
+            className={cn("flex-1 flex items-center justify-center gap-2 rounded-md py-1.5 text-xs font-semibold transition-all hover:bg-background/60 hover:text-foreground", viewMode === "grid" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Grid
+          </button>
+        </div>
+
+        <div className={cn("flex-1 overflow-y-auto pr-1 pb-4", viewMode === "grid" ? "grid grid-cols-3 gap-2 content-start" : "flex flex-col gap-2")}>
           {logs.map((log: any) => {
             const coords = getCoords(log)
             
@@ -307,40 +322,72 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   if (coords) handleSnapToEmployee(log)
                 }}
                 className={cn(
-                  "rounded-lg border bg-card p-3 shadow-sm transition-all",
+                  "rounded-lg border bg-card transition-all",
+                  viewMode === "list" ? "p-3" : "p-2 flex flex-col items-center justify-start text-center gap-1.5",
                   coords ? "cursor-pointer hover:border-primary/50" : "opacity-60 grayscale cursor-not-allowed",
-                  activeLogId === log.employee.id && coords ? "border-primary ring-1 ring-primary" : ""
+                  activeLogId === log.employee.id && coords ? "border-primary ring-1 ring-primary shadow-sm" : ""
                 )}
               >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
-                    {log.employee.avatarUrl ? (
-                      <img src={log.employee.avatarUrl} alt="" className="h-full w-full object-cover object-center" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center font-bold text-muted-foreground">
-                        {log.employee.name.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="truncate font-semibold text-sm">{log.employee.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{log.employee.store?.name || "Tidak ada store"}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-xs font-bold">
-                      {mapMode === "checkIn" ? (
-                        log.attendance?.checkInTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkInTime)) : "--:--"
+                {viewMode === "list" ? (
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+                      {log.employee.avatarUrl ? (
+                        <img src={log.employee.avatarUrl} alt="" className="h-full w-full object-cover object-center" />
                       ) : (
-                        log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
+                        <div className="flex h-full w-full items-center justify-center font-bold text-muted-foreground">
+                          {log.employee.name.charAt(0)}
+                        </div>
                       )}
-                    </p>
-                    <p className={cn("text-[10px] font-semibold mt-0.5", 
-                      !coords ? "text-muted-foreground" : (isAnomaly ? "text-destructive" : (isLembur ? "text-orange-500" : "text-emerald-500"))
-                    )}>
-                      {finalText}
-                    </p>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="truncate font-semibold text-sm">{log.employee.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{log.employee.store?.name || "Tidak ada store"}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-bold">
+                        {mapMode === "checkIn" ? (
+                          log.attendance?.checkInTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkInTime)) : "--:--"
+                        ) : (
+                          log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
+                        )}
+                      </p>
+                      <p className={cn("text-[10px] font-semibold mt-0.5", 
+                        !coords ? "text-muted-foreground" : (isAnomaly ? "text-destructive" : (isLembur ? "text-orange-500" : "text-emerald-500"))
+                      )}>
+                        {finalText}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted shadow-sm ring-1 ring-border">
+                      {log.employee.avatarUrl ? (
+                        <img src={log.employee.avatarUrl} alt="" className="h-full w-full object-cover object-center" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center font-bold text-muted-foreground text-xs">
+                          {log.employee.name.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-full flex flex-col items-center overflow-hidden">
+                      <p className="truncate font-semibold text-[10.5px] leading-tight w-full" title={log.employee.name}>
+                        {log.employee.name.split(' ')[0]}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground truncate w-full mt-0.5">
+                        {mapMode === "checkIn" ? (
+                          log.attendance?.checkInTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkInTime)) : "--:--"
+                        ) : (
+                          log.attendance?.checkOutTime ? new Intl.DateTimeFormat("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" }).format(new Date(log.attendance.checkOutTime)) : "--:--"
+                        )}
+                      </p>
+                      <div className={cn("mt-1.5 w-full rounded px-1 py-0.5 text-[8.5px] font-bold truncate",
+                        !coords ? "bg-muted text-muted-foreground" : (isAnomaly ? "bg-destructive/10 text-destructive" : (isLembur ? "bg-orange-500/10 text-orange-500" : "bg-emerald-500/10 text-emerald-500"))
+                      )}>
+                        {finalText}
+                      </div>
+                    </div>
+                  </>
+                )}
               </motion.div>
             )
           })}
@@ -349,8 +396,8 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
       </div>
 
       {/* MAP CANVAS */}
-      <div className="relative flex-1 md:absolute md:inset-0 min-h-[400px] md:min-h-0 overflow-hidden rounded-lg md:rounded-none border md:border-none bg-muted z-0">
-        <MapContainer center={center} zoom={16} maxZoom={22} scrollWheelZoom={true} className="h-full w-full z-0">
+      <div className="absolute inset-0 overflow-hidden rounded-xl bg-muted z-0">
+        <MapContainer center={center} zoom={18} maxZoom={22} scrollWheelZoom={true} className="h-full w-full z-0">
           <MapController center={center} />
           
           <TileLayer
@@ -446,6 +493,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
                   key={log.employee.id} 
                   position={coords}
                   icon={createProfileIcon(log.employee.avatarUrl, log.employee.name, opacity)}
+                  opacity={opacity}
                   zIndexOffset={1000}
                   ref={(m) => {
                     if (m) {
