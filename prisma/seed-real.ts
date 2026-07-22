@@ -105,7 +105,7 @@ async function main() {
         employeeId,
         email: ed.email,
         name: ed.name,
-        passwordHash: '$2a$10$w8T0eM3XUf9l2hN21nQ9YOLzX7iL5sE2XQy9m7Uu9.rO1Z1L2L1Zy', // "hns123456" bcrypt hash (wait, I should hash it properly or use a placeholder if the app handles it, wait, the app uses bcryptjs, I will just require it)
+        passwordHash: '$2b$10$Xm0ozO9MG3Jt5UyhNGqR/uo/QcyHbU/MNRePPVLIHfmbaCgw5yjbW', // "hns123456" bcrypt hash
         role: 'EMPLOYEE',
         storeId: store.id,
         shiftId: targetShiftId,
