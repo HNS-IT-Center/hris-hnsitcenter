@@ -7,7 +7,7 @@ import "leaflet/dist/leaflet.css"
 import L from "leaflet"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
-import { Search, MapPin, Store, Users, Check, X, LogIn, LogOut } from "lucide-react"
+import { Search, MapPin, Store, Users, Check, X, LogIn, LogOut, ChevronLeft, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 // Fix Leaflet default icon issue
@@ -76,6 +76,7 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
   const [search, setSearch] = useState("")
   const [deptFilter, setDeptFilter] = useState("Semua")
   const [storeFilter, setStoreFilter] = useState("Semua")
+  const [showSidebar, setShowSidebar] = useState(true)
   
   const defaultCenter: [number, number] = hrdStoreCoords ? [hrdStoreCoords.lat, hrdStoreCoords.lng] : [-6.200000, 106.816666]
   const [center, setCenter] = useState<[number, number]>(defaultCenter)
@@ -152,15 +153,46 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
   }
 
   return (
-    <div className="flex h-[calc(100vh-12rem)] min-h-[800px] md:min-h-[600px] w-full flex-col md:flex-row gap-4 overflow-hidden rounded-xl border bg-background p-2">
+    <div className="relative flex h-[calc(100vh-12rem)] min-h-[800px] md:min-h-[600px] w-full flex-col overflow-hidden rounded-xl border bg-background md:p-0 p-2 gap-4 md:gap-0">
       
-      {/* SIDEBAR (Game UI) */}
-      <motion.div 
-        initial={{ x: -50, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="flex w-full flex-col gap-4 md:w-80 lg:w-96 shrink-0 h-[350px] md:h-full overflow-hidden"
-      >
-        <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-1">
+      {/* DESKTOP TOGGLE BUTTON & COLLAPSED SEARCH */}
+      <div className="hidden md:flex absolute left-4 top-4 z-[1000] items-center gap-2 pointer-events-none">
+        <button 
+          onClick={() => setShowSidebar(!showSidebar)}
+          className="flex items-center justify-center h-10 w-10 shrink-0 rounded-full border bg-background/90 backdrop-blur-md shadow-md pointer-events-auto hover:bg-muted transition-colors text-foreground"
+        >
+          {showSidebar ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+        </button>
+        
+        <AnimatePresence>
+          {!showSidebar && (
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="relative w-64 pointer-events-auto shadow-md rounded-full bg-background/90 backdrop-blur-md"
+            >
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Cari karyawan..." 
+                className="pl-9 h-10 rounded-full bg-transparent border-none focus-visible:ring-0"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* SIDEBAR (Mobile stacked, Desktop Overlay) */}
+      <div className={cn(
+        "flex w-full flex-col shrink-0 overflow-hidden transition-all duration-300 pointer-events-auto",
+        "h-[350px]", // Mobile
+        "md:absolute md:left-4 md:top-16 md:bottom-4 md:z-[1000] md:h-auto md:bg-background/90 md:backdrop-blur-md md:rounded-xl md:shadow-lg", // Desktop base
+        showSidebar ? "md:w-80 lg:w-96 md:opacity-100 md:translate-x-0 md:border" : "md:w-0 md:opacity-0 md:-translate-x-10 md:border-none" // Desktop toggle state
+      )}>
+        <div className="flex w-full md:w-80 lg:w-96 flex-col h-full gap-4 md:p-3">
+          <div className="flex items-center gap-2 rounded-lg bg-muted/50 p-1">
           <button
             onClick={() => setMapMode("checkIn")}
             className={cn("flex-1 flex items-center justify-center gap-2 rounded-md py-2 text-sm font-semibold transition-all", mapMode === "checkIn" ? "bg-background shadow text-foreground" : "text-muted-foreground")}
@@ -313,10 +345,11 @@ export default function AttendanceMapClient({ initialData, hrdStoreCoords }: { i
             )
           })}
         </div>
-      </motion.div>
+        </div>
+      </div>
 
       {/* MAP CANVAS */}
-      <div className="relative flex-1 min-h-[400px] md:min-h-0 overflow-hidden rounded-lg border bg-muted">
+      <div className="relative flex-1 md:absolute md:inset-0 min-h-[400px] md:min-h-0 overflow-hidden rounded-lg md:rounded-none border md:border-none bg-muted z-0">
         <MapContainer center={center} zoom={16} maxZoom={22} scrollWheelZoom={true} className="h-full w-full z-0">
           <MapController center={center} />
           
