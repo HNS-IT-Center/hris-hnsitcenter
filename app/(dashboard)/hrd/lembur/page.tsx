@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { getServerUser } from "@/lib/auth"
+import { getServerUser, hasRole } from "@/lib/auth"
 import { redirect } from "next/navigation"
 import { getAllOvertimeRequests } from "@/app/actions/overtime"
 import { LemburPage } from "@/components/hris/pages/lembur"
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export default async function Page() {
   const user = await getServerUser()
-  if (!user || user.role !== "HRD") {
+  if (!(await hasRole('HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN'))) {
     redirect("/")
   }
 

@@ -12,7 +12,7 @@ export default async function Page({
   const ssoUser = await getServerUser()
   const dbUser = await prisma.user.findUnique({
     where: { email: ssoUser.email },
-    select: { id: true, departmentId: true, storeId: true, shiftId: true, weeklyOffDays: true },
+    select: { id: true, departmentId: true, storeId: true, shiftId: true, weeklyOffDays: true, halfDays: true },
   })
   if (!dbUser) return null
 
@@ -117,6 +117,7 @@ export default async function Page({
       summary={{ hadir, telat, alpha, izin, cuti }}
       periodLabel={periodLabel}
       weeklyOffDays={dbUser.weeklyOffDays}
+      halfDays={dbUser.halfDays}
     />
   )
 }

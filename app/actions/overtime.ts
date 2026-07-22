@@ -1,7 +1,7 @@
 "use server"
 
 import { prisma } from "@/lib/prisma"
-import { getServerUser } from "@/lib/auth"
+import { getServerUser, hasRole } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
 import { OvertimeStatus } from "@prisma/client"
 import { z } from "zod"
@@ -43,6 +43,8 @@ export async function submitOvertimeRequest(data: {
 
     revalidatePath("/performance")
     revalidatePath("/hrd/lembur")
+    revalidatePath("/leave")
+    revalidatePath("/hrd/leave")
 
     return { success: true, data: req }
   } catch (error: any) {
@@ -52,8 +54,7 @@ export async function submitOvertimeRequest(data: {
 }
 
 export async function getAllOvertimeRequests() {
-  const user = await getServerUser()
-  if (!user || user.role !== "HRD") throw new Error("Unauthorized")
+  if (!(await hasRole('HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN'))) throw new Error("Unauthorized")
 
   return await prisma.overtimeRequest.findMany({
     include: {
@@ -83,8 +84,7 @@ export async function getMyOvertimeRequests() {
 
 export async function approveOvertimeRequest(id: string, approve: boolean, rejectReason?: string) {
   try {
-    const user = await getServerUser()
-    if (!user || user.role !== "HRD") return { success: false, error: "Unauthorized" }
+    if (!(await hasRole('HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN'))) return { success: false, error: "Unauthorized" }
 
     const req = await prisma.overtimeRequest.update({
       where: { id },
@@ -96,6 +96,8 @@ export async function approveOvertimeRequest(id: string, approve: boolean, rejec
 
     revalidatePath("/hrd/lembur")
     revalidatePath("/performance")
+    revalidatePath("/leave")
+    revalidatePath("/hrd/leave")
 
     return { success: true, data: req }
   } catch (error: any) {

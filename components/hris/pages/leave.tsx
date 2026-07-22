@@ -255,11 +255,17 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
   const [month, setMonth] = useState<number>(new Date().getMonth())
   const [year, setYear] = useState<number>(new Date().getFullYear())
 
-  const handleApprove = (id: string, approve: boolean, name: string, reason?: string) => {
+  const handleApprove = (id: string, type: string, approve: boolean, name: string, reason?: string) => {
     startTransition(async () => {
-      const res = await approveLeaveRequest(id, approve, reason)
+      let res;
+      if (type === 'OVERTIME') {
+        const m = await import('@/app/actions/overtime')
+        res = await m.approveOvertimeRequest(id, approve, reason)
+      } else {
+        res = await approveLeaveRequest(id, approve, reason)
+      }
       if (res.success) {
-        toast.success(approve ? "Izin disetujui" : "Izin ditolak", {
+        toast.success(approve ? (type === 'OVERTIME' ? "Lembur disetujui" : "Izin disetujui") : (type === 'OVERTIME' ? "Lembur ditolak" : "Izin ditolak"), {
           description: `Pengajuan ${name} ${approve ? "disetujui" : "ditolak"}.`,
         })
         setRejectTargetId(null)
@@ -412,9 +418,15 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
                         {new Date(r.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
                         {" "}&mdash;{" "}
                         {new Date(r.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                        <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
-                          {Math.ceil(r.totalDays)} hari
-                        </span>
+                        {r.type === 'OVERTIME' ? (
+                          <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
+                            {(r as any).totalHours?.toFixed(1)} jam
+                          </span>
+                        ) : (
+                          <span className="rounded bg-muted px-1.5 py-0.5 font-medium text-foreground">
+                            {Math.ceil(r.totalDays)} hari
+                          </span>
+                        )}
                       </p>
                       {r.reason && (
                         <p className="mt-2 rounded-lg border border-border/50 bg-muted/40 px-3 py-2 text-sm text-foreground">
@@ -479,7 +491,7 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
                               </div>
                               <DialogFooter>
                                 <Button variant="outline" onClick={() => setRejectTargetId(null)}>Batal</Button>
-                                <Button className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" onClick={() => handleApprove(r.id, false, r.user.name, rejectReason)} disabled={isPending}>
+                                <Button className="bg-destructive hover:bg-destructive/90 text-destructive-foreground" onClick={() => handleApprove(r.id, r.type, false, r.user.name, rejectReason)} disabled={isPending}>
                                   {isPending ? "Memproses..." : "Konfirmasi Tolak"}
                                 </Button>
                               </DialogFooter>
@@ -491,7 +503,7 @@ function HrdView({ allRequests }: { allRequests: AllRequest[] }) {
                               size="sm"
                               className="h-8 gap-1.5 bg-emerald-500 text-white hover:bg-emerald-600 text-xs"
                               disabled={isPending}
-                              onClick={() => handleApprove(r.id, true, r.user.name)}
+                              onClick={() => handleApprove(r.id, r.type, true, r.user.name)}
                             >
                               <Check className="h-3.5 w-3.5" /> Setujui
                             </Button>
@@ -810,7 +822,11 @@ function EmployeeView({ userId, leaveRequests, leaveQuota, weeklyOffDays, holida
                           {new Date(r.startDate).toLocaleDateString("id-ID", { day: "numeric", month: "short" })}
                           {" "}&mdash;{" "}
                           {new Date(r.endDate).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-                          <span className="font-medium text-foreground">{Math.ceil(r.totalDays)} hari</span>
+                          {r.type === 'OVERTIME' ? (
+                            <span className="font-medium text-foreground">{(r as any).totalHours?.toFixed(1)} jam</span>
+                          ) : (
+                            <span className="font-medium text-foreground">{Math.ceil(r.totalDays)} hari</span>
+                          )}
                         </p>
                         {r.reason && <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">{r.reason}</p>}
                         {r.status === 'REJECTED' && (r as any).rejectReason && (

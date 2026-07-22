@@ -48,6 +48,8 @@ export function PerformancePage({
   month,
   summary,
   periodLabel,
+  weeklyOffDays = [],
+  halfDays = [],
 }: {
   attendanceRecords: AttendanceRecord[]
   events?: any[]
@@ -56,6 +58,7 @@ export function PerformancePage({
   summary?: { hadir: number, telat: number, alpha: number, izin: number, cuti: number }
   periodLabel?: string
   weeklyOffDays?: number[]
+  halfDays?: number[]
 }) {
   const router = useRouter()
 
@@ -156,11 +159,22 @@ export function PerformancePage({
             }
 
             const rawDate = new Date(Date.UTC(year, month - 1, day))
-            const isOffDay = weeklyOffDays?.includes(rawDate.getUTCDay())
+            const dayOfWeek = rawDate.getUTCDay()
+            const isOffDay = weeklyOffDays.includes(dayOfWeek)
+            const isHalfDay = halfDays.includes(dayOfWeek)
             const isToday = today && 
                             rawDate.getUTCFullYear() === today.getFullYear() && 
                             rawDate.getUTCMonth() === today.getMonth() && 
                             rawDate.getUTCDate() === today.getDate()
+
+            let cellBgClass = "border-border bg-card/40"
+            if (isToday) {
+              cellBgClass = "border-emerald-500/50 bg-emerald-500/10"
+            } else if (isOffDay) {
+              cellBgClass = "border-destructive/20 bg-destructive/10"
+            } else if (isHalfDay) {
+              cellBgClass = "border-yellow-500/30 bg-yellow-500/10"
+            }
 
             return (
               <button
@@ -174,8 +188,8 @@ export function PerformancePage({
                 }}
                 className={cn(
                   "flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border text-sm text-foreground transition-colors",
-                  isToday ? "border-emerald-500/50 bg-emerald-500/10" : (isOffDay ? "border-destructive/20 bg-destructive/10" : "border-border bg-card/40"),
-                  (!isToday && !isOffDay && dayEvents.length > 0) && "hover:bg-muted/60 cursor-pointer",
+                  cellBgClass,
+                  (!isToday && !isOffDay && !isHalfDay && dayEvents.length > 0) && "hover:bg-muted/60 cursor-pointer",
                   dayEvents.length === 0 && "cursor-default"
                 )}
               >
