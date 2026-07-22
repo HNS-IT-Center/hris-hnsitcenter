@@ -4,6 +4,13 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import bcrypt from 'bcryptjs'
 import { generateNextEmployeeId } from '@/lib/utils/employee-id'
+import { hasRole } from '@/lib/auth'
+
+async function requireHRD() {
+  if (!(await hasRole('HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN'))) {
+    throw new Error('Unauthorized')
+  }
+}
 
 export async function getEmployees() {
   console.log("Cache bust action")
@@ -45,6 +52,8 @@ export async function updateEmployee(id: string, data: {
   avatarOriginalUrl?: string | null
 }) {
   try {
+    await requireHRD()
+    
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
@@ -82,6 +91,8 @@ export async function createEmployee(data: {
   password?: string
 }) {
   try {
+    await requireHRD()
+
     const existing = await prisma.user.findUnique({ where: { email: data.email } })
     if (existing) {
       return { success: false, error: 'Email sudah terdaftar.' }
@@ -152,6 +163,7 @@ export async function getUniquePositions() {
 
 export async function toggleDeviceBlock(deviceId: string, userId: string, block: boolean) {
   try {
+    await requireHRD()
     await prisma.userDevice.update({
       where: { userId_deviceId: { userId, deviceId } },
       data: { isBlocked: block },
@@ -166,6 +178,7 @@ export async function toggleDeviceBlock(deviceId: string, userId: string, block:
 
 export async function deleteEmployee(id: string, currentUserId: string) {
   try {
+    await requireHRD()
     if (id === currentUserId) {
       return { success: false, error: 'Anda tidak dapat menghapus akun Anda sendiri.' }
     }

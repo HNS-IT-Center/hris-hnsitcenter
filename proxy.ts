@@ -78,6 +78,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     requestHeaders.set('x-user-dept-id', userDeptId)
     requestHeaders.set('x-user-dept-name', userDeptName)
 
+    // Role-based authorization for HRD routes
+    const pathname = request.nextUrl.pathname
+    if (pathname.startsWith('/hrd') || pathname.startsWith('/api/hrd')) {
+      const allowedRoles = ['HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN']
+      if (!allowedRoles.includes(userRole.toUpperCase())) {
+        const dashboardUrl = request.nextUrl.clone()
+        dashboardUrl.pathname = '/dashboard'
+        return NextResponse.redirect(dashboardUrl)
+      }
+    }
+
     return NextResponse.next({
       request: { headers: requestHeaders },
     })
