@@ -12,6 +12,15 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
+function getBaseUrl(request: NextRequest) {
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  if (host) {
+    const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("0.0.0.0") ? "http" : "https");
+    return `${protocol}://${host}`;
+  }
+  return process.env.NEXT_PUBLIC_APP_URL || request.url;
+}
+
 /**
  * SSO JWT Proxy (Next.js 16+)
  *
@@ -44,9 +53,10 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       return NextResponse.next({ request: { headers: devHeaders } })
     }
 
-    const redirectUrl = request.nextUrl.href
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
+    const baseUrl = getBaseUrl(request)
+    const redirectUrl = `${baseUrl}${request.nextUrl.pathname}${request.nextUrl.search}`
+    
+    const loginUrl = new URL('/login', baseUrl)
     loginUrl.searchParams.set('redirectUrl', redirectUrl)
     return NextResponse.redirect(loginUrl)
   }
@@ -83,8 +93,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     if (pathname.startsWith('/hrd') || pathname.startsWith('/api/hrd')) {
       const allowedRoles = ['HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN']
       if (!allowedRoles.includes(userRole.toUpperCase())) {
-        const dashboardUrl = request.nextUrl.clone()
-        dashboardUrl.pathname = '/dashboard'
+        const baseUrl = getBaseUrl(request)
+        const dashboardUrl = new URL('/dashboard', baseUrl)
         return NextResponse.redirect(dashboardUrl)
       }
     }
@@ -97,8 +107,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const isExpired =
       err instanceof Error && err.message.toLowerCase().includes('expired')
 
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/login'
+    const baseUrl = getBaseUrl(request)
+    const loginUrl = new URL('/login', baseUrl)
     loginUrl.searchParams.set('error', isExpired ? 'session_expired' : 'invalid_token')
 
     const response = NextResponse.redirect(loginUrl)
