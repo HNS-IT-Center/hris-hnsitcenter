@@ -36,7 +36,11 @@ export function usePush(userId?: string) {
   const subscribe = async () => {
     if (!registration || !userId) return false
     try {
-      const permissionResult = await Notification.requestPermission()
+      if (typeof window === 'undefined' || !('Notification' in window)) {
+        throw new Error('Notifikasi tidak didukung di perangkat/browser ini')
+      }
+      
+      const permissionResult = await window.Notification.requestPermission()
       if (permissionResult !== 'granted') {
         throw new Error('Notification permission not granted')
       }

@@ -98,13 +98,19 @@ export default async function Page({
 
   // We can pass combined events to PerformancePage
   const combinedEvents = [...events.map(e => ({
-    ...e,
+    id: e.id,
+    title: e.title,
+    type: e.type,
+    scope: e.scope,
+    note: e.note,
     date: e.date.toISOString().split('T')[0]
   })), ...leaveEvents]
 
   return (
     <PerformancePage 
-      attendanceRecords={attendanceRecords.filter(r => r.date >= startOfMonth && r.date <= endOfMonth)} 
+      attendanceRecords={attendanceRecords
+        .filter(r => r.date >= startOfMonth && r.date <= endOfMonth)
+        .map(r => ({ ...r, date: r.date.toISOString() }))} 
       events={combinedEvents} 
       year={year} 
       month={month} 

@@ -16,6 +16,12 @@ export async function submitOvertimeRequest(data: {
     const user = await getServerUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
+    const dbUser = await prisma.user.findUnique({
+      where: { email: user.email },
+      select: { id: true }
+    })
+    if (!dbUser) return { success: false, error: "User not found in local database" }
+
     // Hitung total hours (end - start)
     const diffMs = data.endTime.getTime() - data.startTime.getTime()
     if (diffMs <= 0) {
@@ -25,7 +31,7 @@ export async function submitOvertimeRequest(data: {
 
     const req = await prisma.overtimeRequest.create({
       data: {
-        userId: user.id,
+        userId: dbUser.id,
         overtimeDate: data.overtimeDate,
         startTime: data.startTime,
         endTime: data.endTime,
@@ -63,8 +69,14 @@ export async function getMyOvertimeRequests() {
   const user = await getServerUser()
   if (!user) return []
 
+  const dbUser = await prisma.user.findUnique({
+    where: { email: user.email },
+    select: { id: true }
+  })
+  if (!dbUser) return []
+
   return await prisma.overtimeRequest.findMany({
-    where: { userId: user.id },
+    where: { userId: dbUser.id },
     orderBy: { createdAt: "desc" }
   })
 }

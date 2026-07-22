@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { GlassCard } from "@/components/hris/shared"
 import { cn } from "@/lib/utils"
 import { AlarmClock, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock, Plane, XCircle, Info } from "lucide-react"
@@ -76,6 +76,11 @@ export function PerformancePage({
 
   const [selectedEvents, setSelectedEvents] = useState<any[]>([])
   const [modalOpen, setModalOpen] = useState(false)
+  const [today, setToday] = useState<Date | null>(null)
+
+  useEffect(() => {
+    setToday(new Date())
+  }, [])
 
   // Month display info
   const monthDate = new Date(year, month - 1, 1)
@@ -152,8 +157,8 @@ export function PerformancePage({
 
             const rawDate = new Date(Date.UTC(year, month - 1, day))
             const isOffDay = weeklyOffDays?.includes(rawDate.getUTCDay())
-            const today = new Date()
-            const isToday = rawDate.getUTCFullYear() === today.getFullYear() && 
+            const isToday = today && 
+                            rawDate.getUTCFullYear() === today.getFullYear() && 
                             rawDate.getUTCMonth() === today.getMonth() && 
                             rawDate.getUTCDate() === today.getDate()
 
