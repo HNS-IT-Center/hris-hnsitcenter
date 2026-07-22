@@ -132,6 +132,7 @@ export async function getHrdDashboardData(dateStr?: string) {
     totalActive,
     dayAttendances,
     pendingLeaveCount,
+    pendingOvertimeCount,
     unresolvedFlags,
   ] = await Promise.all([
     prisma.user.count({ where: { isActive: true, role: 'EMPLOYEE' } }),
@@ -142,6 +143,8 @@ export async function getHrdDashboardData(dateStr?: string) {
     }),
 
     prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
+    
+    prisma.overtimeRequest.count({ where: { status: 'PENDING' } }),
 
     prisma.attentionFlag.findMany({
       where: { isResolved: false },
@@ -165,7 +168,7 @@ export async function getHrdDashboardData(dateStr?: string) {
     present,
     late,
     missing,
-    pendingLeaveCount,
+    pendingLeaveCount: pendingLeaveCount + pendingOvertimeCount,
     unresolvedFlags,
     selectedDate: day.toISOString(),
   }

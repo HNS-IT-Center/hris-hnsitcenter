@@ -76,13 +76,16 @@ interface SidebarProps {
   onMobileClose: () => void
   onLogout: () => void
   user?: DashboardUser
+  pendingApprovalsCount?: number
   swipeOffset?: number
   isSwiping?: boolean
 }
 
-export function Sidebar({ role, active, onSelect, mobileOpen, onMobileClose, onLogout, user, swipeOffset = 0, isSwiping = false }: SidebarProps) {
+export function Sidebar({ role, active, onSelect, mobileOpen, onMobileClose, onLogout, user, pendingApprovalsCount = 0, swipeOffset = 0, isSwiping = false }: SidebarProps) {
   const pathname = usePathname()
-  const items = role === "hrd" ? HRD_NAV : EMPLOYEE_NAV
+  const items = role === "hrd" ? HRD_NAV.map(item => 
+    item.id === "leave" ? { ...item, badge: pendingApprovalsCount } : item
+  ) : EMPLOYEE_NAV
 
   const displayName = user?.name ?? 'Pengguna'
   const displayInitials = displayName

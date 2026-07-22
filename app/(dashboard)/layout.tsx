@@ -55,8 +55,18 @@ export default async function DashboardLayout({
     redirect('/login?error=unauthorized')
   }
 
+  let pendingApprovalsCount = 0
+  if (['HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN'].includes(dbUser.role)) {
+    const [leaves, overtimes] = await Promise.all([
+      prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
+      prisma.overtimeRequest.count({ where: { status: 'PENDING' } })
+    ])
+    pendingApprovalsCount = leaves + overtimes
+  }
+
   return (
     <DashboardShell
+      pendingApprovalsCount={pendingApprovalsCount}
       user={{
         id: dbUser.id,
         name: dbUser.name,

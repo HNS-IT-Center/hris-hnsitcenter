@@ -20,10 +20,11 @@ export interface DashboardUser {
 
 interface DashboardShellProps {
   user: DashboardUser
+  pendingApprovalsCount?: number
   children: React.ReactNode
 }
 
-export function DashboardShell({ user, children }: DashboardShellProps) {
+export function DashboardShell({ user, pendingApprovalsCount, children }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const pathname = usePathname()
 
@@ -138,6 +139,7 @@ export function DashboardShell({ user, children }: DashboardShellProps) {
         onMobileClose={() => setMobileOpen(false)}
         onLogout={handleLogout}
         user={user}
+        pendingApprovalsCount={pendingApprovalsCount}
         swipeOffset={swipeOffset}
         isSwiping={isSwiping.current}
       />
