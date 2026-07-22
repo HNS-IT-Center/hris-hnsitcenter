@@ -11,7 +11,7 @@ export function PushSubscriber({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPermission(Notification.permission)
+      setPermission(window.Notification.permission)
     }
   }, [])
 

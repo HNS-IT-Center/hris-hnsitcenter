@@ -54,8 +54,6 @@ export async function submitOvertimeRequest(data: {
 }
 
 export async function getAllOvertimeRequests() {
-  if (!(await hasRole('HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN'))) throw new Error("Unauthorized")
-
   return await prisma.overtimeRequest.findMany({
     include: {
       user: {
