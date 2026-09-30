@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
 }
 
 // ============================================================
@@ -150,8 +150,8 @@ model User {
   passwordHash    String?
   name            String
   username        String?   @unique
-  avatarUrl       String?
-  avatarOriginalUrl String?
+  avatarUrl       String? @db.Text
+  avatarOriginalUrl String? @db.Text
   phoneNumber     String?
   role            Role      @default(EMPLOYEE)
   
@@ -163,7 +163,7 @@ model User {
 
   // HRIS Settings
   joinDate        DateTime @default(now())
-  weeklyOffDays   Int[]    @default([0]) // Array of days (0=Sun, 1=Mon... 6=Sat)
+  weeklyOffDays   Json     @default("[0]") // Array of days (0=Sun, 1=Mon... 6=Sat)
   
   isActive        Boolean   @default(true)
   notifEnabled    Boolean   @default(true)
@@ -176,9 +176,9 @@ model User {
   storeId         String?
   shiftId         String?
 
-  shiftCycle      String[]    // Array of Shift IDs for N-week rotation
+  shiftCycle      Json        @default("[]") // Array of Shift IDs for N-week rotation
   cycleStartDate  DateTime?   // Anchor date (Monday) where index 0 starts
-  halfDays        Int[]       @default([]) // e.g. [6] for Saturday
+  halfDays        Json        @default("[]") // e.g. [6] for Saturday
   leaveQuotaRemaining Int     @default(12) // Sisa Cuti
   lastQuotaResetDate  DateTime? // Tanggal terakhir quota direset (anniversary)
 
@@ -212,7 +212,7 @@ model UserDevice {
   id         String   @id @default(cuid())
   userId     String
   deviceId   String
-  userAgent  String?
+  userAgent  String? @db.Text
   lastUsedAt DateTime @default(now())
   isBlocked  Boolean  @default(false)
 
@@ -233,8 +233,8 @@ model Attendance {
   status           AttendanceStatus @default(PRESENT)
   checkInTime      DateTime?
   checkOutTime     DateTime?
-  checkInPhotoUrl  String?
-  checkOutPhotoUrl String?
+  checkInPhotoUrl  String? @db.Text
+  checkOutPhotoUrl String? @db.Text
   checkInLat       Float?
   checkInLng       Float?
   checkOutLat      Float?
@@ -243,14 +243,14 @@ model Attendance {
   checkOutDistance Float?
   lateMinutes      Int              @default(0)
   isAnomaly        Boolean          @default(false)
-  anomalyNote      String?
+  anomalyNote      String? @db.Text
   isForgotCheckin  Boolean          @default(false)
   isForgotCheckout Boolean          @default(false)
   isRainyDay       Boolean          @default(false)
   photoTimestamp   DateTime?
   locationTimestamp DateTime?
   isOverridden     Boolean          @default(false)
-  overrideReason   String?
+  overrideReason   String? @db.Text
   overriddenById   String?
   penaltyAmount    Int              @default(0)
   createdAt        DateTime         @default(now())
@@ -270,7 +270,7 @@ model ShiftOverride {
   date        DateTime // Midnight UTC for the specific WIB day
   customStart String?  // HH:mm override (optional)
   customEnd   String?  // HH:mm override (optional)
-  reason      String?
+  reason      String? @db.Text
   createdAt   DateTime @default(now())
 
   user  User  @relation(fields: [userId], references: [id])
@@ -288,7 +288,7 @@ model ShiftSwap {
   swapDate    DateTime        // The calendar day of the swap
   status      ShiftSwapStatus @default(PENDING)
   approvedById String?
-  rejectReason String?
+  rejectReason String? @db.Text
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -326,10 +326,10 @@ model LeaveRequest {
   startDate     DateTime
   endDate       DateTime
   totalDays     Float       @default(1)
-  reason        String?
-  sickNoteUrl   String?
+  reason        String? @db.Text
+  sickNoteUrl   String? @db.Text
   sickNoteFileName String?
-  rejectReason  String?
+  rejectReason  String? @db.Text
   // For HALF_DAY type
   halfDayType   String?     // 'LATE_IN' or 'EARLY_OUT'
   halfDayTime   String?     // e.g. '13:00'
@@ -339,7 +339,7 @@ model LeaveRequest {
   // For OVERTIME type
   overtimeStart DateTime?
   overtimeEnd   DateTime?
-  overtimeTask  String?
+  overtimeTask  String? @db.Text
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 
@@ -354,8 +354,8 @@ model OvertimeRequest {
   startTime    DateTime
   endTime      DateTime?
   totalHours   Float?
-  task         String?
-  rejectReason String?
+  task         String? @db.Text
+  rejectReason String? @db.Text
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 
@@ -373,7 +373,7 @@ model CalendarEvent {
   type       String   // e.g. "event", "holiday", "rainy", "urgent"
   scope      String   // e.g. "all", "department", "shift", "store", "individual"
   scopeValue String?  // Stores the target, e.g. "IT", "Morning Shift", "User Name"
-  note       String?
+  note       String? @db.Text
   createdAt  DateTime @default(now())
 }
 
@@ -442,13 +442,13 @@ model Recruitment {
   phone           String?
   position        String
   status          RecruitmentStatus @default(WAITING_CALL)
-  cvUrl           String?
+  cvUrl           String? @db.Text
   cvFileName      String?
-  notes           String?
+  notes           String? @db.Text
   interviewDate   DateTime?
   interview2Date  DateTime?
-  rejectionReason String?
-  cancelReason    String?
+  rejectionReason String? @db.Text
+  cancelReason    String? @db.Text
 
   callEmailStatus      EmailStatus @default(NOT_SENT)
   callEmailSentAt      DateTime?
@@ -458,7 +458,7 @@ model Recruitment {
   rescheduleEmailSentAt DateTime?
   acceptEmailStatus    EmailStatus @default(NOT_SENT)
   acceptEmailSentAt    DateTime?
-  lastEmailError       String?
+  lastEmailError       String? @db.Text
 
   createdById String
   createdAt   DateTime @default(now())
@@ -474,8 +474,8 @@ model AppNotification {
   id        String   @id @default(cuid())
   userId    String
   title     String
-  message   String
-  url       String?
+  message   String @db.Text
+  url       String? @db.Text
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
@@ -492,10 +492,10 @@ model AppNotification {
 model PushSubscription {
   id        String   @id @default(cuid())
   userId    String
-  endpoint  String   @unique
+  endpoint  String   @unique @db.VarChar(512)
   p256dh    String
   auth      String
-  userAgent String?
+  userAgent String? @db.Text
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -504,7 +504,7 @@ model PushSubscription {
 model Broadcast {
   id          String       @id @default(cuid())
   title       String
-  message     String
+  message     String @db.Text
   tag         BroadcastTag
   scheduledAt DateTime?    // When HRD wants to send it (null = send immediately)
   sentAt      DateTime?    // Actual delivery timestamp (null = not yet sent)
@@ -561,10 +561,10 @@ model AttentionFlag {
   id           String            @id @default(cuid())
   userId       String            // The affected employee
   type         AttentionFlagType
-  description  String
+  description  String @db.Text
   relatedId    String?           // ID of related attendance, recruitment, etc.
   isResolved   Boolean           @default(false)
-  resolvedNote String?
+  resolvedNote String? @db.Text
   createdAt    DateTime          @default(now())
   updatedAt    DateTime          @updatedAt
 
@@ -667,7 +667,7 @@ model PayrollSlip {
   izinSetengahHari   Int   @default(0)
 
   // ── Notes ─────────────────────────────────────────────────────
-  notes              String?
+  notes              String? @db.Text
   isPublished        Boolean  @default(false) // true = visible to employee in Profile
   generatedAt        DateTime @default(now())
   createdAt          DateTime @default(now())

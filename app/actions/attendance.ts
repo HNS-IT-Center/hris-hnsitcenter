@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { toNumberArray } from '@/lib/utils/json-array'
 import { revalidatePath } from 'next/cache'
 import { getDistanceInMeters } from '@/lib/utils/geo'
 
@@ -181,7 +182,7 @@ export async function submitAttendance(data: {
 
     // Adjust for regular Half Day (e.g. Saturday)
     const dayOfWeek = today.getUTCDay()
-    if (user.halfDays.includes(dayOfWeek)) {
+    if (toNumberArray(user.halfDays).includes(dayOfWeek)) {
       shiftEnd = parseTimeStr('14:00', now)
     }
 

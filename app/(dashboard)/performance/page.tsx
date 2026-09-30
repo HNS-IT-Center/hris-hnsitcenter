@@ -1,6 +1,7 @@
 import { PerformancePage } from "@/components/hris/pages/performance"
 import { getServerUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { toNumberArray } from "@/lib/utils/json-array"
 import { getPayrollPeriod } from "@/lib/utils/date"
 
 export default async function Page({
@@ -116,8 +117,8 @@ export default async function Page({
       month={month} 
       summary={{ hadir, telat, alpha, izin, cuti }}
       periodLabel={periodLabel}
-      weeklyOffDays={dbUser.weeklyOffDays}
-      halfDays={dbUser.halfDays}
+      weeklyOffDays={toNumberArray(dbUser.weeklyOffDays)}
+      halfDays={toNumberArray(dbUser.halfDays)}
     />
   )
 }

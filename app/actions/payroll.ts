@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { toNumberArray } from '@/lib/utils/json-array'
 import { revalidatePath } from 'next/cache'
 import { format } from 'date-fns'
 import { getServerUser } from '@/lib/auth'
@@ -69,7 +70,7 @@ export async function calculateWorkingDays(userId: string, periodStart: Date, pe
   while (current <= periodEnd) {
     const dayOfWeek = current.getUTCDay() // 0=Sun…6=Sat
     const dateStr = current.toISOString().slice(0, 10)
-    const isOffDay = user.weeklyOffDays.includes(dayOfWeek)
+    const isOffDay = toNumberArray(user.weeklyOffDays).includes(dayOfWeek)
     const isHoliday = holidayDates.has(dateStr)
     if (!isOffDay && !isHoliday) {
       count++
@@ -208,7 +209,7 @@ export async function _generatePayrollSlipInternal(
   while (current <= periodEnd) {
     const dayOfWeek = current.getUTCDay()
     const dateStr = current.toISOString().slice(0, 10)
-    const isOffDay = user.weeklyOffDays.includes(dayOfWeek)
+    const isOffDay = toNumberArray(user.weeklyOffDays).includes(dayOfWeek)
 
     if (!isOffDay) {
       const att = attendanceMap.get(dateStr)

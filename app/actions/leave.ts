@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { toNumberArray } from '@/lib/utils/json-array'
 import { revalidatePath } from 'next/cache'
 import { sendPushNotification, sendPushNotificationToRole } from '@/lib/web-push'
 
@@ -80,7 +81,7 @@ export async function submitLeaveRequest(data: {
        const end = new Date(data.endDate).setHours(0,0,0,0)
        
        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-         if (user?.weeklyOffDays.includes(new Date(d).getDay())) continue
+         if (toNumberArray(user?.weeklyOffDays).includes(new Date(d).getDay())) continue
          if (holidayMs.includes(d)) continue
          calculatedTotalDays++
        }

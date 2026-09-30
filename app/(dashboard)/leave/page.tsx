@@ -1,6 +1,7 @@
 import { LeavePage } from "@/components/hris/pages/leave"
 import { getServerUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { toNumberArray } from "@/lib/utils/json-array"
 import { getMyLeaveRequests, getMyLeaveQuota } from "@/app/actions/leave"
 import { getMyOvertimeRequests } from "@/app/actions/overtime"
 
@@ -57,7 +58,7 @@ export default async function Page() {
       userId={dbUser.id}
       leaveRequests={combinedRequests}
       leaveQuota={leaveQuota}
-      weeklyOffDays={dbUser.weeklyOffDays}
+      weeklyOffDays={toNumberArray(dbUser.weeklyOffDays)}
       holidays={holidays}
     />
   )

@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import { Role, Shift, Store, Department } from '@prisma/client'
 import { prisma } from '../lib/prisma'
+import { toNumberArray } from '../lib/utils/json-array'
 import { addDays, format, isWeekend, parseISO, startOfDay, endOfDay } from 'date-fns'
 import { generateNextEmployeeId } from '../lib/utils/employee-id'
 import { _generatePayrollSlipInternal } from '../app/actions/payroll'
@@ -146,7 +147,7 @@ async function main() {
     const dayOfWeek = currentDate.getUTCDay()
     
     for (const user of dbUsers) {
-      if (user.weeklyOffDays.includes(dayOfWeek)) {
+      if (toNumberArray(user.weeklyOffDays).includes(dayOfWeek)) {
         continue;
       }
 
@@ -182,7 +183,7 @@ async function main() {
         checkInDate.setUTCHours(startHour, startMin - Math.floor(Math.random() * 20))
       }
 
-      const isHalfDay = user.halfDays.includes(dayOfWeek)
+      const isHalfDay = toNumberArray(user.halfDays).includes(dayOfWeek)
       const forgotCheckout = Math.random() < 0.05
       let checkOutDate = null
       

@@ -6,23 +6,23 @@ import 'dotenv/config'
  * Database connection URLs are configured here instead of schema.prisma.
  *
  * Set these environment variables in .env.local:
- * - DATABASE_URL  : Your PostgreSQL connection string (pooled for runtime)
- * - DIRECT_URL    : Direct non-pooled connection (required for migrations)
+ * - DATABASE_URL  : MySQL/MariaDB connection string (runtime)
+ * - DIRECT_URL    : Optional, used for migrations (falls back to DATABASE_URL)
  */
 export default defineConfig({
   earlyAccess: true,
   schema: './prisma/schema.prisma',
   datasource: {
-    url: process.env.DIRECT_URL,
+    url: process.env.DIRECT_URL ?? process.env.DATABASE_URL,
   },
   migrations: {
     seed: 'npx tsx prisma/seed.ts'
   },
   migrate: {
     async adapter() {
-      const { PrismaPg } = await import('@prisma/adapter-pg')
+      const { PrismaMariaDb } = await import('@prisma/adapter-mariadb')
       const connectionString = process.env.DIRECT_URL ?? process.env.DATABASE_URL!
-      return new PrismaPg({ connectionString })
+      return new PrismaMariaDb(connectionString)
     },
   },
 })

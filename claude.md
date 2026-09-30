@@ -7,7 +7,9 @@ This file serves as the ultimate source of truth for the HNS IT Center HRIS appl
 ## 1. Architecture & Tech Stack
 - **Framework:** Next.js 16 (App Router)
 - **Styling:** Tailwind CSS + shadcn/ui (Accessible, customizable components)
-- **Database:** Prisma ORM 7 + Supabase PostgreSQL
+- **Database:** Prisma ORM 7 + Hostinger MariaDB (MySQL) via `@prisma/adapter-mariadb`
+  - MySQL has no array columns: `weeklyOffDays`, `halfDays`, `shiftCycle` are `Json`. Read them with `toNumberArray` / `toStringArray` from `lib/utils/json-array.ts`.
+  - Plain `String` maps to VARCHAR(191); use `@db.Text` for URLs and free text.
 - **Storage:** Cloudflare R2 for file storage (Profile Pictures, Attendance Selfies)
 - **State Management:** React `useState`, `useTransition` for Server Actions, and URL Search Params for shareable state (e.g., month navigation).
 
@@ -35,7 +37,7 @@ Your `.env` file must match `.env.example`.
 ## 3. Database Management & Seeding
 
 ### Syncing Schema
-When modifying `prisma/schema.prisma`, sync it to Supabase:
+When modifying `prisma/schema.prisma`, sync it to the Hostinger MariaDB database:
 ```bash
 npx prisma generate
 npx prisma db push

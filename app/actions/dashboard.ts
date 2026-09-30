@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { toNumberArray } from '@/lib/utils/json-array'
 import { getPayrollPeriod, todayUTC } from '@/lib/utils/date'
 
 // ─── Employee Dashboard ────────────────────────────────────────────────────────
@@ -261,7 +262,7 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
     const leave = leaveMap.get(emp.id) ?? null
 
     // Check if this is a scheduled off day for this employee
-    const isOffDay = emp.weeklyOffDays.includes(selectedDayOfWeek)
+    const isOffDay = toNumberArray(emp.weeklyOffDays).includes(selectedDayOfWeek)
 
     let displayStatus = 'BELUM_ABSEN' as string
 

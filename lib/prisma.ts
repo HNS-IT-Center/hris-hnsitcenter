@@ -2,13 +2,13 @@
  * Prisma Client Singleton for Prisma 7.
  *
  * Prisma 7 requires a driver adapter to be passed to PrismaClient.
- * We use @prisma/adapter-pg with the DATABASE_URL environment variable.
+ * We use @prisma/adapter-mariadb (MariaDB/MySQL on Hostinger) with DATABASE_URL.
  *
  * The client is lazily initialised and reused across hot reloads in dev.
  */
 
 import { PrismaClient } from '@prisma/client'
-import { PrismaPg } from '@prisma/adapter-pg'
+import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 
 declare global {
   // eslint-disable-next-line no-var
@@ -31,7 +31,7 @@ function createPrismaClient(): PrismaClient {
     return new PrismaClient()
   }
 
-  const adapter = new PrismaPg({ connectionString })
+  const adapter = new PrismaMariaDb(connectionString)
 
   return new PrismaClient({
     adapter,
