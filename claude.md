@@ -30,7 +30,7 @@ The app does not use NextAuth. It relies on a central SSO server (`sso.hnsitcent
 
 ## 2. Environment Variables (.env)
 Your `.env` file must match `.env.example`. 
-**CRITICAL NOTE:** Never log or expose the `SUPABASE_SERVICE_ROLE_KEY` to the client.
+**CRITICAL NOTE:** Never log or expose server-only secrets (`DATABASE_URL`, `JWT_SECRET`, `R2_SECRET_ACCESS_KEY`, `VAPID_PRIVATE_KEY`, `CRON_SECRET`) to the client. Only `NEXT_PUBLIC_*` variables may reach the browser.
 
 ---
 
