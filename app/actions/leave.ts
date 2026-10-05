@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { toNumberArray } from '@/lib/utils/json-array'
 import { revalidatePath } from 'next/cache'
 import { sendPushNotification, sendPushNotificationToRole } from '@/lib/web-push'
+import { getServerUser } from '@/lib/auth'
+import { isPrivilegedRole } from '@/lib/auth/roles'
 
 /**
  * Get all leave requests for a specific employee.
@@ -266,9 +268,17 @@ export async function verifySickLeave(id: string, isPaid: boolean) {
  */
 export async function uploadSickNote(id: string, sickNoteUrl: string, sickNoteFileName: string) {
   try {
-    const request = await prisma.leaveRequest.findUnique({ where: { id } })
+    const request = await prisma.leaveRequest.findUnique({
+      where: { id },
+      include: { user: { select: { email: true } } },
+    })
     if (!request) return { success: false, error: 'Pengajuan tidak ditemukan.' }
-    
+
+    const caller = await getServerUser()
+    if (!isPrivilegedRole(caller.role) && request.user.email !== caller.email) {
+      return { success: false, error: 'Anda tidak berhak mengubah pengajuan ini.' }
+    }
+
     // 3 days limit constraint (3 * 24 * 60 * 60 * 1000 = 259200000 ms)
     if (Date.now() - request.createdAt.getTime() > 259200000) {
        return { success: false, error: 'Batas waktu 3 hari untuk mengunggah surat sakit telah habis.' }

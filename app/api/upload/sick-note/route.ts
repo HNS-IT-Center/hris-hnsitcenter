@@ -1,15 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadToR2, getPublicUrl } from '@/lib/utils/storage'
 import { getServerUser } from '@/lib/auth'
+import { isPrivilegedRole } from '@/lib/auth/roles'
 import { generateStoragePath } from '@/lib/utils/file'
+import { prisma } from '@/lib/prisma'
 
 export async function POST(req: NextRequest) {
   try {
     const user = await getServerUser()
     const { fileBase64, userId: targetUserId } = await req.json()
 
-    if (!user || (!['HRD', 'ADMIN', 'BOSS'].includes(user.role) && targetUserId !== user.id)) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // `targetUserId` is the DB id, while `user.id` is the SSO id, so employees
+    // are matched to their own record by email instead.
+    if (!isPrivilegedRole(user.role)) {
+      const self = await prisma.user.findUnique({
+        where: { email: user.email },
+        select: { id: true },
+      })
+      if (!self || self.id !== targetUserId) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
     }
 
     if (!fileBase64 || !targetUserId) {
