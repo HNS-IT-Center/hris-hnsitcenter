@@ -15,6 +15,37 @@ declare global {
   var prisma: PrismaClient | undefined
 }
 
+/**
+ * Build the MariaDB pool config from DATABASE_URL.
+ *
+ * Hostinger's MariaDB sends bound string parameters as utf8mb4_general_ci while
+ * the connection and columns use utf8mb4_unicode_ci. Prisma's `contains` /
+ * `startsWith` compile to LIKE CONCAT(?, '%'), and mixing those collations fails
+ * with "Illegal mix of collations ... for operation 'like'". Forcing the session
+ * collation on every new connection keeps parameters and columns consistent.
+ *
+ * Passed as an object (not a URL) because the adapter re-serialises the URL and
+ * turns spaces in `initSql` into '+'.
+ */
+function mariaDbConfig(connectionString: string) {
+  const url = new URL(connectionString)
+  const numberParam = (key: string) =>
+    url.searchParams.has(key) ? Number(url.searchParams.get(key)) : undefined
+  const connectionLimit = numberParam('connectionLimit')
+  const connectTimeout = numberParam('connectTimeout')
+
+  return {
+    host: url.hostname,
+    port: Number(url.port || 3306),
+    user: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: decodeURIComponent(url.pathname.slice(1)),
+    ...(connectionLimit !== undefined && { connectionLimit }),
+    ...(connectTimeout !== undefined && { connectTimeout }),
+    initSql: 'SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci',
+  }
+}
+
 function createPrismaClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL
 
@@ -31,7 +62,7 @@ function createPrismaClient(): PrismaClient {
     return new PrismaClient()
   }
 
-  const adapter = new PrismaMariaDb(connectionString)
+  const adapter = new PrismaMariaDb(mariaDbConfig(connectionString))
 
   return new PrismaClient({
     adapter,
