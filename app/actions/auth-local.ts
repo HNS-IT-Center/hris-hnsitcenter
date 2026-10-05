@@ -5,6 +5,7 @@ import { getServerUser } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 import { SignJWT } from "jose"
 import { cookies } from "next/headers"
+import { HRIS_APP_DOMAIN } from "@/lib/auth/roles"
 
 /** Decode the JWT_SECRET env variable once for Edge Runtime compatibility */
 function getSecret(): Uint8Array {
@@ -58,27 +59,21 @@ export async function loginLocal(email: string, password: string, rememberMe: bo
       return { success: false, error: "Password salah." }
     }
 
-    // Payload exactly matches what proxy.ts expects (which is what SSO injects)
+    // Same shape as the SSO token so proxy.ts resolves the role the same way.
+    // The HRIS role is the one last synced from the SSO (see lib/auth/roles.ts).
     const payload = {
       id: user.id,
       email: user.email,
       name: user.name,
-      globalRole: user.globalRole, // note: user.role is Role enum, but SSO uses globalRole string
-      // In HRIS local, we map user.role to globalRole for the proxy
-      // wait, in HRIS db, the field is `role`, let's map it:
-      positionId: user.ssoPositionId || user.positionId,
-      positionName: user.positionName || (user as any).position?.name,
+      globalRole: 'USER',
+      appRoles: { [HRIS_APP_DOMAIN]: user.role },
+      positionId: user.ssoPositionId,
+      positionName: user.positionName,
       departmentId: user.ssoDepartmentId || user.departmentId,
-      departmentName: user.departmentName || (user as any).department?.name,
+      departmentName: user.departmentName || user.department?.name,
     }
 
-    // Adjusting globalRole based on local `role`
-    const finalPayload = {
-      ...payload,
-      globalRole: user.role
-    }
-
-    const token = await new SignJWT(finalPayload)
+    const token = await new SignJWT(payload)
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
       .setExpirationTime(rememberMe ? Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60) : Math.floor(Date.now() / 1000) + (24 * 60 * 60))

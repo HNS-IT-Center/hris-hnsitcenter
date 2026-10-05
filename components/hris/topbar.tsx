@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import type { Role } from "@/lib/hris-data"
 import type { DashboardUser } from "@/components/hris/dashboard-shell"
 import { PushSubscriber } from "@/components/hris/push-subscriber"
+import { isPrivilegedRole } from "@/lib/auth/roles"
 import { Bell, Menu, Moon, Sun, UserCog } from "lucide-react"
 import {
   DropdownMenu,
@@ -60,7 +61,7 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
   const unread = notifications.filter((n) => !n.isRead).length
 
   const isHrdMode = pathname?.startsWith('/hrd')
-  const canSwitch = user?.role === "HRD" || user?.role === "BOSS"
+  const canSwitch = isPrivilegedRole(user?.role)
 
   return (
     <header className="glass-strong sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border px-4 sm:px-6">
@@ -91,7 +92,7 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
           >
             <UserCog className={cn("h-4 w-4", isHrdMode && "text-primary")} />
             <span className="hidden sm:inline-block font-semibold">
-              {isHrdMode ? `Mode ${user?.role === "BOSS" ? "Boss" : "HRD"}` : "Mode Karyawan"}
+              {isHrdMode ? `Mode ${user?.role === "BOSS" ? "Boss" : user?.role === "ADMIN" ? "Admin" : "HRD"}` : "Mode Karyawan"}
             </span>
           </Link>
         )}

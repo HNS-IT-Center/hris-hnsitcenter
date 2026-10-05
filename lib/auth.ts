@@ -1,11 +1,14 @@
 import { headers } from 'next/headers'
+import { HRIS_ROLES, type HrisRole } from '@/lib/auth/roles'
 
 export interface SSOUser {
   id: string
   email: string
   name: string
+  /** Raw SSO role (SUPER_ADMIN / ADMIN / USER). Not an HRIS permission. */
   globalRole: string
-  role: string
+  /** HRIS role resolved by the proxy from the SSO token. Use this for access checks. */
+  role: HrisRole
   departmentId: string | null
   departmentName: string | null
   positionId: string | null
@@ -26,7 +29,9 @@ export async function getServerUser(): Promise<SSOUser> {
   const id = h.get('x-user-id')
   const email = h.get('x-user-email')
   const name = h.get('x-user-name') ?? email?.split('@')[0] ?? ''
-  const globalRole = h.get('x-user-role') ?? 'EMPLOYEE'
+  const headerRole = h.get('x-user-role') ?? ''
+  const role = (HRIS_ROLES as readonly string[]).includes(headerRole) ? (headerRole as HrisRole) : 'EMPLOYEE'
+  const globalRole = h.get('x-user-global-role') ?? 'USER'
   const departmentId = h.get('x-user-dept-id')
   const departmentName = h.get('x-user-dept-name')
   const positionId = h.get('x-user-position-id')
@@ -41,7 +46,7 @@ export async function getServerUser(): Promise<SSOUser> {
     email,
     name,
     globalRole,
-    role: globalRole, // Fallback for old code expecting `role`
+    role,
     departmentId: departmentId || null,
     departmentName: departmentName || null,
     positionId: positionId || null,

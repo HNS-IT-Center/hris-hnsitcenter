@@ -2,6 +2,7 @@ import { getPayrollSlip } from "@/app/actions/payroll"
 import { PayslipPrintView } from "@/components/hris/pages/payslip-print-view"
 import { notFound } from "next/navigation"
 import { getServerUser } from "@/lib/auth"
+import { isPrivilegedRole } from "@/lib/auth/roles"
 
 export default async function PrintPayrollPage(props: {
   params: Promise<{ userId: string }>
@@ -13,8 +14,8 @@ export default async function PrintPayrollPage(props: {
   // Auth check
   try {
     const user = await getServerUser()
-    if (user.role !== "HRD" && user.role !== "BOSS") {
-      return <div className="p-8 text-red-500 font-bold text-center mt-10">Unauthorized: Only HRD or BOSS can access this print view.</div>
+    if (!isPrivilegedRole(user.role)) {
+      return <div className="p-8 text-red-500 font-bold text-center mt-10">Unauthorized: Only HRD, BOSS or ADMIN can access this print view.</div>
     }
   } catch (error) {
     return <div className="p-8 text-red-500 font-bold text-center mt-10">Unauthorized: Please login first.</div>

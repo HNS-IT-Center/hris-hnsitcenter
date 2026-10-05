@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { Sidebar } from "@/components/hris/sidebar"
 import { Topbar } from "@/components/hris/topbar"
 import type { NavId } from "@/components/hris/sidebar"
+import { isPrivilegedRole } from "@/lib/auth/roles"
 
 export interface DashboardUser {
   id: string
@@ -41,7 +42,7 @@ export function DashboardShell({ user, pendingApprovalsCount, children }: Dashbo
   }, [mobileOpen])
 
   // Derive role for sidebar — based on URL path!
-  const isHrdAuthorized = user.role === "HRD" || user.role === "BOSS"
+  const isHrdAuthorized = isPrivilegedRole(user.role)
   const isHrdRoute = pathname?.startsWith('/hrd')
   const sidebarRole = (isHrdAuthorized && isHrdRoute) ? "hrd" : "employee"
 

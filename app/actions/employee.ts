@@ -5,9 +5,10 @@ import { revalidatePath } from 'next/cache'
 import bcrypt from 'bcryptjs'
 import { generateNextEmployeeId } from '@/lib/utils/employee-id'
 import { hasRole } from '@/lib/auth'
+import { PRIVILEGED_ROLES } from '@/lib/auth/roles'
 
 async function requireHRD() {
-  if (!(await hasRole('HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN'))) {
+  if (!(await hasRole(...PRIVILEGED_ROLES))) {
     throw new Error('Unauthorized')
   }
 }
@@ -104,13 +105,6 @@ export async function createEmployee(data: {
       if (dept) departmentId = dept.id
     }
 
-    let role: any = 'EMPLOYEE'
-    if (data.departmentName === 'HRD') {
-      role = 'HRD'
-    } else if (data.departmentName === 'BOSS') {
-      role = 'BOSS'
-    }
-
     let passwordHash = null
     if (data.password) {
       const salt = await bcrypt.genSalt(10)
@@ -131,7 +125,8 @@ export async function createEmployee(data: {
         storeId: data.storeId,
         shiftId: data.shiftId,
         phoneNumber: data.phoneNumber,
-        role,
+        // Starts as EMPLOYEE; the real role is synced from SSO App Access on first login.
+        role: 'EMPLOYEE',
         isActive: true,
         notifEnabled: true,
         twoFAEnabled: false,

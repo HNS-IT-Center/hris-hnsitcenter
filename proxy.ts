@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
+import { isPrivilegedRole, resolveHrisRole } from '@/lib/auth/roles'
 
 
 /** Decode the JWT_SECRET env variable once for Edge Runtime compatibility */
@@ -32,7 +33,11 @@ function getBaseUrl(request: NextRequest) {
  *    downstream Server Components and API Routes.
  * 4. Missing / invalid / expired tokens → clear cookie & redirect to SSO.
  *
- * JWT Payload shape: { id, email, globalRole, positionId, departmentId }
+ * JWT Payload shape: { id, email, globalRole, appRoles, positionId, departmentId }
+ *
+ * The HRIS role comes from `resolveHrisRole` (lib/auth/roles.ts) and is the
+ * only role downstream code sees in `x-user-role`. Users without HRIS access
+ * in the SSO `appRoles` are sent back to /login?error=not_whitelisted.
  */
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const token = request.cookies.get('sso_token')?.value
@@ -71,11 +76,20 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     const userId = (payload.id as string) ?? ''
     const userEmail = (payload.email as string) ?? ''
     const userName = (payload.name as string) ?? ''
-    const userRole = (payload.globalRole as string) ?? 'EMPLOYEE'
+    const userGlobalRole = (payload.globalRole as string) ?? 'USER'
+    const userRole = resolveHrisRole(payload)
     const userPositionId = (payload.positionId as string) ?? ''
     const userPositionName = (payload.positionName as string) ?? ''
     const userDeptId = (payload.departmentId as string) ?? ''
     const userDeptName = (payload.departmentName as string) ?? ''
+
+    // Valid SSO session, but this user has no access to the HRIS app.
+    // The cookie is left alone: it is shared with the other *.hnsitcenter.id apps.
+    if (!userRole) {
+      const loginUrl = new URL('/login', getBaseUrl(request))
+      loginUrl.searchParams.set('error', 'not_whitelisted')
+      return NextResponse.redirect(loginUrl)
+    }
 
     // Clone and inject headers so Server Components can read user identity
     const requestHeaders = new Headers(request.headers)
@@ -83,6 +97,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     requestHeaders.set('x-user-email', userEmail)
     requestHeaders.set('x-user-name', userName)
     requestHeaders.set('x-user-role', userRole)
+    requestHeaders.set('x-user-global-role', userGlobalRole)
     requestHeaders.set('x-user-position-id', userPositionId)
     requestHeaders.set('x-user-position-name', userPositionName)
     requestHeaders.set('x-user-dept-id', userDeptId)
@@ -91,8 +106,7 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     // Role-based authorization for HRD routes
     const pathname = request.nextUrl.pathname
     if (pathname.startsWith('/hrd') || pathname.startsWith('/api/hrd')) {
-      const allowedRoles = ['HRD', 'BOSS', 'ADMIN', 'SUPER_ADMIN']
-      if (!allowedRoles.includes(userRole.toUpperCase())) {
+      if (!isPrivilegedRole(userRole)) {
         const baseUrl = getBaseUrl(request)
         const dashboardUrl = new URL('/dashboard', baseUrl)
         return NextResponse.redirect(dashboardUrl)

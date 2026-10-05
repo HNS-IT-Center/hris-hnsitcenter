@@ -26,6 +26,15 @@ The app does not use NextAuth. It relies on a central SSO server (`sso.hnsitcent
 3. Server Components read these headers via `lib/auth.ts` -> `getServerUser()`.
 4. **Local Dev Bypass**: If running on `localhost:3000`, the proxy automatically injects a mock HRD user (`dev@hnsitcenter.id`) to bypass browser cross-domain cookie restrictions.
 
+### Roles (decided in the SSO, never in HRIS)
+- `lib/auth/roles.ts` -> `resolveHrisRole()` is the only place a role is decided. The proxy runs it once and puts the result in `x-user-role`.
+  - SSO `globalRole` SUPER_ADMIN -> `ADMIN`.
+  - SSO App Access `appRoles["absensi.hnsitcenter.id"]` -> that role (`USER` = `EMPLOYEE`, `HRD`, `BOSS`, `ADMIN`).
+  - No entry -> redirected to `/login?error=not_whitelisted`.
+- `getServerUser().role` is the HRIS role; `globalRole` is the raw SSO role and must not be used for permissions.
+- `lib/auth/sync.ts` mirrors the role into `User.role` on each dashboard load, so DB-based checks agree.
+- Use `isPrivilegedRole()` / `PRIVILEGED_ROLES` (HRD, BOSS, ADMIN) for HRD-workspace checks. Do not infer roles from department names.
+
 ---
 
 ## 2. Environment Variables (.env)

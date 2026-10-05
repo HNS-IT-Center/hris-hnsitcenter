@@ -1,11 +1,10 @@
 import { prisma } from '@/lib/prisma'
-import { Role } from '@prisma/client'
 
 import { SSOUser } from '@/lib/auth'
 import { generateNextEmployeeId } from '@/lib/utils/employee-id'
 
 export async function syncUserFromSSO(payload: SSOUser) {
-  const { id, email, name, globalRole, departmentName, departmentId: ssoDepartmentId, positionId: ssoPositionId, positionName } = payload
+  const { id, email, name, role, departmentName, departmentId: ssoDepartmentId, positionId: ssoPositionId, positionName } = payload
 
   // 1. Resolve Department
   let departmentId: string | null = null
@@ -23,19 +22,8 @@ export async function syncUserFromSSO(payload: SSOUser) {
     departmentId = dept.id
   }
 
-  // 2. Resolve Role
-  let role = Role.EMPLOYEE
-  
-  // Department takes absolute priority
-  if (departmentName === 'HRD') {
-    role = Role.HRD
-  } else if (globalRole === 'SUPER_ADMIN' || globalRole === 'ADMIN') {
-    // If not HRD, but they have global admin privileges, make them an ADMIN
-    role = Role.ADMIN
-  } else if (departmentName === 'BOSS') {
-    // Optional fallback for BOSS if needed
-    role = Role.BOSS
-  }
+  // 2. Role is already resolved from the SSO token by the proxy
+  //    (see lib/auth/roles.ts) and mirrored here so DB-based checks agree.
 
   // 3. Check existing user and handle Quota Reset
   const existingUser = await prisma.user.findUnique({ where: { email } })

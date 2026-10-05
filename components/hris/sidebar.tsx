@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { Role } from "@/lib/hris-data"
 import type { DashboardUser } from "@/components/hris/dashboard-shell"
+import { ROLE_LABELS, type HrisRole } from "@/lib/auth/roles"
 import {
   Building2,
   CalendarCheck,
@@ -94,7 +95,7 @@ export function Sidebar({ role, active, onSelect, mobileOpen, onMobileClose, onL
     .join('')
     .toUpperCase()
     .slice(0, 2)
-  const displayRole = user?.role === 'HRD' ? 'HRD' : user?.role === 'BOSS' ? 'Boss' : 'Karyawan'
+  const displayRole = ROLE_LABELS[user?.role as HrisRole] ?? 'Karyawan'
 
   return (
     <>
