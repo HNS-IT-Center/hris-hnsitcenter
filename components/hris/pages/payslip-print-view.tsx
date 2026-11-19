@@ -25,7 +25,7 @@ export function PayslipPrintView({ slip }: { slip: PayrollSlip & { user: any } }
       { label: "Tunjangan Transport", value: slip.transport },
       { label: "Uang Makan", value: slip.uangMakan },
       { label: "Tunjangan Lainnya", value: slip.tunjanganLainnya },
-      { label: "Lembur", value: slip.lembur },
+      { label: slip.lemburJam > 0 ? `Lembur (${slip.lemburJam} jam x Rp ${slip.tarifLembur.toLocaleString("id-ID")})` : "Lembur", value: slip.lembur },
     ],
     potongan: [
       { label: "BPJS Ketenagakerjaan", value: slip.bpjs },
