@@ -1,0 +1,35 @@
+# <type>(<scope>): <ringkasan>
+# |<----  Maks 72 karakter, huruf kecil, tanpa titik di akhir  ---->|
+#
+# [Isi opsional] Jelaskan APA yang diubah dan KENAPA.
+# |<----  Bungkus tiap baris di 72 karakter  ---->|
+#
+# [Footer opsional]
+# Refs: #123
+# Closes: #123
+# BREAKING CHANGE: <penjelasan perubahan yang tidak kompatibel>
+#
+# --- TYPE ---
+# feat     : menambah fitur baru
+# fix      : memperbaiki bug
+# docs     : mengubah dokumentasi saja
+# style    : merapikan format kode, tanpa mengubah logika
+# refactor : merombak struktur kode, bukan fitur & bukan perbaikan
+# perf     : meningkatkan performa
+# test     : menambah/mengubah test
+# build    : sistem build / dependency (npm, composer, docker)
+# ci       : konfigurasi CI/CD (GitHub Actions, GitLab CI)
+# chore    : pekerjaan rutin lain (config, script, bersih-bersih)
+# revert   : membatalkan commit sebelumnya
+#
+# --- SCOPE HRIS ---
+# absensi, jadwal, shift, toko, cuti, lembur, payroll, karyawan, auth,
+# sso, notifikasi, kalender, broadcast, rekap, dashboard, rekrutmen,
+# kpi, pengaturan, api, db, ui, pwa, cron, deploy, deps, docs
+#
+# --- TIPS ---
+# - Awali ringkasan dengan kata kerja: "tambah", "perbaiki", "hapus",
+#   "ubah", "pisahkan", "perbarui"
+# - Satu commit = satu perubahan logis
+# - Tambah "!" setelah type/scope untuk breaking change: feat(api)!: ...
+# - Sertakan ID tugas sprint di footer bila ada: Refs: S1-2
