@@ -145,7 +145,8 @@ model User {
   id              String    @id @default(cuid())
   employeeId      String?   @unique
   // SSO-sourced fields (populated on first SSO login)
-  ssoId           String?   @unique  // The `id` from the SSO JWT payload
+  ssoId           String?   @unique  // Legacy: `id` from the old sso.hnsitcenter.id JWT. Kept for history only
+  ssoSub          String?   @unique  // OIDC `sub` from auth.hnsitcenter.id. The only key used to match SSO logins
   email           String    @unique
   passwordHash    String?
   name            String
@@ -204,6 +205,7 @@ model User {
   broadcastsCreated   Broadcast[]
   broadcastFilters    BroadcastFilterUser[]
   userDevices         UserDevice[]
+  authSessions        AuthSession[]
   payrollConfig       UserPayrollConfig?
   payrollSlips        PayrollSlip[]
 }
@@ -219,6 +221,31 @@ model UserDevice {
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, deviceId])
+}
+
+/// Local login session backed by the HNS SSO (OIDC). The browser cookie holds a
+/// random token; only its SHA-256 hash is stored here (`id`). Tokens never
+/// leave the server. See lib/auth/session.ts.
+model AuthSession {
+  id                   String    @id // sha256(cookie token), hex
+  userId               String
+  ssoSid               String?   // `sid` claim; back-channel logout revokes by this
+  idToken              String    @db.Text
+  accessToken          String    @db.Text
+  refreshToken         String?   @db.Text
+  accessTokenExpiresAt DateTime
+  expiresAt            DateTime  // Local session end, follows refresh_token_expires_in
+  rememberDevice       Boolean   @default(false) // Logged in with offline_access
+  refreshLockedUntil   DateTime? // Refresh lock: refresh tokens rotate, so only one refresh at a time
+  revokedAt            DateTime?
+  userAgent            String?   @db.Text
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([ssoSid])
+  @@index([userId])
 }
 
 // ============================================================
@@ -473,6 +500,7 @@ model Recruitment {
 model AppNotification {
   id        String   @id @default(cuid())
   userId    String
+  category  String   @default("SYSTEM") // NotificationCategory in lib/notify.ts
   title     String
   message   String @db.Text
   url       String? @db.Text
@@ -614,6 +642,7 @@ model UserPayrollConfig {
   transport        Int      @default(0)  // Transport allowance
   bpjs             Int      @default(0)  // BPJS deduction
   pph21            Int      @default(0)  // Tax deduction
+  overtimeHourlyRate Int?   // Overtime pay per billable hour; null = OvertimeSetting.defaultHourlyRate
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -644,8 +673,10 @@ model PayrollSlip {
   // ── Pendapatan (Earnings) ──────────────────────────────────────
   gajiPokok          Int   // 75% of baseSalary26Days
   tunjanganLainnya   Int   @default(0) // The remaining to reach the scaled base salary
-  lembur             Int   @default(0) // Approved overtime pay
-  totalPendapatan    Int   // gajiPokok + uangMakan + transport + lembur
+  lembur             Int   @default(0) // Approved overtime pay = lemburJam x tarifLembur
+  lemburJam          Int   @default(0) // Billable overtime hours after rounding (snapshot)
+  tarifLembur        Int   @default(0) // Overtime rate per hour used (snapshot)
+totalPendapatan    Int   // gajiPokok + uangMakan + transport + lembur
 
   // ── Potongan (Deductions) ─────────────────────────────────────
   potonganIzin       Int   @default(0) // Unpaid leave days * daily rate
@@ -676,4 +707,15 @@ model PayrollSlip {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, periodStart])
+}
+
+/// Company-wide overtime rules, edited by HRD on /hrd/lembur. Single row, id "default".
+/// Billable hours per overtime request = full hours + 1 when the leftover minutes
+/// reach roundingThresholdMinutes (default 45: 1 h 50 m -> 2 h, 1 h 30 m -> 1 h).
+model OvertimeSetting {
+  id                       String   @id @default("default")
+  roundingThresholdMinutes Int      @default(45)
+  defaultHourlyRate        Int      @default(20000) // Used when UserPayrollConfig.overtimeHourlyRate is null
+  updatedById              String?
+  updatedAt                DateTime @updatedAt
 }

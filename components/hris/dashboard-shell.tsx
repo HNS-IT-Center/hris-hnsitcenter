@@ -48,8 +48,13 @@ export function DashboardShell({ user, pendingApprovalsCount, children }: Dashbo
 
   const activeNavId: NavId = "dashboard" // default fallback
 
+  // POST (same-origin) so a link on another site cannot log the user out.
   const handleLogout = (): void => {
-    window.location.href = '/api/auth/logout'
+    const form = document.createElement('form')
+    form.method = 'POST'
+    form.action = '/auth/sso/logout'
+    document.body.appendChild(form)
+    form.submit()
   }
 
   const [swipeOffset, setSwipeOffset] = useState(0)

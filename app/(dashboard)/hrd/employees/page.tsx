@@ -15,5 +15,5 @@ export default async function Page() {
     getServerUser()
   ])
 
-  return <EmployeesPage initialEmployees={employees} stores={stores} shifts={shifts} positions={positions} currentUserId={currentUser.id} /> 
+  return <EmployeesPage initialEmployees={employees} stores={stores} shifts={shifts} positions={positions} currentUserId={currentUser.id} currentUserRole={currentUser.role} /> 
 }
