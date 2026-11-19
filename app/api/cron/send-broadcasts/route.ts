@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { deliverBroadcast } from '@/app/actions/broadcast'
+import { validateCronAuth } from '@/lib/utils/cron-auth'
+import { deliverBroadcast } from '@/lib/broadcast-delivery'
 
 /**
  * Cron: Send Scheduled Broadcasts
@@ -16,11 +17,8 @@ import { deliverBroadcast } from '@/app/actions/broadcast'
  */
 export async function GET(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const unauthorized = validateCronAuth(req)
+    if (unauthorized) return unauthorized
 
     const now = new Date()
 

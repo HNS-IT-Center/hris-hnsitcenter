@@ -1,44 +1,49 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { revalidatePath } from 'next/cache'
+import { requireUser } from '@/lib/auth/guards'
 
-export async function getAppNotifications(userId: string) {
+/** The signed-in user's latest notifications and unread count. */
+export async function getAppNotifications() {
   try {
-    const notifications = await prisma.appNotification.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 20 // limit to last 20 notifications
-    })
-    return { success: true, data: notifications }
-  } catch (error: any) {
+    const user = await requireUser()
+    const [notifications, unreadCount] = await Promise.all([
+      prisma.appNotification.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      }),
+      prisma.appNotification.count({ where: { userId: user.id, isRead: false } }),
+    ])
+    return { success: true as const, data: notifications, unreadCount }
+  } catch (error) {
     console.error('Failed to get notifications:', error)
-    return { success: false, error: error.message }
+    return { success: false as const, error: 'Gagal memuat notifikasi.' }
   }
 }
 
 export async function markNotificationAsRead(id: string) {
   try {
-    await prisma.appNotification.update({
-      where: { id },
-      data: { isRead: true }
+    const user = await requireUser()
+    await prisma.appNotification.updateMany({
+      where: { id, userId: user.id },
+      data: { isRead: true },
     })
-    revalidatePath('/', 'layout')
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch {
+    return { success: false, error: 'Gagal menandai notifikasi.' }
   }
 }
 
-export async function markAllNotificationsAsRead(userId: string) {
+export async function markAllNotificationsAsRead() {
   try {
+    const user = await requireUser()
     await prisma.appNotification.updateMany({
-      where: { userId, isRead: false },
-      data: { isRead: true }
+      where: { userId: user.id, isRead: false },
+      data: { isRead: true },
     })
-    revalidatePath('/', 'layout')
     return { success: true }
-  } catch (error: any) {
-    return { success: false, error: error.message }
+  } catch {
+    return { success: false, error: 'Gagal menandai notifikasi.' }
   }
 }

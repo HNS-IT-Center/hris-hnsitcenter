@@ -3,14 +3,28 @@
 import { prisma } from '@/lib/prisma'
 import { toNumberArray } from '@/lib/utils/json-array'
 import { revalidatePath } from 'next/cache'
-import { sendPushNotification, sendPushNotificationToRole } from '@/lib/web-push'
 import { getServerUser } from '@/lib/auth'
 import { isPrivilegedRole } from '@/lib/auth/roles'
+import { requirePrivileged, requireSelfOrPrivileged } from '@/lib/auth/guards'
+import { HRD_AUDIENCE, formatDay, notify } from '@/lib/notify'
+
+const LEAVE_LABELS: Record<string, string> = {
+  SICK: 'Sakit',
+  ANNUAL_LEAVE: 'Cuti',
+  PERSONAL: 'Izin',
+  HALF_DAY: 'Izin Setengah Hari',
+  OVERTIME: 'Lembur',
+}
+
+function leavePeriod(start: Date, end: Date): string {
+  return start.getTime() === end.getTime() ? formatDay(start) : `${formatDay(start)} - ${formatDay(end)}`
+}
 
 /**
  * Get all leave requests for a specific employee.
  */
 export async function getMyLeaveRequests(userId: string) {
+  await requireSelfOrPrivileged(userId)
   return await prisma.leaveRequest.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
@@ -21,6 +35,7 @@ export async function getMyLeaveRequests(userId: string) {
  * Get the remaining leave quota from the User record.
  */
 export async function getMyLeaveQuota(userId: string) {
+  await requireSelfOrPrivileged(userId)
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { leaveQuotaRemaining: true },
@@ -49,6 +64,9 @@ export async function submitLeaveRequest(data: {
   halfDayTime?: string
 }) {
   try {
+    // Employees submit only for themselves; HRD may submit on someone's behalf.
+    const caller = await requireSelfOrPrivileged(data.userId)
+
     // 1. Overlap validation
     const overlapping = await prisma.leaveRequest.findFirst({
       where: {
@@ -131,22 +149,26 @@ export async function submitLeaveRequest(data: {
     revalidatePath('/leave')
     revalidatePath('/hrd/leave')
 
-    // Trigger push notification to HRD/BOSS
     const userName = (await prisma.user.findUnique({ where: { id: data.userId }, select: { name: true } }))?.name || 'Seorang karyawan'
-    let leaveTypeString = data.type
-    if (data.type === 'SICK') leaveTypeString = 'Sakit'
-    if (data.type === 'ANNUAL_LEAVE') leaveTypeString = 'Cuti'
-    if (data.type === 'PERSONAL') leaveTypeString = 'Izin'
-    if (data.type === 'HALF_DAY') leaveTypeString = 'Izin Setengah Hari'
-    
-    await sendPushNotificationToRole(
-      ['HRD', 'BOSS', 'ADMIN'],
+    const label = LEAVE_LABELS[data.type] ?? data.type
+    const period = leavePeriod(record.startDate, record.endDate)
+
+    await notify(
+      { roles: HRD_AUDIENCE, excludeUserIds: [data.userId] },
       {
-        title: 'Pengajuan Izin Baru',
-        body: `${userName} telah mengajukan ${leaveTypeString}.`,
-        url: '/hrd/leave'
+        category: 'LEAVE',
+        title: `Pengajuan ${label} Baru`,
+        body: `${userName} mengajukan ${label} untuk ${period}.${data.reason ? ` Alasan: ${data.reason}` : ''}`,
+        url: '/hrd/leave',
+        email: true,
       }
     )
+    if (caller.id !== data.userId) {
+      await notify(
+        { userIds: [data.userId] },
+        { category: 'LEAVE', title: `${label} Diajukan oleh HRD`, body: `${caller.name} mengajukan ${label} atas nama Anda untuk ${period}.`, url: '/leave' }
+      )
+    }
 
     return { success: true, data: record }
   } catch (error) {
@@ -159,6 +181,7 @@ export async function submitLeaveRequest(data: {
  * For HRD: get all leave requests (for history and approval)
  */
 export async function getAllLeaveRequests() {
+  await requirePrivileged()
   return await prisma.leaveRequest.findMany({
     include: {
       user: {
@@ -179,6 +202,7 @@ export async function approveLeaveRequest(
   rejectReason?: string
 ) {
   try {
+    await requirePrivileged()
     const request = await prisma.leaveRequest.findUnique({ 
       where: { id },
       include: { user: { select: { lastQuotaResetDate: true } } }
@@ -227,14 +251,18 @@ export async function approveLeaveRequest(
     revalidatePath('/hrd/leave')
     revalidatePath('/leave')
     
+    const label = LEAVE_LABELS[request.type] ?? 'Izin'
     const statusLabel = approved ? 'disetujui' : 'ditolak'
     const rejectText = !approved ? ` Alasan: ${finalRejectReason}` : ''
-    await sendPushNotification(
-      request.userId,
+    const quotaText = quotaChange !== 0 ? ` Sisa kuota cuti ${quotaChange < 0 ? 'berkurang' : 'dikembalikan'} ${Math.abs(quotaChange)} hari.` : ''
+    await notify(
+      { userIds: [request.userId] },
       {
-        title: `Pengajuan Izin ${approved ? 'Disetujui' : 'Ditolak'}`,
-        body: `Pengajuan izin Anda telah ${statusLabel}.${rejectText}`,
-        url: '/leave'
+        category: 'LEAVE',
+        title: `Pengajuan ${label} ${approved ? 'Disetujui' : 'Ditolak'}`,
+        body: `Pengajuan ${label} Anda untuk ${leavePeriod(request.startDate, request.endDate)} telah ${statusLabel}.${rejectText}${quotaText}`,
+        url: '/leave',
+        email: true,
       }
     )
 
@@ -250,10 +278,20 @@ export async function approveLeaveRequest(
  */
 export async function verifySickLeave(id: string, isPaid: boolean) {
   try {
-    await prisma.leaveRequest.update({
+    await requirePrivileged()
+    const request = await prisma.leaveRequest.update({
       where: { id },
       data: { isPaid },
     })
+    await notify(
+      { userIds: [request.userId] },
+      {
+        category: 'LEAVE',
+        title: 'Surat Sakit Diverifikasi',
+        body: `Surat sakit untuk ${leavePeriod(request.startDate, request.endDate)} telah diverifikasi. Izin sakit dihitung ${isPaid ? 'dibayar' : 'tidak dibayar'}.`,
+        url: '/leave',
+      }
+    )
     revalidatePath('/hrd/leave')
     revalidatePath('/leave')
     return { success: true }
@@ -288,6 +326,16 @@ export async function uploadSickNote(id: string, sickNoteUrl: string, sickNoteFi
       where: { id },
       data: { sickNoteUrl, sickNoteFileName },
     })
+    const owner = await prisma.user.findUnique({ where: { id: request.userId }, select: { name: true } })
+    await notify(
+      { roles: HRD_AUDIENCE, excludeUserIds: [caller.id] },
+      {
+        category: 'LEAVE',
+        title: 'Surat Sakit Diunggah',
+        body: `${owner?.name ?? 'Karyawan'} mengunggah surat sakit untuk ${leavePeriod(request.startDate, request.endDate)}. Mohon diverifikasi.`,
+        url: '/hrd/leave',
+      }
+    )
     revalidatePath('/leave')
     revalidatePath('/hrd/leave')
     return { success: true }

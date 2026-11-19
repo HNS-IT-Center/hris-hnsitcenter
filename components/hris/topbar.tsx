@@ -36,29 +36,49 @@ export function Topbar({ title, role, onMenu, user }: TopbarProps) {
   const [notifications, setNotifications] = useState<any[]>([])
   const pathname = usePathname()
   
+  const [unreadCount, setUnreadCount] = useState(0)
+
   useEffect(() => {
     setMounted(true)
-    if (user?.id) {
-      getAppNotifications(user.id).then(res => {
-        if (res.success && res.data) {
+    if (!user?.id) return
+
+    const load = () => {
+      getAppNotifications().then(res => {
+        if (res.success) {
           setNotifications(res.data)
+          setUnreadCount(res.unreadCount)
         }
       })
+    }
+    load()
+
+    // Keep the bell fresh: poll every minute and refresh when the tab is shown again.
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') load()
+    }, 60_000)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      window.clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [user?.id])
 
   const handleMarkAsRead = async (id: string) => {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n))
+    setUnreadCount(c => Math.max(0, c - 1))
     await markNotificationAsRead(id)
   }
 
   const handleMarkAllAsRead = async () => {
-    if (!user?.id) return
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })))
-    await markAllNotificationsAsRead(user.id)
+    setUnreadCount(0)
+    await markAllNotificationsAsRead()
   }
 
-  const unread = notifications.filter((n) => !n.isRead).length
+  const unread = unreadCount
 
   const isHrdMode = pathname?.startsWith('/hrd')
   const canSwitch = isPrivilegedRole(user?.role)

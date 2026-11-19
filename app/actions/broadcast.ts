@@ -3,7 +3,8 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { getServerUser } from '@/lib/auth'
-import { sendPushNotification } from '@/lib/web-push'
+import { requirePrivileged } from '@/lib/auth/guards'
+import { deliverBroadcast } from '@/lib/broadcast-delivery'
 
 export type BroadcastWithFilters = Awaited<ReturnType<typeof getBroadcasts>>[number]
 
@@ -11,6 +12,7 @@ export type BroadcastWithFilters = Awaited<ReturnType<typeof getBroadcasts>>[num
  * Fetches all broadcasts ordered by creation date descending.
  */
 export async function getBroadcasts() {
+  await requirePrivileged()
   return prisma.broadcast.findMany({
     orderBy: { createdAt: 'desc' },
     include: {
@@ -91,90 +93,3 @@ export async function createBroadcast(data: {
   }
 }
 
-/**
- * Core delivery function: resolves recipients from filters, sends push, marks as sent.
- * Called directly for immediate sends, or by the cron for scheduled ones.
- */
-export async function deliverBroadcast(broadcastId: string, allEmployees?: boolean) {
-  const broadcast = await prisma.broadcast.findUnique({
-    where: { id: broadcastId },
-    include: {
-      filterDepts: true,
-      filterStores: true,
-      filterShifts: true,
-      filterUsers: true,
-    }
-  })
-
-  if (!broadcast || broadcast.isSent) return
-
-  const hasFilters =
-    broadcast.filterDepts.length > 0 ||
-    broadcast.filterStores.length > 0 ||
-    broadcast.filterShifts.length > 0 ||
-    broadcast.filterUsers.length > 0
-
-  let recipients: { id: string }[] = []
-
-  if (!hasFilters || allEmployees) {
-    // Send to ALL active employees
-    recipients = await prisma.user.findMany({
-      where: { isActive: true },
-      select: { id: true },
-    })
-  } else {
-    // Resolve recipients from filter sets (union)
-    const recipientSet = new Set<string>()
-
-    if (broadcast.filterDepts.length > 0) {
-      const users = await prisma.user.findMany({
-        where: { departmentId: { in: broadcast.filterDepts.map(f => f.departmentId) }, isActive: true },
-        select: { id: true },
-      })
-      users.forEach(u => recipientSet.add(u.id))
-    }
-    if (broadcast.filterStores.length > 0) {
-      const users = await prisma.user.findMany({
-        where: { storeId: { in: broadcast.filterStores.map(f => f.storeId) }, isActive: true },
-        select: { id: true },
-      })
-      users.forEach(u => recipientSet.add(u.id))
-    }
-    if (broadcast.filterShifts.length > 0) {
-      const users = await prisma.user.findMany({
-        where: { shiftId: { in: broadcast.filterShifts.map(f => f.shiftId) }, isActive: true },
-        select: { id: true },
-      })
-      users.forEach(u => recipientSet.add(u.id))
-    }
-    if (broadcast.filterUsers.length > 0) {
-      broadcast.filterUsers.forEach(f => recipientSet.add(f.userId))
-    }
-
-    recipients = Array.from(recipientSet).map(id => ({ id }))
-  }
-
-  // Send push notifications
-  const tagEmoji: Record<string, string> = {
-    NOTICE: '[NOTICE]',
-    EVENT: '[EVENT]',
-    URGENT: '[URGENT]',
-  }
-  const prefix = tagEmoji[broadcast.tag] ?? ''
-
-  await Promise.all(
-    recipients.map(r =>
-      sendPushNotification(r.id, {
-        title: `${prefix} ${broadcast.title}`,
-        body: broadcast.message,
-        url: '/dashboard',
-      })
-    )
-  )
-
-  // Mark as sent
-  await prisma.broadcast.update({
-    where: { id: broadcastId },
-    data: { isSent: true, sentAt: new Date() },
-  })
-}
