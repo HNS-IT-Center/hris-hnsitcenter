@@ -11,9 +11,8 @@ import { notify } from '@/lib/notify'
  *   1. Check-in reminder  — 30 mins before shift start
  *   2. Check-out reminder — at shift end time
  *
- * On Vercel: triggered by vercel.json cron config.
- * On Hostinger (after migration), add to crontab:
- *   curl -s -H "Authorization: Bearer $CRON_SECRET" https://app.hnsitcenter.id/api/cron/shift-reminders
+ * Scheduled on the VPS (Dokploy), every 5 minutes:
+ *   curl -s -H "Authorization: Bearer $CRON_SECRET" https://absensi.hnsitcenter.id/api/cron/shift-reminders
  */
 export async function GET(req: Request) {
   try {

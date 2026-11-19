@@ -13,7 +13,7 @@ import { deliverBroadcast } from '@/lib/broadcast-delivery'
  * and delivers them.
  *
  * On Hostinger (after migration), add to crontab:
- *   curl -s -H "Authorization: Bearer $CRON_SECRET" https://app.hnsitcenter.id/api/cron/send-broadcasts
+ *   curl -s -H "Authorization: Bearer $CRON_SECRET" https://absensi.hnsitcenter.id/api/cron/send-broadcasts
  */
 export async function GET(req: Request) {
   try {

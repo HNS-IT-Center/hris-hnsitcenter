@@ -74,7 +74,7 @@ export async function createBroadcast(data: {
       }
     })
 
-    // TODO (future): when send-broadcasts cron is re-enabled in vercel.json,
+    // TODO (future): when the send-broadcasts cron is scheduled on the VPS (Dokploy),
     // change this block to only call deliverBroadcast when scheduledAt is null,
     // and let the cron handle scheduled ones:
     //
