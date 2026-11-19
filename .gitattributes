@@ -1,0 +1,4 @@
+# Shell scripts and git hooks run under bash, which breaks on CRLF.
+*.sh text eol=lf
+.githooks/* text eol=lf
+Dockerfile text eol=lf
