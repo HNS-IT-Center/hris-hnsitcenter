@@ -5,6 +5,10 @@ import { revalidatePath } from 'next/cache'
 import { requirePrivileged } from '@/lib/auth/guards'
 import { resolveCalendarAudience } from '@/lib/audience'
 import { formatDay, notify } from '@/lib/notify'
+import { holidayFromCalendarEvent, isHolidayEventScope, isHolidayEventType } from '@/lib/holidays'
+
+/** Rolls the calendar transaction back with a message HRD can read. */
+class HolidayInputError extends Error {}
 
 const EVENT_TYPE_LABELS: Record<string, string> = {
   event: 'Event',
@@ -77,18 +81,43 @@ export async function createCalendarEvent(data: {
 }) {
   try {
     const actor = await requirePrivileged()
-    const parsedDate = new Date(data.date + 'T00:00:00.000Z')
-    const event = await prisma.calendarEvent.create({
-      data: {
-        date: parsedDate,
-        title: data.title,
-        type: data.type,
-        scope: data.scope,
-        scopeValue: data.scopeValue,
-        note: data.note
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+      return { success: false, error: 'Tanggal tidak valid.' }
+    }
+    if (isHolidayEventType(data.type) && !isHolidayEventScope(data.scope)) {
+      return {
+        success: false,
+        error: 'Hari libur dan hari hujan hanya bisa untuk semua karyawan, satu toko atau satu departemen.',
       }
+    }
+    const parsedDate = new Date(data.date + 'T00:00:00.000Z')
+
+    // Holidays and rainy days also go to the Holiday table, in the same
+    // transaction, so the schedule resolver sees them.
+    const result = await prisma.$transaction(async (tx) => {
+      const created = await tx.calendarEvent.create({
+        data: {
+          date: parsedDate,
+          title: data.title,
+          type: data.type,
+          scope: data.scope,
+          scopeValue: data.scopeValue,
+          note: data.note
+        }
+      })
+      if (isHolidayEventType(created.type)) {
+        const holiday = await holidayFromCalendarEvent(tx, created)
+        if ('error' in holiday) throw new HolidayInputError(holiday.error)
+        await tx.holiday.create({ data: holiday.data })
+      }
+      return created
+    }).catch((err) => {
+      if (err instanceof HolidayInputError) return { error: err.message }
+      throw err
     })
-    
+    if ('error' in result) return { success: false, error: result.error }
+    const event = result
+
     revalidatePath('/hrd/calendar')
     revalidatePath('/performance')
 
@@ -114,6 +143,7 @@ export async function createCalendarEvent(data: {
 export async function deleteCalendarEvent(id: string) {
   try {
     const actor = await requirePrivileged()
+    // The linked Holiday row (if any) goes with it: FK onDelete Cascade.
     const event = await prisma.calendarEvent.delete({
       where: { id }
     })

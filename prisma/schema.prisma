@@ -100,7 +100,8 @@ model Department {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users User[]
+  users    User[]
+  holidays Holiday[]
 }
 
 model Store {
@@ -120,6 +121,7 @@ model Store {
   storeAssignments    StoreAssignment[]
   attendances         Attendance[]
   rainyDays           RainyDay[]
+  holidays            Holiday[]
 }
 
 model Shift {
@@ -290,18 +292,21 @@ model Attendance {
   @@unique([userId, date])
 }
 
+/// One roster cell changed by hand. Read by the schedule resolver (lib/schedule)
+/// after holidays and before the rotation and the primary shift.
 model ShiftOverride {
   id          String   @id @default(cuid())
   userId      String
-  shiftId     String
+  shiftId     String?  // null with isDayOff = true: the employee is off that day
+  isDayOff    Boolean  @default(false)
   date        DateTime // Midnight UTC for the specific WIB day
   customStart String?  // HH:mm override (optional)
   customEnd   String?  // HH:mm override (optional)
   reason      String? @db.Text
   createdAt   DateTime @default(now())
 
-  user  User  @relation(fields: [userId], references: [id])
-  shift Shift @relation(fields: [shiftId], references: [id])
+  user  User   @relation(fields: [userId], references: [id])
+  shift Shift? @relation(fields: [shiftId], references: [id])
 
   @@unique([userId, date])
 }
@@ -402,6 +407,30 @@ model CalendarEvent {
   scopeValue String?  // Stores the target, e.g. "IT", "Morning Shift", "User Name"
   note       String? @db.Text
   createdAt  DateTime @default(now())
+
+  holiday Holiday? // Set for type "holiday" and "rainy" (see lib/holidays.ts)
+}
+
+/// The only holiday table. Every module reads it through the schedule
+/// resolver (lib/schedule). Rows made from the HRD calendar carry
+/// calendarEventId and are deleted with their event.
+/// HolidayMarker, HolidayAssignment and RainyDay are legacy: nothing reads them.
+model Holiday {
+  id              String   @id @default(cuid())
+  date            DateTime @db.Date // WIB calendar day
+  name            String
+  scope           String   // ALL | STORE | DEPARTMENT
+  storeId         String?
+  departmentId    String?
+  isRainyDay      Boolean  @default(false) // Rainy day = late grace, not a day off
+  calendarEventId String?  @unique
+  createdAt       DateTime @default(now())
+
+  store         Store?         @relation(fields: [storeId], references: [id])
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  calendarEvent CalendarEvent? @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+
+  @@index([date])
 }
 
 model HolidayMarker {

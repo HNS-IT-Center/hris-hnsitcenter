@@ -60,6 +60,16 @@ const SCOPE_OPTIONS: { id: AudienceScope; label: string }[] = [
   { id: "individual", label: "Karyawan Tertentu" },
 ]
 
+// Holidays and rainy days apply to everyone, one store or one department
+// (same list as HOLIDAY_EVENT_SCOPES in lib/holidays.ts). A day off for one
+// person is set in the roster instead.
+const HOLIDAY_TYPES: CalendarEventType[] = ["holiday", "rainy"]
+const HOLIDAY_SCOPES: AudienceScope[] = ["all", "store", "department"]
+
+function scopeOptionsFor(type: CalendarEventType) {
+  return HOLIDAY_TYPES.includes(type) ? SCOPE_OPTIONS.filter((s) => HOLIDAY_SCOPES.includes(s.id)) : SCOPE_OPTIONS
+}
+
 function typeMeta(type: CalendarEventType) {
   return CALENDAR_EVENT_TYPES.find((t) => t.id === type)!
 }
@@ -207,7 +217,18 @@ function EventForm({
         </div>
         <div className="space-y-1.5">
           <Label>Jenis</Label>
-          <Select value={type} onValueChange={(v) => setType(v as CalendarEventType)}>
+          <Select
+            value={type}
+            onValueChange={(v) => {
+              const next = v as CalendarEventType
+              setType(next)
+              if (!scopeOptionsFor(next).some((s) => s.id === scope)) {
+                setScope("all")
+                setScopeValue("")
+                setPeople([])
+              }
+            }}
+          >
             <SelectTrigger className="bg-input">
               <SelectValue />
             </SelectTrigger>
@@ -250,7 +271,7 @@ function EventForm({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {SCOPE_OPTIONS.map((s) => (
+            {scopeOptionsFor(type).map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.label}
               </SelectItem>
