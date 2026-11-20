@@ -67,17 +67,52 @@ export function formatTimeWIB(date: Date): string {
 }
 
 /**
- * Parse a "HH:mm" string into a Date on a given UTC day.
- * The time is interpreted as WIB.
+ * The WIB calendar day of a Date, as "YYYY-MM-DD".
  *
- * @param dayStartUTC - Midnight UTC of the WIB calendar day
- * @param timeStr     - "HH:mm" WIB time
+ * Works for both forms of "day" in this codebase:
+ * - stored days, T00:00:00Z (Attendance.date, Holiday.date, todayUTC());
+ * - instants, such as new Date() or a browser date picker's WIB midnight
+ *   (17:00Z the day before, as in LeaveRequest.startDate or wibDayToUTC()).
  */
-export function parseShiftTime(dayStartUTC: Date, timeStr: string): Date {
+export function wibDateKey(date: Date): string {
+  return new Date(date.getTime() + WIB_OFFSET_MS).toISOString().slice(0, 10)
+}
+
+/** The stored-day Date (T00:00:00Z) for a "YYYY-MM-DD" WIB day. */
+export function dateKeyToStoredDay(key: string): Date {
+  return new Date(`${key}T00:00:00Z`)
+}
+
+/** Adds whole days to a "YYYY-MM-DD" key. */
+export function addDaysToKey(key: string, days: number): string {
+  const d = dateKeyToStoredDay(key)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Every "YYYY-MM-DD" key from `fromKey` to `toKey`, both included. */
+export function dateKeyRange(fromKey: string, toKey: string): string[] {
+  const keys: string[] = []
+  for (let k = fromKey; k <= toKey; k = addDaysToKey(k, 1)) keys.push(k)
+  return keys
+}
+
+/** Day of the week of a "YYYY-MM-DD" key: 0 = Sunday ... 6 = Saturday. */
+export function weekdayOfKey(key: string): number {
+  return dateKeyToStoredDay(key).getUTCDay()
+}
+
+/**
+ * The instant of a "HH:mm" WIB wall-clock time on a WIB day.
+ *
+ * @param day     - the WIB day, in either form accepted by wibDateKey()
+ * @param timeStr - "HH:mm" WIB time
+ *
+ * Example: (2026-11-20T00:00:00Z, "08:00") -> 2026-11-20T01:00:00Z
+ */
+export function parseShiftTime(day: Date, timeStr: string): Date {
   const [h, m] = timeStr.split(':').map(Number)
-  // dayStartUTC is already midnight UTC = 17:00 previous day
-  // We need to add hours in WIB, then subtract the WIB offset
-  return new Date(dayStartUTC.getTime() + WIB_OFFSET_MS + (h * 60 + m) * 60 * 1000)
+  return new Date(dateKeyToStoredDay(wibDateKey(day)).getTime() - WIB_OFFSET_MS + (h * 60 + m) * 60 * 1000)
 }
 
 /**

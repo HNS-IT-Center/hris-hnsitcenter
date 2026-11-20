@@ -1,12 +1,17 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  addDaysToKey,
+  dateKeyRange,
   formatTimeWIB,
   getPayrollPeriod,
   getPayrollPeriodByMonth,
   nowWIB,
+  parseShiftTime,
   shiftCrossesMidnight,
   toWIB,
   todayUTC,
+  weekdayOfKey,
+  wibDateKey,
   wibDayToUTC,
 } from '@/lib/utils/date'
 
@@ -111,5 +116,49 @@ describe('getPayrollPeriodByMonth', () => {
     const { periodStart, periodEnd } = getPayrollPeriodByMonth(2027, 1)
     expect(periodStart.toISOString()).toBe('2026-12-26T00:00:00.000Z')
     expect(periodEnd.toISOString()).toBe('2027-01-25T00:00:00.000Z')
+  })
+})
+
+describe('wibDateKey', () => {
+  it('reads a stored day (T00:00:00Z) as that same day', () => {
+    expect(wibDateKey(new Date('2026-11-20T00:00:00Z'))).toBe('2026-11-20')
+  })
+
+  it('reads a browser WIB midnight (17:00Z the day before) as the WIB day', () => {
+    expect(wibDateKey(wibDayToUTC(2026, 12, 1))).toBe('2026-12-01')
+  })
+
+  it('moves an instant after 17:00Z to the next WIB day', () => {
+    expect(wibDateKey(new Date('2026-11-19T16:59:00Z'))).toBe('2026-11-19') // 23:59 WIB
+    expect(wibDateKey(new Date('2026-11-19T17:00:00Z'))).toBe('2026-11-20') // 00:00 WIB
+  })
+})
+
+describe('date keys', () => {
+  it('adds days across month and year ends', () => {
+    expect(addDaysToKey('2026-11-30', 1)).toBe('2026-12-01')
+    expect(addDaysToKey('2026-12-31', 1)).toBe('2027-01-01')
+    expect(addDaysToKey('2026-12-01', -1)).toBe('2026-11-30')
+  })
+
+  it('lists every day of a range, both ends included', () => {
+    expect(dateKeyRange('2026-11-29', '2026-12-02')).toEqual(['2026-11-29', '2026-11-30', '2026-12-01', '2026-12-02'])
+    expect(dateKeyRange('2026-12-02', '2026-12-01')).toEqual([])
+  })
+
+  it('gives the weekday with 0 = Sunday', () => {
+    expect(weekdayOfKey('2026-11-22')).toBe(0) // Sunday
+    expect(weekdayOfKey('2026-11-23')).toBe(1) // Monday
+  })
+})
+
+describe('parseShiftTime', () => {
+  it('turns 08:00 WIB into 01:00 UTC on the same day, from either form of day', () => {
+    expect(parseShiftTime(new Date('2026-11-20T00:00:00Z'), '08:00').toISOString()).toBe('2026-11-20T01:00:00.000Z')
+    expect(parseShiftTime(wibDayToUTC(2026, 11, 20), '08:00').toISOString()).toBe('2026-11-20T01:00:00.000Z')
+  })
+
+  it('puts 00:30 WIB on 17:30 UTC of the previous day', () => {
+    expect(parseShiftTime(new Date('2026-11-20T00:00:00Z'), '00:30').toISOString()).toBe('2026-11-19T17:30:00.000Z')
   })
 })
