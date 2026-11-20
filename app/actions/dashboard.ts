@@ -2,8 +2,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { requirePrivileged, requireSelfOrPrivileged } from '@/lib/auth/guards'
-import { toNumberArray } from '@/lib/utils/json-array'
-import { getPayrollPeriod, todayUTC } from '@/lib/utils/date'
+import { dateKeyToStoredDay, getPayrollPeriod, todayUTC, wibDateKey } from '@/lib/utils/date'
+import { getScheduleForRange } from '@/lib/schedule'
 
 // ─── Employee Dashboard ────────────────────────────────────────────────────────
 
@@ -182,32 +182,19 @@ export async function getHrdDashboardData(dateStr?: string) {
 
 /**
  * Fetches the full employee roster with their attendance status for a given date.
- * - Today: employees with no record = "BELUM_ABSEN"
- * - Past dates: employees with no record and scheduled to work = "TIDAK_ABSEN"
- * - Off days / holidays: excluded from the "not shown up" logic
+ * Status of employees without a record comes from the schedule resolver (lib/schedule):
+ * - approved full-day leave = "ON_LEAVE"
+ * - holiday, weekly day off or roster day off = "HOLIDAY" (shown as "Libur")
+ * - today, scheduled to work = "BELUM_ABSEN"; past date = "TIDAK_ABSEN"
  */
 export async function getHrdAttendanceLogs(dateStr?: string) {
   await requirePrivileged()
-  // Parse the target date using WIB timezone offset
-  const target = dateStr ? new Date(dateStr) : new Date()
-  
-  // Format the target date into WIB YYYY-MM-DD
-  const formatter = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Jakarta" })
-  const wibDateStr = formatter.format(target) // e.g. "2026-07-21"
-  const [year, month, date] = wibDateStr.split('-').map(Number)
-  
-  // The database stores midnight UTC for that WIB date
-  const day = new Date(Date.UTC(year, month - 1, date))
+  // WIB day of the requested date (or today), stored as midnight UTC.
+  const dayKey = wibDateKey(dateStr ? new Date(dateStr) : new Date())
+  const day = dateKeyToStoredDay(dayKey)
+  const isPastDate = dayKey < wibDateKey(new Date())
 
-  // Determine if the selected date is in the past
-  const now = new Date()
-  const todayWibStr = formatter.format(now)
-  const [tYear, tMonth, tDate] = todayWibStr.split('-').map(Number)
-  const todayWibMidnightUtc = new Date(Date.UTC(tYear, tMonth - 1, tDate))
-  
-  const isPastDate = day < todayWibMidnightUtc
-
-  const [employees, attendances, leaves] = await Promise.all([
+  const [employees, attendances] = await Promise.all([
     prisma.user.findMany({
       where: { isActive: true },
       select: {
@@ -243,57 +230,47 @@ export async function getHrdAttendanceLogs(dateStr?: string) {
         overrideReason: true,
       },
     }),
-
-    prisma.leaveRequest.findMany({
-      where: {
-        status: 'APPROVED',
-        startDate: { lte: day },
-        endDate: { gte: day }
-      }
-    })
   ])
 
-  // Build lookup maps
+  const schedules = await getScheduleForRange(employees.map((e) => e.id), dayKey, dayKey)
   const attendanceMap = new Map(attendances.map((a) => [a.userId, a]))
-  const leaveMap = new Map(leaves.map((l) => [l.userId, l]))
-
-  // Day of week for the selected date (0=Sun ... 6=Sat)
-  const selectedDayOfWeek = day.getUTCDay()
 
   // Merge: every employee gets an attendance record or null
   const logs = employees.map((emp) => {
     const record = attendanceMap.get(emp.id) ?? null
-    const leave = leaveMap.get(emp.id) ?? null
-
-    // Check if this is a scheduled off day for this employee
-    const isOffDay = toNumberArray(emp.weeklyOffDays).includes(selectedDayOfWeek)
+    const schedule = schedules.get(emp.id)?.get(dayKey) ?? null
+    const isOffDay = schedule?.status === 'HOLIDAY' || schedule?.status === 'OFF'
 
     let displayStatus = 'BELUM_ABSEN' as string
-
     if (record) {
       displayStatus = record.status
-    } else if (leave) {
+    } else if (schedule?.status === 'LEAVE') {
       displayStatus = 'ON_LEAVE'
     } else if (isOffDay) {
-      displayStatus = 'HOLIDAY' // Off day — not required to come in
+      displayStatus = 'HOLIDAY' // Not required to come in
     } else if (isPastDate) {
       // Past date + no record + was scheduled to work = Tidak Absen
       displayStatus = 'TIDAK_ABSEN'
     }
     // else: today, not yet checked in = BELUM_ABSEN (default)
 
+    // Show the shift of that day (rotation or roster), not only the primary shift.
+    const dayShift = schedule?.shift
+      ? { name: schedule.shift.name, startTime: schedule.startTime ?? schedule.shift.startTime, endTime: schedule.endTime ?? schedule.shift.endTime }
+      : emp.shift
+
     return {
-      employee: emp,
+      employee: { ...emp, shift: dayShift },
       attendance: record,
-      leave: leave,
+      leave: schedule?.leave ?? null,
+      holidayName: schedule?.holiday?.name ?? null,
       displayStatus,
       isPastDate,
       isOffDay,
       // Pass the date string for empty-record overrides
-      dateStr: day.toISOString().slice(0, 10),
+      dateStr: dayKey,
     }
   })
 
   return { logs, date: day.toISOString() }
 }
-

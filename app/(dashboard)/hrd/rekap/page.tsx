@@ -1,6 +1,6 @@
 import { getMonthlyRecap } from "@/app/actions/rekap"
 import { RekapClient } from "@/components/hris/pages/rekap-client"
-import { format, subMonths, startOfMonth, endOfMonth, setDate } from "date-fns"
+import { getPayrollPeriod } from "@/lib/utils/date"
 import { prisma } from "@/lib/prisma"
 
 export default async function RekapPage(props: {
@@ -8,18 +8,10 @@ export default async function RekapPage(props: {
 }) {
   const searchParams = await props.searchParams
 
-  // Default to 26 last month - 25 this month
-  const today = new Date()
-  let startDate = new Date()
-  let endDate = new Date()
-
-  if (today.getDate() <= 25) {
-    startDate = setDate(subMonths(today, 1), 26)
-    endDate = setDate(today, 25)
-  } else {
-    startDate = setDate(today, 26)
-    endDate = setDate(subMonths(today, -1), 25)
-  }
+  // Default to the current payroll period (26th - 25th, WIB), the same days as the payslip
+  const period = getPayrollPeriod(new Date())
+  let startDate = period.startDateUTC
+  let endDate = period.endDateUTC
 
   // Allow override via searchParams
   if (searchParams.startDate) startDate = new Date(searchParams.startDate)

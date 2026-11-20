@@ -48,11 +48,17 @@ These rules apply to every AI agent and developer working in this repository. Th
 - **HRIS is the single place where schedules, day-offs, holidays, leave, sick and permission are managed**
   (`docs/catatan/keputusan-001-pusat-pengaturan-absensi.md`). Other HNS apps read them from the HRIS API.
 - **One schedule resolver.** Any code that needs "does this person work on this day, which shift, which hours"
-  calls `getScheduleForDay` / `getScheduleForRange` in `lib/schedule.ts` (sprint task S1-2). Do not read
-  `User.shift`, `weeklyOffDays` or holidays directly for that purpose.
+  calls `getScheduleForDay` / `getScheduleForRange` from `lib/schedule` (done in S1-2). Do not read
+  `User.shift`, `weeklyOffDays` or holidays directly for that purpose. Rules live in the pure
+  `lib/schedule/resolve.ts` (unit tested); `lib/schedule/index.ts` loads data in bulk (5 queries per range).
+  A scheduled working day is status `WORK` or `LEAVE`; count them with `countScheduledWorkDays`.
 - **No hardcoded rules.** Attendance windows, grace periods, penalties, quota sizes and leave-type rules come from the
   attendance settings (`lib/policy.ts`, sprint task S2-2). Do not add new numeric rules in code.
-- **One holiday table** used by attendance, leave, payroll, logs and reminders (sprint task S1-1).
+- **One holiday table** used by attendance, leave, payroll, logs and reminders: `Holiday` (done in S1-1).
+  The HRD calendar writes it (event types `holiday` and `rainy`, audience all/store/department only) via
+  `lib/holidays.ts`. `HolidayMarker`, `HolidayAssignment` and `RainyDay` are legacy and not read anymore;
+  `npm run holidays:backfill` copies them into `Holiday`. A day off for one person is a roster override
+  (`ShiftOverride.isDayOff`), not a holiday.
 - Settings changes take effect from their effective date; never recalculate past attendance or published payslips.
 - Match employees across apps by SSO `sub` (`User.ssoSub`) or an explicit mapping table, never by name or email guessing.
 
@@ -65,6 +71,8 @@ These rules apply to every AI agent and developer working in this repository. Th
 
 ### 0.6 Dates and time
 - The container runs in UTC. A WIB calendar day is stored as midnight UTC. Use the helpers in `lib/utils/date.ts`.
+- Some columns hold the browser's WIB midnight instead (17:00Z the day before), e.g. `LeaveRequest.startDate/endDate`
+  and `User.cycleStartDate`. Compare days with `wibDateKey()` ("YYYY-MM-DD"), which reads both forms.
 - Do not use `setHours`, `getDay`, `getDate` or `toLocaleDateString` without an explicit `timeZone: 'Asia/Jakarta'` in server code.
 
 ### 0.7 Testing and checks
@@ -188,7 +196,7 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
   - Added `phoneNumber` field to User profile with WhatsApp direct message integration.
   - New SSO users are automatically provisioned if they bypass HRD pre-registration.
 - **Shift Management (PARTIALLY COMPLETED):**
-  - Master shift CRUD is done at `/hrd/shifts`. Rotation (`shiftCycle`), `ShiftOverride`, `ShiftSwap` are stored but not used by attendance, logs or payroll yet; the daily schedule (roster) is built in sprints 1-3 (`docs/perencanaan/sprint/`).
+  - Master shift CRUD is done at `/hrd/shifts`. Rotation (`shiftCycle`) and `ShiftOverride` are used by the schedule resolver (Sprint 1), so attendance, HRD logs, recap, payroll, leave day count and shift reminders follow them. There is no roster UI to create overrides yet (Sprint 3). `ShiftSwap` is not used (phase 2).
 - **Media Upload:** Implement Cloudflare R2 upload for employee avatars in `EmployeeForm`. Compress to WebP client-side via `lib/utils/file.ts`.
 
 ### Phase 3: Attendance Module (Status: COMPLETED)
@@ -204,7 +212,8 @@ Remove-Item -Recurse -Force ".next" -ErrorAction SilentlyContinue ; Remove-Item 
 - **HRD Logs (`/hrd/attendance`):** 
   - Central log for HRD to monitor the entire roster on a specific date.
   - Displays statuses: Present, Late, Alpha, On Leave, and Belum Absen.
-  - Automatically maps "Belum Absen" to `ON_LEAVE` if the user has an approved leave request on that date.
+  - Status of employees without a record comes from the schedule resolver: approved leave = `ON_LEAVE`, holiday or day off = `HOLIDAY` ("Libur"), past working day = `TIDAK_ABSEN`. The shift column shows the shift of that day.
+  - Check-in on a holiday or day off is allowed but creates an `overtime_holiday` attention flag and notifies HRD, unless an approved overtime covers the day.
   - Includes a "Lihat Detail" modal that surfaces Check-In/Out selfies and clickable Google Maps links for GPS coordinates.
 
 ### Phase 4: Leave & Overtime Approvals (Status: PARTIALLY COMPLETED)
