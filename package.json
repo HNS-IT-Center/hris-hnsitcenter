@@ -15,7 +15,8 @@
     "truncate:dummy": "tsx prisma/truncate-dummy.ts",
     "sso:export-users": "tsx scripts/sso-export-users.ts",
     "sso:link-users": "tsx scripts/sso-link-users.ts",
-    "auth:set-role": "tsx scripts/set-role.ts"
+    "auth:set-role": "tsx scripts/set-role.ts",
+    "holidays:backfill": "tsx scripts/backfill-holidays.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1075.0",
