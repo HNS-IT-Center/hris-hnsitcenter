@@ -4,6 +4,23 @@ import { prisma } from '@/lib/prisma'
 import { toNumberArray } from '@/lib/utils/json-array'
 import { revalidatePath } from 'next/cache'
 import { getDistanceInMeters } from '@/lib/utils/geo'
+import { requireSelfOrPrivileged, requireUser } from '@/lib/auth/guards'
+import { HRD_AUDIENCE, formatDay, notify } from '@/lib/notify'
+
+const STATUS_LABELS: Record<string, string> = {
+  PRESENT: 'Hadir',
+  LATE: 'Terlambat',
+  ALPHA: 'Alpha',
+  ON_LEAVE: 'Izin/Cuti',
+  TIDAK_ABSEN: 'Tidak Absen',
+  FORGOT_CHECKIN: 'Lupa Check-in',
+  FORGOT_CHECKOUT: 'Lupa Check-out',
+  HOLIDAY: 'Libur',
+}
+
+function wibTime(date: Date): string {
+  return date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+}
 
 function getTodayUTCForWIB(): Date {
   const yyyyMmDd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
@@ -14,6 +31,7 @@ function getTodayUTCForWIB(): Date {
  * Gets today's attendance record for a user.
  */
 export async function getTodayAttendance(userId: string) {
+  await requireSelfOrPrivileged(userId)
   const today = getTodayUTCForWIB()
 
   const record = await prisma.attendance.findFirst({
@@ -49,6 +67,15 @@ export async function submitAttendance(data: {
   deviceName?: string   // Marketing name collected client-side (e.g. "Oppo Reno 14 5G")
 }) {
   try {
+    // Never trust identity or location target from the browser: the attendance
+    // is always for the session user, at the store HRD assigned to them.
+    const me = await requireUser()
+    const assigned = await prisma.user.findUnique({ where: { id: me.id }, select: { storeId: true } })
+    if (!assigned?.storeId) {
+      return { success: false, error: 'Anda belum ditugaskan ke lokasi/toko manapun. Hubungi HRD.' }
+    }
+    data = { ...data, userId: me.id, storeId: assigned.storeId }
+
     const today = getTodayUTCForWIB()
     const now = new Date()
 
@@ -148,6 +175,16 @@ export async function submitAttendance(data: {
               description: `PERHATIAN: Karyawan login menggunakan perangkat (${deviceStr}) yang juga digunakan oleh ${otherUserName} (yang absen menggunakan perangkat ini lebih awal). Indikasi titip absen.`,
             }
           })
+          await notify(
+            { roles: HRD_AUDIENCE },
+            {
+              category: 'ATTENDANCE',
+              title: 'Indikasi Titip Absen',
+              body: `${me.name} absen dari perangkat yang juga dipakai ${otherUserName} hari ini.`,
+              url: '/hrd/anomalies',
+              email: true,
+            }
+          )
         }
       }
     }
@@ -157,6 +194,9 @@ export async function submitAttendance(data: {
     let storeData = null
     if (data.storeId) {
       storeData = await prisma.store.findUnique({ where: { id: data.storeId } })
+      if (!storeData) {
+        return { success: false, error: 'Lokasi toko Anda tidak ditemukan. Hubungi HRD.' }
+      }
       if (storeData) {
         distance = getDistanceInMeters(data.lat, data.lng, storeData.latitude, storeData.longitude)
         if (distance > storeData.radiusMeters) {
@@ -258,6 +298,24 @@ export async function submitAttendance(data: {
             relatedId: record.id
           }
         })
+        await notify(
+          { userIds: [data.userId] },
+          {
+            category: 'ATTENDANCE',
+            title: 'Absen Pulang Tercatat (Lupa Check-in)',
+            body: `Absen pulang pukul ${wibTime(now)} tercatat, tetapi tidak ada absen masuk hari ini. Status ditandai Lupa Check-in.`,
+            url: '/performance',
+          }
+        )
+        await notify(
+          { roles: HRD_AUDIENCE },
+          {
+            category: 'ATTENDANCE',
+            title: 'Karyawan Lupa Check-in',
+            body: `${me.name} baru absen pulang pukul ${wibTime(now)} tanpa absen masuk.`,
+            url: '/hrd/anomalies',
+          }
+        )
         revalidatePath('/attendance')
         return { success: true, data: record, type: 'check-out' }
       }
@@ -306,6 +364,17 @@ export async function submitAttendance(data: {
           isRainyDay,
         }
       })
+      await notify(
+        { userIds: [data.userId] },
+        {
+          category: 'ATTENDANCE',
+          title: 'Absen Masuk Tercatat',
+          body: status === 'LATE'
+            ? `Absen masuk pukul ${wibTime(now)} di ${storeData?.name ?? 'lokasi Anda'}. Terlambat ${lateMinutes} menit.`
+            : `Absen masuk pukul ${wibTime(now)} di ${storeData?.name ?? 'lokasi Anda'}. Tepat waktu.`,
+          url: '/attendance',
+        }
+      )
       revalidatePath('/attendance')
       return { success: true, data: record, type: 'check-in' }
 
@@ -355,7 +424,26 @@ export async function submitAttendance(data: {
             relatedId: existing.id
           }
         })
+        await notify(
+          { roles: HRD_AUDIENCE },
+          {
+            category: 'ATTENDANCE',
+            title: 'Check-out Lebih Awal',
+            body: `${me.name} absen pulang pukul ${wibTime(now)}, sebelum shift berakhir.`,
+            url: '/hrd/anomalies',
+          }
+        )
       }
+
+      await notify(
+        { userIds: [data.userId] },
+        {
+          category: 'ATTENDANCE',
+          title: 'Absen Pulang Tercatat',
+          body: `Absen pulang pukul ${wibTime(now)}.${now < earlyCheckoutThreshold ? ' Tercatat pulang sebelum shift berakhir.' : ' Terima kasih atas kerja Anda hari ini.'}`,
+          url: '/attendance',
+        }
+      )
 
       revalidatePath('/attendance')
       return { success: true, data: record, type: 'check-out' }
@@ -434,6 +522,15 @@ export async function overrideAttendance(
           lateMinutes,
         }
       })
+      await notify(
+        { userIds: [record.userId] },
+        {
+          category: 'ATTENDANCE',
+          title: 'Absensi Anda Dikoreksi HRD',
+          body: `Status absensi ${formatDay(record.date)} diubah menjadi ${STATUS_LABELS[newStatus] ?? newStatus}. Alasan: ${reason}`,
+          url: '/performance',
+        }
+      )
     } else if (params.userId && params.date) {
       // --- CREATE a new record for a past date that had no check-in at all ---
       const dateUTC = new Date(`${params.date}T00:00:00Z`)
@@ -449,6 +546,15 @@ export async function overrideAttendance(
           lateMinutes: 0,
         }
       })
+      await notify(
+        { userIds: [params.userId] },
+        {
+          category: 'ATTENDANCE',
+          title: 'Absensi Anda Dikoreksi HRD',
+          body: `Status absensi ${formatDay(dateUTC)} ditetapkan ${STATUS_LABELS[newStatus] ?? newStatus}. Alasan: ${reason}`,
+          url: '/performance',
+        }
+      )
     } else {
       return { success: false, error: 'Informasi absensi tidak cukup untuk melakukan override.' }
     }

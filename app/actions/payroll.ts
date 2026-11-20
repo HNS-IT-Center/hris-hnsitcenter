@@ -6,6 +6,25 @@ import { revalidatePath } from 'next/cache'
 import { format } from 'date-fns'
 import { getServerUser } from '@/lib/auth'
 import { getPayrollPeriodByMonth } from '@/lib/utils/date'
+import { requirePrivileged, requireSelfOrPrivileged } from '@/lib/auth/guards'
+import { notify } from '@/lib/notify'
+import { billableOvertimeHours, getOvertimeRules, workedOvertimeMinutes } from '@/lib/overtime'
+
+const MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+
+async function notifyPayslipPublished(userIds: string[], month: number, year: number) {
+  if (userIds.length === 0) return
+  await notify(
+    { userIds },
+    {
+      category: 'PAYROLL',
+      title: 'Slip Gaji Terbit',
+      body: `Slip gaji periode ${MONTHS_ID[month - 1] ?? month} ${year} sudah terbit. Lihat di menu Profil.`,
+      url: '/profile',
+      email: true,
+    }
+  )
+}
 
 // ============================================================
 // TYPES
@@ -17,6 +36,8 @@ export type PayrollConfigInput = {
   transport: number
   bpjs: number
   pph21: number
+  /** Overtime pay per billable hour; null/undefined = company default (OvertimeSetting). */
+  overtimeHourlyRate?: number | null
 }
 
 // ============================================================
@@ -44,6 +65,7 @@ async function requireHrdOrBoss() {
  * - Half-days are counted as FULL days (they are scheduled workdays)
  */
 export async function calculateWorkingDays(userId: string, periodStart: Date, periodEnd: Date) {
+  await requireSelfOrPrivileged(userId)
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { weeklyOffDays: true, halfDays: true }
@@ -111,14 +133,16 @@ export async function upsertPayrollConfig(userId: string, config: PayrollConfigI
 }
 
 export async function getPayrollConfig(userId: string) {
+  await requirePrivileged()
   return prisma.userPayrollConfig.findUnique({ where: { userId } })
 }
 
 // ============================================================
 // INTERNAL SLIP CALCULATOR (no auth check — called internally)
+// Not exported: every export of a 'use server' file is callable from the browser.
 // ============================================================
 
-export async function _generatePayrollSlipInternal(
+async function _generatePayrollSlipInternal(
   userId: string,
   year: number,
   month: number,
@@ -288,25 +312,17 @@ export async function _generatePayrollSlipInternal(
 
   const potonganTerlambat = flatPenalties + potonganHalfDay
 
-  // 12. Calculate overtime pay
-  let lemburHours = 0
+  // 12. Calculate overtime pay (rules in lib/overtime.ts, set by HRD on /hrd/lembur).
+  //     Each request is rounded on its own; early check-out shortens the worked time.
+  const overtimeRules = await getOvertimeRules()
+  const tarifLembur = overrides?.overtimeHourlyRate ?? cfg?.overtimeHourlyRate ?? overtimeRules.defaultHourlyRate
+  let lemburJam = 0
   for (const ot of overtimeRequests) {
-    if (!ot.totalHours) continue
-    let actualHours = ot.totalHours
     const att = attendanceMap.get(ot.overtimeDate.toISOString().slice(0, 10))
-    if (att?.checkOut && ot.endTime) {
-      const expectedEnd = new Date(ot.endTime).getTime()
-      const actualEnd = new Date(att.checkOut).getTime()
-      const missedMs = expectedEnd - actualEnd
-      // If check-out is more than 15 minutes (900000 ms) early
-      if (missedMs > 900000) {
-        const missedHours = Math.ceil(missedMs / (1000 * 60 * 60))
-        actualHours = Math.max(0, actualHours - missedHours)
-      }
-    }
-    lemburHours += actualHours
+    const minutes = workedOvertimeMinutes(ot, att?.checkOutTime)
+    lemburJam += billableOvertimeHours(minutes, overtimeRules.roundingThresholdMinutes)
   }
-  const lembur = Math.round(lemburHours * 20000)
+  const lembur = lemburJam * tarifLembur
 
   // 13. Assemble pendapatan
   // Gaji Pokok is strictly 75% of the static baseSalary26Days.
@@ -345,6 +361,8 @@ export async function _generatePayrollSlipInternal(
       gajiPokok,
       tunjanganLainnya,
       lembur,
+      lemburJam,
+      tarifLembur,
       totalPendapatan,
       potonganIzin,
       potonganTerlambat,
@@ -378,6 +396,8 @@ export async function _generatePayrollSlipInternal(
       gajiPokok,
       tunjanganLainnya,
       lembur,
+      lemburJam,
+      tarifLembur,
       totalPendapatan,
       potonganIzin,
       potonganTerlambat,
@@ -428,6 +448,7 @@ export async function generatePayrollSlip(
  * Includes the user relation so the PayslipPrintView can render the full slip.
  */
 export async function getEmployeePayrollSlips(userId: string) {
+  await requireSelfOrPrivileged(userId)
   return prisma.payrollSlip.findMany({
     where: { userId, isPublished: true },
     orderBy: { periodStart: 'desc' },
@@ -447,6 +468,8 @@ export async function getEmployeePayrollSlips(userId: string) {
 }
 
 export async function getPayrollSlip(userId: string, periodStart: Date) {
+  // Includes unpublished drafts: HRD only. Employees use getEmployeePayrollSlips.
+  await requirePrivileged()
   return prisma.payrollSlip.findUnique({
     where: { userId_periodStart: { userId, periodStart } },
     include: { user: { select: { name: true, positionName: true, departmentName: true, joinDate: true, store: { select: { name: true } } } } }
@@ -535,10 +558,15 @@ export async function publishAllPayrollSlips(year: number, month: number) {
 
   const { periodStart } = getPayrollPeriodByMonth(year, month)
 
+  const newlyPublished = await prisma.payrollSlip.findMany({
+    where: { periodStart, isPublished: false },
+    select: { userId: true },
+  })
   const result = await prisma.payrollSlip.updateMany({
     where: { periodStart },
     data: { isPublished: true }
   })
+  await notifyPayslipPublished(newlyPublished.map((s) => s.userId), month, year)
 
   revalidatePath('/hrd/payroll')
   revalidatePath('/profile')
@@ -552,10 +580,17 @@ export async function togglePublishPayrollSlip(userId: string, year: number, mon
   const { periodStart } = getPayrollPeriodByMonth(year, month)
 
   try {
+    const before = await prisma.payrollSlip.findUnique({
+      where: { userId_periodStart: { userId, periodStart } },
+      select: { isPublished: true },
+    })
     await prisma.payrollSlip.update({
       where: { userId_periodStart: { userId, periodStart } },
       data: { isPublished }
     })
+    if (isPublished && before && !before.isPublished) {
+      await notifyPayslipPublished([userId], month, year)
+    }
     revalidatePath('/hrd/payroll')
     revalidatePath('/profile')
     return { success: true, message: isPublished ? 'Slip berhasil di-publish.' : 'Publish slip dibatalkan.' }

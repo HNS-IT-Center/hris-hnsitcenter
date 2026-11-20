@@ -1,152 +1,48 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { jwtVerify } from 'jose'
-import { isPrivilegedRole, resolveHrisRole } from '@/lib/auth/roles'
 
-
-/** Decode the JWT_SECRET env variable once for Edge Runtime compatibility */
-function getSecret(): Uint8Array {
-  const secret = process.env.JWT_SECRET
-  if (!secret) {
-    throw new Error('JWT_SECRET environment variable is not set.')
-  }
-  return new TextEncoder().encode(secret)
-}
-
-function getBaseUrl(request: NextRequest) {
-  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
-  if (host) {
-    const protocol = request.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("0.0.0.0") ? "http" : "https");
-    return `${protocol}://${host}`;
-  }
-  return process.env.NEXT_PUBLIC_APP_URL || request.url;
-}
+/** Must match SESSION_COOKIE in lib/auth/session.ts (not imported: that module is server-only and touches the DB). */
+const SESSION_COOKIE = 'hris_session'
 
 /**
- * SSO JWT Proxy (Next.js 16+)
+ * Auth Proxy (Next.js 16+) — optimistic check only.
  *
- * Architecture:
- * 1. The SSO Identity Provider (sso.hnsitcenter.id) sets a cross-domain
- *    cookie named `sso_token` on the `.hnsitcenter.id` domain.
- * 2. This proxy verifies the token on every protected request.
- * 3. Valid tokens → inject user payload into request headers for
- *    downstream Server Components and API Routes.
- * 4. Missing / invalid / expired tokens → clear cookie & redirect to SSO.
+ * Login goes through the HNS SSO (OpenID Connect, auth.hnsitcenter.id) and
+ * ends in a server-side session (lib/auth/session.ts) whose random token is in
+ * the `hris_session` cookie. This proxy only sends visitors without that
+ * cookie to /login. The real check (session valid, not revoked by back-channel
+ * logout, tokens refreshed, user active, role) happens on the server in
+ * getServerUser() (lib/auth.ts) and in app/(dashboard)/hrd/layout.tsx.
  *
- * JWT Payload shape: { id, email, globalRole, appRoles, positionId, departmentId }
- *
- * The HRIS role comes from `resolveHrisRole` (lib/auth/roles.ts) and is the
- * only role downstream code sees in `x-user-role`. Users without HRIS access
- * in the SSO `appRoles` are sent back to /login?error=not_whitelisted.
+ * Local dev without SSO_CLIENT_ID: no redirect, getServerUser() acts as the
+ * seeded dev HRD user.
  */
-export async function proxy(request: NextRequest): Promise<NextResponse> {
-  const token = request.cookies.get('sso_token')?.value
+export function proxy(request: NextRequest): NextResponse {
+  if (request.cookies.has(SESSION_COOKIE)) return NextResponse.next()
 
-  // ── No token → handle redirect ────────────────────────────────────────────
-  if (!token) {
-    // In local development, cookies for .hnsitcenter.id won't be sent to localhost.
-    // We provide a mock user to allow local development to continue.
-    if (process.env.NODE_ENV === 'development') {
-      const devHeaders = new Headers(request.headers)
-      devHeaders.set('x-user-id', 'dev-user-id')
-      devHeaders.set('x-user-email', 'dev@hnsitcenter.id')
-      devHeaders.set('x-user-role', 'HRD')
-      devHeaders.set('x-user-position-id', 'dev-pos-id')
-      devHeaders.set('x-user-position-name', 'HR Manager')
-      devHeaders.set('x-user-dept-id', 'dev-dept-id')
-      devHeaders.set('x-user-dept-name', 'HR Department')
-      return NextResponse.next({ request: { headers: devHeaders } })
-    }
+  const ssoConfigured = !!process.env.SSO_CLIENT_ID
+  if (!ssoConfigured && process.env.NODE_ENV === 'development') return NextResponse.next()
 
-    const baseUrl = getBaseUrl(request)
-    const redirectUrl = `${baseUrl}${request.nextUrl.pathname}${request.nextUrl.search}`
-    
-    const loginUrl = new URL('/login', baseUrl)
-    loginUrl.searchParams.set('redirectUrl', redirectUrl)
-    return NextResponse.redirect(loginUrl)
+  const { pathname, search } = request.nextUrl
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // ── Verify token ──────────────────────────────────────────────────────────
-  try {
-    const { payload } = await jwtVerify(token, getSecret(), {
-      algorithms: ['HS256'],
-    })
-
-    // Extract user fields from JWT payload
-    const userId = (payload.id as string) ?? ''
-    const userEmail = (payload.email as string) ?? ''
-    const userName = (payload.name as string) ?? ''
-    const userGlobalRole = (payload.globalRole as string) ?? 'USER'
-    const userRole = resolveHrisRole(payload)
-    const userPositionId = (payload.positionId as string) ?? ''
-    const userPositionName = (payload.positionName as string) ?? ''
-    const userDeptId = (payload.departmentId as string) ?? ''
-    const userDeptName = (payload.departmentName as string) ?? ''
-
-    // Valid SSO session, but this user has no access to the HRIS app.
-    // The cookie is left alone: it is shared with the other *.hnsitcenter.id apps.
-    if (!userRole) {
-      const loginUrl = new URL('/login', getBaseUrl(request))
-      loginUrl.searchParams.set('error', 'not_whitelisted')
-      return NextResponse.redirect(loginUrl)
-    }
-
-    // Clone and inject headers so Server Components can read user identity
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('x-user-id', userId)
-    requestHeaders.set('x-user-email', userEmail)
-    requestHeaders.set('x-user-name', userName)
-    requestHeaders.set('x-user-role', userRole)
-    requestHeaders.set('x-user-global-role', userGlobalRole)
-    requestHeaders.set('x-user-position-id', userPositionId)
-    requestHeaders.set('x-user-position-name', userPositionName)
-    requestHeaders.set('x-user-dept-id', userDeptId)
-    requestHeaders.set('x-user-dept-name', userDeptName)
-
-    // Role-based authorization for HRD routes
-    const pathname = request.nextUrl.pathname
-    if (pathname.startsWith('/hrd') || pathname.startsWith('/api/hrd')) {
-      if (!isPrivilegedRole(userRole)) {
-        const baseUrl = getBaseUrl(request)
-        const dashboardUrl = new URL('/dashboard', baseUrl)
-        return NextResponse.redirect(dashboardUrl)
-      }
-    }
-
-    return NextResponse.next({
-      request: { headers: requestHeaders },
-    })
-  } catch (err) {
-    // Token is expired, tampered, or invalid signature
-    const isExpired =
-      err instanceof Error && err.message.toLowerCase().includes('expired')
-
-    const baseUrl = getBaseUrl(request)
-    const loginUrl = new URL('/login', baseUrl)
-    loginUrl.searchParams.set('error', isExpired ? 'session_expired' : 'invalid_token')
-
-    const response = NextResponse.redirect(loginUrl)
-    // Clear the invalid cookie to prevent redirect loops
-    response.cookies.delete('sso_token')
-    return response
-  }
+  // Public origin comes from the registered redirect URI, not the Host header (reverse proxy).
+  const base = process.env.SSO_REDIRECT_URI || request.nextUrl.origin
+  const loginUrl = new URL('/login', base)
+  loginUrl.searchParams.set('return_to', `${pathname}${search}`)
+  return NextResponse.redirect(loginUrl)
 }
 
 /**
  * Route Matcher
  *
- * Protected routes:
- * - /dashboard and all sub-paths
- * - /attendance, /leave, /performance, /profile
- * - /hrd and all sub-paths (HRD-specific pages)
- * - /api/protected/* (protected API routes)
- * - /api/attendance, /api/leave, /api/employee, etc.
+ * Protected routes: the dashboard pages and the app's API routes.
  *
- * Public routes (NOT matched, no auth required):
- * - / (root — redirects to /dashboard)
- * - /login (SSO redirect page)
- * - /offline (PWA offline fallback)
- * - /api/webhooks/* (Resend webhook, Cron — use their own auth)
+ * Public routes (NOT matched):
+ * - / (redirects to /dashboard), /login, /offline
+ * - /auth/sso/* (login, callback, logout, back-channel logout)
  * - /api/cron/* (secured by CRON_SECRET header)
  * - Static assets (_next, public files, icons, manifest)
  */
@@ -172,5 +68,6 @@ export const config = {
     '/api/performance/:path*',
     '/api/hrd/:path*',
     '/api/upload/:path*',
+    '/api/web-push/:path*',
   ],
 }

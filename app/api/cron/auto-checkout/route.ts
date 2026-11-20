@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { validateCronAuth } from '@/lib/utils/cron-auth'
+import { HRD_AUDIENCE, formatDay, notify } from '@/lib/notify'
 
 export async function GET(req: Request) {
   try {
-    // Basic authorization check
-    const authHeader = req.headers.get('authorization')
-    const cronsSecret = process.env.CRON_SECRET
-    
-    if (cronsSecret && authHeader !== `Bearer ${cronsSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const unauthorized = validateCronAuth(req)
+    if (unauthorized) return unauthorized
 
     // Get today's date in UTC that represents WIB today
     const now = new Date()
@@ -46,14 +43,34 @@ export async function GET(req: Request) {
       updates.push(prisma.attentionFlag.create({
         data: {
           userId: att.userId,
-          type: 'SYSTEM_ANOMALY',
-          title: 'Lupa Check-out',
-          description: `Karyawan tidak melakukan absen pulang pada tanggal ${target.toISOString().split('T')[0]}`,
+          type: 'forgot_checkout',
+          relatedId: att.id,
+          description: `Lupa check-out: karyawan tidak melakukan absen pulang pada tanggal ${target.toISOString().split('T')[0]}`,
         }
       }))
     }
 
     await prisma.$transaction(updates)
+
+    const day = formatDay(target)
+    await notify(
+      { userIds: forgottenAttendances.map((a) => a.userId) },
+      {
+        category: 'ATTENDANCE',
+        title: 'Anda Lupa Absen Pulang',
+        body: `Tidak ada absen pulang pada ${day}. Status ditandai Lupa Check-out. Hubungi HRD bila ini keliru.`,
+        url: '/performance',
+      }
+    )
+    await notify(
+      { roles: HRD_AUDIENCE },
+      {
+        category: 'ATTENDANCE',
+        title: 'Karyawan Lupa Absen Pulang',
+        body: `${forgottenAttendances.length} karyawan tidak absen pulang pada ${day}: ${forgottenAttendances.map((a) => a.user.name).slice(0, 5).join(', ')}${forgottenAttendances.length > 5 ? ', dan lainnya' : ''}.`,
+        url: '/hrd/anomalies',
+      }
+    )
 
     return NextResponse.json({ success: true, processed: forgottenAttendances.length })
   } catch (error: any) {

@@ -58,7 +58,7 @@ export function usePush(userId?: string) {
       await fetch('/api/web-push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, subscription: sub })
+        body: JSON.stringify({ subscription: sub })
       })
       return true
     } catch (e: any) {

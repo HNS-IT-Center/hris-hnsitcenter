@@ -1,42 +1,44 @@
 /**
  * (dashboard) layout — Protected app shell
  *
- * This layout wraps all authenticated pages. It reads the authenticated user
- * from the SSO-injected headers (set by middleware.ts) and passes the data
- * down to the sidebar and topbar as props.
+ * This layout wraps all authenticated pages. It reads the signed-in user from
+ * the server-side SSO session (getServerUser) and passes the data down to the
+ * sidebar and topbar as props.
  *
  * The actual sidebar/topbar rendering happens in the DashboardShell client
  * component to keep interactivity (mobile menu toggle, theme switch, etc.)
  * while keeping auth logic server-side.
  */
 
-import { getServerUser } from '@/lib/auth'
+import { AuthError, getServerUser } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { DashboardShell } from '@/components/hris/dashboard-shell'
 import { redirect } from 'next/navigation'
 import type React from 'react'
 
-import { syncUserFromSSO } from '@/lib/auth/sync'
+import { resetLeaveQuotaIfDue } from '@/lib/auth/sync'
+
+// Every page here is per-user (session cookie); never prerender at build time.
+export const dynamic = 'force-dynamic'
 
 export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  // Get user identity from SSO-injected headers
   let ssoUser
   try {
     ssoUser = await getServerUser()
-  } catch {
-    redirect('/login')
+  } catch (err) {
+    redirect(`/login?error=${err instanceof AuthError ? err.code : 'session_expired'}`)
   }
 
-  // Ensure user record exists and is synced in our DB on every dashboard load
-  // This seamlessly provisions new accounts or updates roles/departments if they changed in SSO!
-  await syncUserFromSSO(ssoUser)
+  // Accounts are linked/provisioned at SSO login (app/auth/sso/callback).
+  // Here we only run the anniversary leave-quota reset.
+  await resetLeaveQuotaIfDue(ssoUser.id)
 
   const dbUser = await prisma.user.findUnique({
-    where: { email: ssoUser.email },
+    where: { id: ssoUser.id },
     select: {
       id: true,
       name: true,
@@ -52,7 +54,7 @@ export default async function DashboardLayout({
 
   // Inactive users cannot access the app
   if (!dbUser || !dbUser.isActive) {
-    redirect('/login?error=unauthorized')
+    redirect('/login?error=account_disabled')
   }
 
   let pendingApprovalsCount = 0

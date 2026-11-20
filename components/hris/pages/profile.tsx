@@ -1,7 +1,7 @@
 "use client"
 
 import { GlassCard } from "@/components/hris/shared"
-import { Briefcase, Building2, Camera, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, EyeOff, FileText, Wallet } from "lucide-react"
+import { Briefcase, Building2, Camera, Clock, IdCard, Mail, MapPin, Phone, Check, Edit2, Loader2, X, Upload, Lock, Eye, FileText, Wallet } from "lucide-react"
 import type { getMyLeaveQuota } from "@/app/actions/leave"
 import type { getEmployeePayrollSlips } from "@/app/actions/payroll"
 import { useState, useTransition, useRef } from "react"
@@ -12,7 +12,6 @@ import { toast } from "sonner"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ImageCropperDialog } from "@/components/hris/shared/image-cropper"
 import { updateProfilePhoneNumber, updateProfileAvatar } from "@/app/actions/profile"
-import { updatePassword } from "@/app/actions/auth-local"
 import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
 import { format } from "date-fns"
 import { id } from "date-fns/locale"
@@ -53,7 +52,7 @@ const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Admin",
 }
 
-export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlips = [] }: { user: UserProfile; leaveQuota: LeaveQuota; hasPassword?: boolean; payrollSlips?: PayrollSlip[] }) {
+export function ProfilePage({ user, leaveQuota, ssoAccountUrl = null, payrollSlips = [] }: { user: UserProfile; leaveQuota: LeaveQuota; ssoAccountUrl?: string | null; payrollSlips?: PayrollSlip[] }) {
   const router = useRouter()
   const joinDate = new Date(user.joinDate).toLocaleDateString("id-ID", {
     day: "numeric",
@@ -68,33 +67,6 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
   
   const [isUploading, setIsUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const [isEditingPassword, setIsEditingPassword] = useState(false)
-  const [newPassword, setNewPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isPendingPassword, startTransitionPassword] = useTransition()
-
-  const handleSavePassword = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (newPassword !== confirmPassword) {
-      toast.error("Konfirmasi password tidak cocok")
-      return
-    }
-    startTransitionPassword(async () => {
-      const res = await updatePassword(newPassword)
-      if (res.success) {
-        toast.success("Password berhasil disimpan")
-        setIsEditingPassword(false)
-        setNewPassword("")
-        setConfirmPassword("")
-        // Refresh page so hasPassword becomes true if it wasn't
-        window.location.reload()
-      } else {
-        toast.error(res.error)
-      }
-    })
-  }
 
   const [cropDialogOpen, setCropDialogOpen] = useState(false)
   const [uncroppedImageSrc, setUncroppedImageSrc] = useState<string | null>(null)
@@ -310,54 +282,17 @@ export function ProfilePage({ user, leaveQuota, hasPassword = false, payrollSlip
                 <Lock className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-muted-foreground">Password Lokal</p>
-                {isEditingPassword ? (
-                  <form onSubmit={handleSavePassword} className="mt-2 space-y-2 max-w-sm">
-                    <div className="relative">
-                      <Input 
-                        type={showPassword ? "text" : "password"}
-                        value={newPassword} 
-                        onChange={(e) => setNewPassword(e.target.value)} 
-                        placeholder="Password Baru" 
-                        className="h-8 pr-8 text-sm"
-                        disabled={isPendingPassword}
-                        required
-                      />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                        {showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Input 
-                        type={showPassword ? "text" : "password"}
-                        value={confirmPassword} 
-                        onChange={(e) => setConfirmPassword(e.target.value)} 
-                        placeholder="Konfirmasi Password" 
-                        className="h-8 pr-8 text-sm"
-                        disabled={isPendingPassword}
-                        required
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button type="submit" size="sm" variant="secondary" className="h-8 text-xs" disabled={isPendingPassword}>
-                        {isPendingPassword ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                        Simpan
-                      </Button>
-                      <Button type="button" size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setIsEditingPassword(false)} disabled={isPendingPassword}>
-                        Batal
-                      </Button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="flex items-center justify-between gap-2 mt-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {hasPassword ? "••••••••" : "Belum diatur"}
-                    </p>
-                    <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setIsEditingPassword(true)}>
-                      {hasPassword ? "Ubah" : "Buat"}
+                <p className="text-xs text-muted-foreground">Password & Keamanan</p>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <p className="text-sm text-foreground">
+                    Dikelola di SSO HNS IT Center
+                  </p>
+                  {ssoAccountUrl && (
+                    <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                      <a href={ssoAccountUrl} target="_blank" rel="noopener noreferrer">Buka SSO</a>
                     </Button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>

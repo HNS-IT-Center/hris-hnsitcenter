@@ -3,6 +3,7 @@ import { getServerUser } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { toNumberArray } from "@/lib/utils/json-array"
 import { getPayrollPeriod } from "@/lib/utils/date"
+import { calendarEventsForUser } from "@/lib/audience"
 
 export default async function Page({
   searchParams,
@@ -13,7 +14,10 @@ export default async function Page({
   const ssoUser = await getServerUser()
   const dbUser = await prisma.user.findUnique({
     where: { email: ssoUser.email },
-    select: { id: true, departmentId: true, storeId: true, shiftId: true, weeklyOffDays: true, halfDays: true },
+    select: {
+      id: true, departmentId: true, departmentName: true, storeId: true, shiftId: true, weeklyOffDays: true, halfDays: true,
+      department: { select: { name: true } }, store: { select: { name: true } }, shift: { select: { name: true } },
+    },
   })
   if (!dbUser) return null
 
@@ -55,13 +59,16 @@ export default async function Page({
     prisma.calendarEvent.findMany({
       where: {
         date: { gte: startOfMonth, lte: endOfMonth },
-        OR: [
-          { scope: 'all' },
-          ...(dbUser.departmentId ? [{ scope: 'department', scopeValue: dbUser.departmentId }] : []),
-          ...(dbUser.shiftId ? [{ scope: 'shift', scopeValue: dbUser.shiftId }] : []),
-          ...(dbUser.storeId ? [{ scope: 'store', scopeValue: dbUser.storeId }] : []),
-          { scope: 'individual', scopeValue: { contains: dbUser.id } }
-        ]
+        // The Calendar Manager stores names; calendarEventsForUser matches names and ids.
+        OR: calendarEventsForUser({
+          id: dbUser.id,
+          departmentId: dbUser.departmentId,
+          departmentName: dbUser.department?.name ?? dbUser.departmentName,
+          shiftId: dbUser.shiftId,
+          shiftName: dbUser.shift?.name ?? null,
+          storeId: dbUser.storeId,
+          storeName: dbUser.store?.name ?? null,
+        })
       }
     }),
     prisma.leaveRequest.findMany({

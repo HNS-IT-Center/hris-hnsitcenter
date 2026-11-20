@@ -3,6 +3,8 @@
 # dependencies
 /node_modules
 
+/docs
+
 # next.js
 /.next/
 /out/
@@ -30,3 +32,17 @@ next-env.d.ts
 # Personal
 /project-brief/
 /pdf-brief/
+
+# logs and one-off scratch files in the project root
+*.log
+/hash.txt
+/patch-*.js
+/fix-*.js
+/update_*.js
+/scratch.*
+/test-count.js
+
+# local spreadsheets and exports (business data, never committed)
+*.xls
+*.xlsx
+*.csv

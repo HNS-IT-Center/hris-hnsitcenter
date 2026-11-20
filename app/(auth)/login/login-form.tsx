@@ -1,44 +1,27 @@
 "use client"
 
-import type React from "react"
-import { useState, useTransition } from "react"
-import { toast } from "sonner"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Building2, Fingerprint, Loader2, Lock, Mail, Eye, EyeOff } from "lucide-react"
-
-import { loginLocal } from "@/app/actions/auth-local"
 import { Checkbox } from "@/components/ui/checkbox"
-export function LoginForm({ ssoUrl, errorMessage }: { ssoUrl: string, errorMessage: string | null }) {
+import { Building2, Fingerprint, Loader2, LogOut } from "lucide-react"
+
+export function LoginForm({
+  returnTo,
+  errorMessage,
+  ssoLogoutUrl,
+}: {
+  returnTo: string
+  errorMessage: string | null
+  ssoLogoutUrl: string | null
+}) {
   const [loading, setLoading] = useState(false)
+  const [rememberDevice, setRememberDevice] = useState(false)
 
-  const handleSsoClick = (e: React.MouseEvent) => {
-    e.preventDefault()
+  const handleSsoClick = () => {
     setLoading(true)
-    toast.loading("Mengarahkan ke akun Google...", { id: "login" })
-    window.location.href = ssoUrl
-  }
-
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
-  const [isPending, startTransition] = useTransition()
-
-  const handleLocalLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    startTransition(async () => {
-      const res = await loginLocal(email, password, rememberMe)
-      if (res.success) {
-        toast.success("Login berhasil", { id: "login-local" })
-        window.location.href = "/dashboard"
-      } else {
-        toast.error(res.error, { id: "login-local" })
-        setLoading(false)
-      }
-    })
+    const params = new URLSearchParams({ return_to: returnTo })
+    if (rememberDevice) params.set("remember", "1")
+    window.location.href = `/auth/sso/login?${params.toString()}`
   }
 
   return (
@@ -64,7 +47,6 @@ export function LoginForm({ ssoUrl, errorMessage }: { ssoUrl: string, errorMessa
             </p>
           </div>
 
-          {/* Error message from middleware redirect */}
           {errorMessage && (
             <div className="mt-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {errorMessage}
@@ -77,53 +59,39 @@ export function LoginForm({ ssoUrl, errorMessage }: { ssoUrl: string, errorMessa
             className="mt-7 h-11 w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Fingerprint className="h-4 w-4" />}
-            Masuk dengan SSO (Google)
+            {loading ? "Mengarahkan ke SSO..." : errorMessage ? "Coba lagi dengan SSO HNS" : "Masuk dengan SSO HNS"}
           </Button>
 
-          <div className="my-6 flex items-center gap-3">
-            <span className="h-px flex-1 bg-border" />
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">atau</span>
-            <span className="h-px flex-1 bg-border" />
+          <div className="mt-4 flex items-center space-x-2">
+            <Checkbox
+              id="remember"
+              checked={rememberDevice}
+              onCheckedChange={(c) => setRememberDevice(c === true)}
+              disabled={loading}
+              className="bg-white data-[state=checked]:bg-primary"
+            />
+            <label htmlFor="remember" className="text-sm font-medium leading-none">
+              Tetap masuk di perangkat ini
+            </label>
           </div>
+          <p className="mt-1.5 pl-6 text-xs text-muted-foreground">
+            Centang hanya di HP atau perangkat pribadi Anda.
+          </p>
 
-          <form onSubmit={handleLocalLogin} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required placeholder="nama@hnsitcenter.com" className="pl-9 bg-input" disabled={loading} />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id="password" type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} required placeholder="••••••••" className="pl-9 pr-9 bg-input" disabled={loading} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 pb-1">
-              <Checkbox id="remember" checked={rememberMe} onCheckedChange={(c) => setRememberMe(c === true)} disabled={loading} className="bg-white data-[state=checked]:bg-primary" />
-              <label
-                htmlFor="remember"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Ingat Saya (7 hari)
-              </label>
-            </div>
-            <Button type="submit" variant="secondary" disabled={loading || isPending} className="h-11 w-full">
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Masuk
+          {ssoLogoutUrl && (
+            <Button asChild variant="ghost" className="mt-4 h-10 w-full gap-2 text-muted-foreground">
+              <a href={ssoLogoutUrl}>
+                <LogOut className="h-4 w-4" />
+                Keluar dari SSO (ganti akun)
+              </a>
             </Button>
-          </form>
+          )}
 
           <p className="mt-6 text-center text-xs text-muted-foreground text-pretty">
-            Autentikasi dikelola secara terpusat melalui{' '}
-            <span className="font-medium text-foreground">sso.hnsitcenter.id</span>.
+            Akun dan password dikelola terpusat di{" "}
+            <span className="font-medium text-foreground">SSO HNS IT Center</span>.
             <br />
-            Hubungi HRD jika Anda tidak dapat mengakses akun.
+            Hubungi admin HNS IT Center jika Anda tidak dapat masuk.
           </p>
         </div>
       </div>

@@ -37,6 +37,7 @@ import { id } from "date-fns/locale"
 import { type DateRange } from "react-day-picker"
 
 import { updateEmployee, createEmployee, toggleDeviceBlock, deleteEmployee } from "@/app/actions/employee"
+import { HRIS_ROLES, ROLE_LABELS, type HrisRole } from "@/lib/auth/roles"
 import { compressToWebP, fileToBase64 } from "@/lib/utils/file"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ImageCropperDialog } from "@/components/hris/shared/image-cropper"
@@ -72,7 +73,7 @@ function StatusBadge({ active }: { active: boolean }) {
   )
 }
 
-export function EmployeesPage({ initialEmployees, stores, shifts, positions, currentUserId }: { initialEmployees: User[], stores: Store[], shifts: Shift[], positions: string[], currentUserId: string }) {
+export function EmployeesPage({ initialEmployees, stores, shifts, positions, currentUserId, currentUserRole }: { initialEmployees: User[], stores: Store[], shifts: Shift[], positions: string[], currentUserId: string, currentUserRole: HrisRole }) {
   const [q, setQ] = useState("")
   const [deptFilter, setDeptFilter] = useState("Semua")
   const [storeFilter, setStoreFilter] = useState("Semua")
@@ -89,7 +90,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
   const [isPending, startTransition] = useTransition()
   
   const [newEmp, setNewEmp] = useState({
-    name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: "", password: ""
+    name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: "", role: "EMPLOYEE" as HrisRole
   })
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -118,6 +119,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
 
   // Unique departments for filter
   const departments = Array.from(new Set(employees.map(e => e.departmentName).filter(Boolean))) as string[]
+  const assignableRoles: HrisRole[] = HRIS_ROLES.filter(r => r !== 'ADMIN' || currentUserRole === 'ADMIN')
 
   let filtered = employees.filter(
     (e) =>
@@ -188,13 +190,13 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
         storeId: newEmp.storeId === "none" ? null : newEmp.storeId,
         shiftId: newEmp.shiftId === "none" ? null : newEmp.shiftId,
         phoneNumber: phone || null,
-        password: newEmp.password || undefined
+        role: newEmp.role,
       })
 
       if (res.success && res.data) {
         setEmployees(prev => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)))
         setIsAddOpen(false)
-        setNewEmp({ name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: "", password: "" })
+        setNewEmp({ name: "", email: "", departmentName: "", positionName: "", storeId: "none", shiftId: "none", phoneNumber: "", role: "EMPLOYEE" as HrisRole })
         toast.success("Karyawan berhasil ditambahkan")
       } else {
         toast.error(res.error || "Gagal menambahkan karyawan")
@@ -273,6 +275,9 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
       shiftId: draft.shiftId,
       leaveQuotaRemaining: draft.leaveQuotaRemaining,
       isActive: draft.isActive,
+      role: draft.role,
+      departmentName: draft.departmentName ?? "",
+      positionName: draft.positionName ?? "",
       avatarUrl: draft.avatarUrl,
       avatarOriginalUrl: draft.avatarOriginalUrl,
     })
@@ -511,7 +516,7 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
           <DialogHeader>
             <DialogTitle>Tambah Karyawan Baru</DialogTitle>
             <DialogDescription>
-              Karyawan yang ditambahkan di sini akan secara otomatis tersinkronisasi saat mereka login via SSO menggunakan email yang sama.
+              Akun login dibuat oleh admin SSO HNS IT Center. Data di sini (role, departemen, penugasan) akan tertaut otomatis saat karyawan pertama kali masuk lewat SSO dengan email yang sama.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -524,8 +529,13 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
               <Input type="email" placeholder="john.doe@hnsitcenter.id" value={newEmp.email} onChange={e => setNewEmp({...newEmp, email: e.target.value})} />
             </div>
             <div className="space-y-1.5">
-              <Label>Password (Opsional)</Label>
-              <Input type="text" placeholder="Kosongkan jika hanya menggunakan SSO" value={newEmp.password} onChange={e => setNewEmp({...newEmp, password: e.target.value})} />
+              <Label>Role di HRIS</Label>
+              <Select value={newEmp.role} onValueChange={v => setNewEmp({...newEmp, role: v as HrisRole})}>
+                <SelectTrigger className="w-full bg-input"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {assignableRoles.map(r => <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -678,13 +688,40 @@ export function EmployeesPage({ initialEmployees, stores, shifts, positions, cur
               <div className="flex-1 overflow-y-auto p-6 py-4 grid gap-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Posisi (Dari SSO)</Label>
-                    <Input value={draft.positionName || '-'} disabled className="bg-muted" />
+                    <Label>Posisi</Label>
+                    <Input list="employee-positions" value={draft.positionName ?? ''} onChange={e => setDraft({ ...draft, positionName: e.target.value })} placeholder="Mis. Teknisi" className="bg-input" />
+                    <datalist id="employee-positions">
+                      {positions.map(p => <option key={p} value={p} />)}
+                    </datalist>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Departemen (Dari SSO)</Label>
-                    <Input value={draft.departmentName || '-'} disabled className="bg-muted" />
+                    <Label>Departemen</Label>
+                    <Input list="employee-departments" value={draft.departmentName ?? ''} onChange={e => setDraft({ ...draft, departmentName: e.target.value })} placeholder="Mis. Service" className="bg-input" />
+                    <datalist id="employee-departments">
+                      {departments.map(d => <option key={d} value={d} />)}
+                    </datalist>
                   </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Role di HRIS</Label>
+                  <Select
+                    value={draft.role}
+                    onValueChange={v => setDraft({ ...draft, role: v })}
+                    disabled={draft.id === currentUserId || (draft.role === 'ADMIN' && currentUserRole !== 'ADMIN')}
+                  >
+                    <SelectTrigger className="w-full bg-input"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(assignableRoles.includes(draft.role) ? assignableRoles : [...assignableRoles, draft.role as HrisRole]).map(r => (
+                        <SelectItem key={r} value={r}>{ROLE_LABELS[r]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[10px] text-muted-foreground">
+                    {draft.id === currentUserId
+                      ? 'Anda tidak dapat mengubah role akun Anda sendiri.'
+                      : 'HRD, Pimpinan, dan Admin dapat membuka workspace HRD. Hanya Admin yang dapat memberi atau mencabut role Admin.'}
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Membuang atribusi AI dari pesan commit (aturan project: commit tanpa co-author AI).
+# Aktif lewat: git config core.hooksPath .githooks
+# Lihat docs/catatan/panduan-commit-dan-tag.md.
+file="$1"
+tmp="$(mktemp)"
+grep -viE '^(co-authored-by:.*(claude|anthropic|openai|copilot|gemini|cursor|noreply@anthropic\.com).*|claude-session:.*|.*generated with \[?claude code.*)$' "$file" > "$tmp" || true
+# Rapikan baris kosong berlebih di akhir pesan.
+sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$tmp" > "$file"
+rm -f "$tmp"
+exit 0

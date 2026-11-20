@@ -1,8 +1,9 @@
 import { Metadata } from "next"
 import { getServerUser, hasRole } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { getAllOvertimeRequests } from "@/app/actions/overtime"
+import { getAllOvertimeRequests, getOvertimeSettings } from "@/app/actions/overtime"
 import { LemburPage } from "@/components/hris/pages/lembur"
+import { OvertimeSettingsCard } from "@/components/hris/pages/overtime-settings"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import Link from "next/link"
 
@@ -17,7 +18,7 @@ export default async function Page() {
     redirect("/")
   }
 
-  const allRequests = await getAllOvertimeRequests()
+  const [allRequests, overtimeSettings] = await Promise.all([getAllOvertimeRequests(), getOvertimeSettings()])
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -35,6 +36,7 @@ export default async function Page() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Approval Lembur</h2>
       </div>
+      <OvertimeSettingsCard initial={overtimeSettings} />
       <LemburPage allRequests={allRequests} />
     </div>
   )

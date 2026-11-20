@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendPushNotification } from '@/lib/web-push'
+import { validateCronAuth } from '@/lib/utils/cron-auth'
+import { notify } from '@/lib/notify'
 
 /**
  * Cron: Shift Reminders
@@ -10,18 +11,14 @@ import { sendPushNotification } from '@/lib/web-push'
  *   1. Check-in reminder  — 30 mins before shift start
  *   2. Check-out reminder — at shift end time
  *
- * On Vercel: triggered by vercel.json cron config.
- * On Hostinger (after migration), add to crontab:
- *   curl -s -H "Authorization: Bearer $CRON_SECRET" https://app.hnsitcenter.id/api/cron/shift-reminders
+ * Scheduled on the VPS (Dokploy), every 5 minutes:
+ *   curl -s -H "Authorization: Bearer $CRON_SECRET" https://absensi.hnsitcenter.id/api/cron/shift-reminders
  */
 export async function GET(req: Request) {
   try {
     // Security check
-    const authHeader = req.headers.get('authorization')
-    const cronSecret = process.env.CRON_SECRET
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const unauthorized = validateCronAuth(req)
+    if (unauthorized) return unauthorized
 
     const now = new Date()
     // Current WIB time as HH:mm
@@ -87,7 +84,8 @@ export async function GET(req: Request) {
       //    and user has NOT yet checked in today
       const minsUntilStart = shiftStartMins - nowTotalMins
       if (minsUntilStart >= 30 && minsUntilStart < 30 + WINDOW && !todayAttendance) {
-        await sendPushNotification(user.id, {
+        await notify({ userIds: [user.id] }, {
+          category: 'SHIFT',
           title: 'Waktu Absen Masuk Dibuka',
           body: `Check-in untuk shift ${user.shift.startTime} sudah bisa dilakukan sekarang. Segera absen!`,
           url: '/attendance',
@@ -99,7 +97,8 @@ export async function GET(req: Request) {
       //    and user has checked in but NOT yet checked out
       const minsUntilEnd = shiftEndMins - nowTotalMins
       if (minsUntilEnd >= 0 && minsUntilEnd < WINDOW && todayAttendance?.checkInTime && !todayAttendance?.checkOutTime) {
-        await sendPushNotification(user.id, {
+        await notify({ userIds: [user.id] }, {
+          category: 'SHIFT',
           title: 'Waktu Absen Pulang Dibuka',
           body: `Shift kamu berakhir pukul ${user.shift.endTime}. Jangan lupa absen pulang!`,
           url: '/attendance',

@@ -1,27 +1,24 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getServerUser } from '@/lib/auth'
 
+/** Remove one of the signed-in user's own push subscriptions. */
 export async function POST(req: Request) {
+  let userId: string
   try {
-    const body = await req.json()
-    const { endpoint } = body
+    userId = (await getServerUser()).id
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
-    if (!endpoint) {
+  try {
+    const { endpoint } = await req.json()
+    if (typeof endpoint !== 'string' || !endpoint) {
       return NextResponse.json({ error: 'Endpoint is required' }, { status: 400 })
     }
-
-    const existing = await prisma.pushSubscription.findFirst({
-      where: { endpoint },
-    })
-
-    if (existing) {
-      await prisma.pushSubscription.delete({
-        where: { id: existing.id },
-      })
-    }
-
-    return NextResponse.json({ success: true, message: 'Unsubscribed successfully' })
-  } catch (error: any) {
+    await prisma.pushSubscription.deleteMany({ where: { endpoint, userId } })
+    return NextResponse.json({ success: true })
+  } catch (error) {
     console.error('Web Push Unsubscribe Error:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

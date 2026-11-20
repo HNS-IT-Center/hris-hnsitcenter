@@ -65,6 +65,8 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
   const [transport, setTransport] = useState(cfg?.transport ?? 0)
   const [bpjs, setBpjs] = useState(cfg?.bpjs ?? 0)
   const [pph21, setPph21] = useState(cfg?.pph21 ?? 0)
+  // Empty = company default from Pengaturan Lembur (/hrd/lembur).
+  const [overtimeRate, setOvertimeRate] = useState<string>(cfg?.overtimeHourlyRate != null ? String(cfg.overtimeHourlyRate) : "")
 
   // Shift hours for hourly rate preview
   let shiftHours = 8
@@ -81,7 +83,7 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
 
   const handleSave = () => {
     startTransition(async () => {
-      const res = await upsertPayrollConfig(employee.id, { baseSalary26Days: base, uangMakan, transport, bpjs, pph21 }, currentYear, currentMonth)
+      const res = await upsertPayrollConfig(employee.id, { baseSalary26Days: base, uangMakan, transport, bpjs, pph21, overtimeHourlyRate: overtimeRate.trim() === "" ? null : Math.max(0, Math.round(Number(overtimeRate))) }, currentYear, currentMonth)
       if (res.success) {
         toast.success("Konfigurasi gaji disimpan & slip periode ini digenerate otomatis")
         onSaved()
@@ -185,6 +187,27 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
         <div className="grid grid-cols-2 gap-3">
           {numberField("BPJSTK", bpjs, setBpjs)}
           {numberField("Pajak PPh21", pph21, setPph21)}
+        </div>
+      </div>
+
+      {/* Overtime */}
+      <div>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Lembur</p>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-foreground">Tarif Lembur per Jam</label>
+          <p className="text-[10px] text-muted-foreground">Kosongkan untuk memakai tarif default di Pengaturan Lembur.</p>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">Rp</span>
+            <Input
+              type="number"
+              min={0}
+              step={1000}
+              placeholder="Default"
+              value={overtimeRate}
+              onChange={(e) => setOvertimeRate(e.target.value)}
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
         </div>
       </div>
 

@@ -27,6 +27,9 @@ class AvoidModuleIdZeroPlugin {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Docker/VPS (Dokploy): .next/standalone holds server.js + only the node_modules it uses.
+  // scripts/copy-standalone-assets.mjs (postbuild) adds .next/static and public/ beside it.
+  output: 'standalone',
   typescript: {
     ignoreBuildErrors: true,
   },

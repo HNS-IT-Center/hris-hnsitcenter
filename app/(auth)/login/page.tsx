@@ -1,52 +1,56 @@
 /**
- * /login — SSO Entry Point
+ * /login — HNS SSO entry point.
  *
- * This page is the entry point for users who are not authenticated.
- * It immediately redirects them to the SSO Identity Provider login page.
- *
- * The SSO server will authenticate them and set the cross-domain `sso_token`
- * cookie, then redirect back to the `redirectUrl` provided.
+ * Staff sign in only through the HNS SSO (auth.hnsitcenter.id). The button
+ * goes to /auth/sso/login, which starts the OpenID Connect flow. SSO and
+ * callback errors come back here as ?error=<code>.
  */
-import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getCurrentSession } from '@/lib/auth/session'
+import { isSsoConfigured, safeReturnTo, ssoEnv } from '@/lib/auth/oidc'
 import { LoginForm } from './login-form'
 
-const SSO_LOGIN_URL = 'https://sso.hnsitcenter.id/api/auth/google'
+const errorMessages: Record<string, string> = {
+  session_expired: 'Sesi Anda telah berakhir. Silakan masuk kembali.',
+  account_disabled: 'Akun Anda telah dinonaktifkan di HRIS. Silakan hubungi HRD.',
+  access_denied: 'Anda belum diberi akses ke HRIS. Minta akses ke admin HNS IT Center.',
+  invalid_scope: 'Fitur "Tetap masuk di perangkat ini" belum diaktifkan untuk HRIS. Masuk tanpa mencentangnya, atau hubungi admin HNS IT Center.',
+  login_required: 'Silakan masuk kembali.',
+  flow_expired: 'Proses masuk sudah kedaluwarsa. Silakan coba lagi.',
+  invalid_state: 'Permintaan masuk tidak valid. Silakan coba lagi.',
+  callback_failed: 'Gagal menyelesaikan proses masuk. Silakan coba lagi.',
+  no_email: 'Akun SSO Anda tidak memiliki email. Hubungi admin HNS IT Center.',
+  email_conflict: 'Email akun SSO Anda sudah tertaut ke akun HRIS lain. Hubungi HRD.',
+  sso_unreachable: 'Server SSO tidak dapat dihubungi. Coba lagi beberapa saat.',
+  sso_not_configured: 'Login SSO belum dikonfigurasi di server ini.',
+  sso_error: 'Terjadi kesalahan di SSO. Silakan coba lagi.',
+}
 
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; redirectUrl?: string }>
+  searchParams: Promise<{ error?: string; return_to?: string }>
 }) {
-  // If the user already has the SSO token and no error, bypass login entirely!
-  const cookieStore = await cookies()
   const params = await searchParams
   const error = params.error
+  const returnTo = safeReturnTo(params.return_to)
 
-  if (cookieStore.has('sso_token') && !error) {
-    redirect('/dashboard')
-  }
-
-  // Dynamically get the current domain from request headers
-  const headersList = await headers()
-  const host = headersList.get('x-forwarded-host') || headersList.get('host') || 'absensi.hnsitcenter.id'
-  const protocol = headersList.get('x-forwarded-proto') || (host.includes('localhost') ? 'http' : 'https')
-  const dynamicAppUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`
-
-  const returnTo = params.redirectUrl ?? `${dynamicAppUrl}/dashboard`
-
-  // Direct to Google OAuth on the SSO server to avoid the intermediate SSO login page
-  const ssoUrl = `${SSO_LOGIN_URL}?redirectUrl=${encodeURIComponent(returnTo)}`
-
-  const errorMessages: Record<string, string> = {
-    session_expired: 'Sesi Anda telah berakhir. Silakan masuk kembali.',
-    invalid_token: 'Token tidak valid. Silakan masuk kembali.',
-    unauthorized: 'Anda tidak memiliki akses ke halaman tersebut.',
-    not_whitelisted: 'Akun Anda belum terdaftar di sistem HRIS. Silakan hubungi HRD.',
-    account_disabled: 'Akun Anda telah dinonaktifkan. Silakan hubungi HRD.',
+  if (!error) {
+    const session = await getCurrentSession()
+    if (session?.user.isActive) redirect(returnTo)
   }
 
   const errorMessage = error ? (errorMessages[error] ?? 'Terjadi kesalahan. Silakan masuk kembali.') : null
 
-  return <LoginForm ssoUrl={ssoUrl} errorMessage={errorMessage} />
+  // "Keluar dari SSO" lets someone signed in to the SSO with the wrong account switch accounts.
+  let ssoLogoutUrl: string | null = null
+  if (error && isSsoConfigured()) {
+    const env = ssoEnv()
+    const url = new URL(`${env.issuer}/oauth/logout`)
+    url.searchParams.set('client_id', env.clientId)
+    url.searchParams.set('post_logout_redirect_uri', env.postLogoutRedirectUri)
+    ssoLogoutUrl = url.toString()
+  }
+
+  return <LoginForm returnTo={returnTo} errorMessage={errorMessage} ssoLogoutUrl={ssoLogoutUrl} />
 }

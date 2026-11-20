@@ -20,8 +20,9 @@ export default async function Page() {
     getMyLeaveQuota(dbUser.id),
     getEmployeePayrollSlips(dbUser.id),
   ])
-  const hasPassword = !!dbUser.passwordHash
+  // Password, 2FA and passkeys live in the HNS SSO.
+  const ssoAccountUrl = process.env.SSO_ISSUER ?? null
 
-  return <ProfilePage user={dbUser as any} leaveQuota={leaveQuota} hasPassword={hasPassword} payrollSlips={payrollSlips as any} />
+  return <ProfilePage user={dbUser as any} leaveQuota={leaveQuota} ssoAccountUrl={ssoAccountUrl} payrollSlips={payrollSlips as any} />
 }
 

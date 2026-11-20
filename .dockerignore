@@ -1,0 +1,20 @@
+# Secrets never go into an image: runtime values come from the container's
+# environment, build-time ones from build arguments.
+.env*
+
+# Rebuilt inside the image.
+node_modules
+.next
+*.tsbuildinfo
+
+# Not part of the app.
+.git
+.claude
+docs
+pdf-brief
+project-brief
+*.log
+*.sql
+*.csv
+Dockerfile
+.dockerignore

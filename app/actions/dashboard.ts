@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
+import { requirePrivileged, requireSelfOrPrivileged } from '@/lib/auth/guards'
 import { toNumberArray } from '@/lib/utils/json-array'
 import { getPayrollPeriod, todayUTC } from '@/lib/utils/date'
 
@@ -10,6 +11,7 @@ import { getPayrollPeriod, todayUTC } from '@/lib/utils/date'
  * Fetches all data needed for the Employee Dashboard in a single efficient call.
  */
 export async function getEmployeeDashboardData(userId: string) {
+  await requireSelfOrPrivileged(userId)
   const now = new Date()
   const { startDateUTC, endDateUTC, periodLabel } = getPayrollPeriod(now)
 
@@ -126,6 +128,7 @@ export async function getEmployeeDashboardData(userId: string) {
  * Fetches all data needed for the HRD Dashboard.
  */
 export async function getHrdDashboardData(dateStr?: string) {
+  await requirePrivileged()
   const target = dateStr ? new Date(dateStr) : new Date()
   const day = new Date(Date.UTC(target.getFullYear(), target.getMonth(), target.getDate()))
 
@@ -184,6 +187,7 @@ export async function getHrdDashboardData(dateStr?: string) {
  * - Off days / holidays: excluded from the "not shown up" logic
  */
 export async function getHrdAttendanceLogs(dateStr?: string) {
+  await requirePrivileged()
   // Parse the target date using WIB timezone offset
   const target = dateStr ? new Date(dateStr) : new Date()
   
