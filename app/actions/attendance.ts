@@ -1,8 +1,8 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { toNumberArray } from '@/lib/utils/json-array'
 import { revalidatePath } from 'next/cache'
+import { getScheduleForDay, type DaySchedule } from '@/lib/schedule'
 import { getDistanceInMeters } from '@/lib/utils/geo'
 import { requireSelfOrPrivileged, requireUser } from '@/lib/auth/guards'
 import { HRD_AUDIENCE, formatDay, notify } from '@/lib/notify'
@@ -51,6 +51,42 @@ function parseTimeStr(timeStr: string, baseDate: Date): Date {
   const [hours, minutes] = timeStr.split(':')
   const yyyyMmDd = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(baseDate)
   return new Date(`${yyyyMmDd}T${hours.padStart(2, '0')}:${minutes.padStart(2, '0')}:00+07:00`)
+}
+
+/**
+ * Check-in on a holiday or a day off is allowed (stores may need people), but
+ * HRD has to know: one attention flag and one notification, unless an approved
+ * overtime covers the day. Not exported: exports of this file are server actions.
+ */
+async function flagOffDayAttendance(
+  schedule: DaySchedule,
+  hasApprovedOvertime: boolean,
+  attendanceId: string,
+  employeeName: string,
+  now: Date,
+) {
+  if (hasApprovedOvertime) return
+  if (schedule.status !== 'HOLIDAY' && schedule.status !== 'OFF') return
+  const dayLabel = schedule.status === 'HOLIDAY'
+    ? `hari libur (${schedule.holiday?.name ?? 'Libur'})`
+    : 'hari liburnya (libur mingguan atau roster)'
+  await prisma.attentionFlag.create({
+    data: {
+      userId: schedule.userId,
+      type: 'overtime_holiday',
+      description: `Karyawan absen pada ${dayLabel} pukul ${wibTime(now)} tanpa lembur yang disetujui.`,
+      relatedId: attendanceId,
+    }
+  })
+  await notify(
+    { roles: HRD_AUDIENCE },
+    {
+      category: 'ATTENDANCE',
+      title: 'Absen di Hari Libur',
+      body: `${employeeName} absen pada ${dayLabel} pukul ${wibTime(now)} tanpa lembur yang disetujui.`,
+      url: '/hrd/anomalies',
+    }
+  )
 }
 
 /**
@@ -205,51 +241,22 @@ export async function submitAttendance(data: {
       }
     }
 
-    // 3. Fetch User's Shift
-    const user = await prisma.user.findUnique({
-      where: { id: data.userId },
-      include: { shift: true }
-    })
+    // 3. Today's schedule from the resolver (lib/schedule): shift of the day
+    //    (rotation or roster), holiday, approved leave and half days.
+    const schedule = await getScheduleForDay(data.userId, today)
 
-    if (!user || !user.shift) {
+    if (schedule?.status === 'LEAVE') {
+      return { success: false, error: `Anda tidak bisa absen karena Anda sedang Izin/Cuti/Sakit.` }
+    }
+    if (!schedule?.shift || !schedule.startTime || !schedule.endTime) {
       return { success: false, error: 'Shift Anda tidak ditemukan. Hubungi HRD.' }
     }
 
-    const shift = user.shift
+    const shift = schedule.shift
+    const shiftStart = parseTimeStr(schedule.startTime, now)
+    const shiftEnd = parseTimeStr(schedule.endTime, now)
 
-    let shiftStart = parseTimeStr(shift.startTime, now)
-    let shiftEnd = parseTimeStr(shift.endTime, now)
-
-    // Adjust for regular Half Day (e.g. Saturday)
-    const dayOfWeek = today.getUTCDay()
-    if (toNumberArray(user.halfDays).includes(dayOfWeek)) {
-      shiftEnd = parseTimeStr('14:00', now)
-    }
-
-    // 4. Check for Approved Leaves today
-    const approvedLeave = await prisma.leaveRequest.findFirst({
-      where: {
-        userId: data.userId,
-        status: 'APPROVED',
-        startDate: { lte: today },
-        endDate: { gte: today }
-      }
-    })
-
-    if (approvedLeave) {
-      if (['ANNUAL_LEAVE', 'SICK', 'PERSONAL'].includes(approvedLeave.type)) {
-        return { success: false, error: `Anda tidak bisa absen karena Anda sedang Izin/Cuti/Sakit.` }
-      }
-      if (approvedLeave.type === 'HALF_DAY') {
-        if (approvedLeave.halfDayType === 'LATE_IN' && approvedLeave.halfDayTime) {
-          shiftStart = parseTimeStr(approvedLeave.halfDayTime, now)
-        } else if (approvedLeave.halfDayType === 'EARLY_OUT' && approvedLeave.halfDayTime) {
-          shiftEnd = parseTimeStr(approvedLeave.halfDayTime, now)
-        }
-      }
-    }
-
-    // 5. Check for Approved Overtime today
+    // 4. Check for Approved Overtime today
     const approvedOvertime = await prisma.overtimeRequest.findFirst({
       where: {
         userId: data.userId,
@@ -316,29 +323,16 @@ export async function submitAttendance(data: {
             url: '/hrd/anomalies',
           }
         )
+        await flagOffDayAttendance(schedule, !!approvedOvertime, record.id, me.name, now)
         revalidatePath('/attendance')
         return { success: true, data: record, type: 'check-out' }
       }
 
       // --- Rainy Day Grace Period ---
-      // If today is declared a rainy day for this store (or all stores),
-      // the effective start for lateness is shifted +60 minutes.
-      const rainyDay = await prisma.rainyDay.findFirst({
-        where: {
-          date: today,
-          OR: [
-            { storeId: data.storeId ?? undefined },
-            { storeId: null },
-          ]
-        }
-      })
-
-      let effectiveShiftStart = shiftStart
-      let isRainyDay = false
-      if (rainyDay) {
-        effectiveShiftStart = new Date(shiftStart.getTime() + 60 * 60000)
-        isRainyDay = true
-      }
+      // If today is a rainy day for this employee (Holiday row with isRainyDay,
+      // for everyone, their store or department), lateness starts +60 minutes later.
+      const isRainyDay = schedule.isRainyDay
+      const effectiveShiftStart = isRainyDay ? new Date(shiftStart.getTime() + 60 * 60000) : shiftStart
 
       let status: 'PRESENT' | 'LATE' = 'PRESENT'
       let lateMinutes = 0
@@ -375,6 +369,7 @@ export async function submitAttendance(data: {
           url: '/attendance',
         }
       )
+      await flagOffDayAttendance(schedule, !!approvedOvertime, record.id, me.name, now)
       revalidatePath('/attendance')
       return { success: true, data: record, type: 'check-in' }
 
