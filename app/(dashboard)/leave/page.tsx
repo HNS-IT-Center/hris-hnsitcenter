@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma"
 import { toNumberArray } from "@/lib/utils/json-array"
 import { getMyLeaveRequests, getMyLeaveQuota } from "@/app/actions/leave"
 import { getMyOvertimeRequests } from "@/app/actions/overtime"
+import { getHolidayDatesForUser } from "@/lib/holidays"
+import { todayUTC } from "@/lib/utils/date"
 
 export default async function Page() {
   const ssoUser = await getServerUser()
@@ -13,22 +15,14 @@ export default async function Page() {
   })
   if (!dbUser) return null
 
-  const [leaveRequests, overtimeRequests, leaveQuota, holidayAssignments] = await Promise.all([
+  // Holidays for the leave form's day count preview: from 60 days back to a year ahead.
+  const today = todayUTC()
+  const [leaveRequests, overtimeRequests, leaveQuota, holidays] = await Promise.all([
     getMyLeaveRequests(dbUser.id),
     getMyOvertimeRequests(),
     getMyLeaveQuota(dbUser.id),
-    prisma.holidayAssignment.findMany({
-      where: {
-        OR: [
-          { applyToAll: true },
-          { userId: dbUser.id }
-        ]
-      },
-      include: { holidayMarker: true }
-    })
+    getHolidayDatesForUser(dbUser.id, new Date(today.getTime() - 60 * 86400000), new Date(today.getTime() + 366 * 86400000)),
   ])
-
-  const holidays = holidayAssignments.map(ha => ha.holidayMarker.date.toISOString())
 
   const combinedRequests = [
     ...leaveRequests,

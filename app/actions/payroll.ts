@@ -1,12 +1,12 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { toNumberArray } from '@/lib/utils/json-array'
 import { revalidatePath } from 'next/cache'
 import { format } from 'date-fns'
 import { getServerUser } from '@/lib/auth'
 import { getPayrollPeriodByMonth } from '@/lib/utils/date'
 import { requirePrivileged, requireSelfOrPrivileged } from '@/lib/auth/guards'
+import { countScheduledWorkDays, getScheduleForRange, type DaySchedule } from '@/lib/schedule'
 import { notify } from '@/lib/notify'
 import { billableOvertimeHours, getOvertimeRules, workedOvertimeMinutes } from '@/lib/overtime'
 
@@ -57,50 +57,20 @@ async function requireHrdOrBoss() {
 // ============================================================
 
 /**
- * Counts the number of working (scheduled) days in a 26th–25th period for a specific user.
- *
- * Rules:
- * - Skips days matching user.weeklyOffDays (e.g. Sunday=0, Saturday=6)
- * - Skips days that are HolidayMarkers applying to "all" OR to this specific user
- * - Half-days are counted as FULL days (they are scheduled workdays)
+ * Counts the scheduled working days of a user in a period, from the schedule
+ * resolver (lib/schedule): days off, holidays and roster days off are skipped;
+ * leave days and half days count (they are scheduled workdays).
+ * The monthly recap uses the same count.
  */
 export async function calculateWorkingDays(userId: string, periodStart: Date, periodEnd: Date) {
   await requireSelfOrPrivileged(userId)
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { weeklyOffDays: true, halfDays: true }
-  })
-  if (!user) return 0
+  return countScheduledWorkDays(await loadPeriodSchedule(userId, periodStart, periodEnd))
+}
 
-  // Fetch all holidays in this range
-  const holidays = await prisma.holidayMarker.findMany({
-    where: { date: { gte: periodStart, lte: periodEnd } },
-    include: { assignments: true }
-  })
-
-  const holidayDates = new Set<string>()
-  for (const h of holidays) {
-    const isForAll = h.assignments.length === 0 || h.assignments.some(a => a.applyToAll)
-    const isForUser = h.assignments.some(a => a.userId === userId)
-    if (isForAll || isForUser) {
-      holidayDates.add(h.date.toISOString().slice(0, 10))
-    }
-  }
-
-  let count = 0
-  const current = new Date(periodStart)
-  while (current <= periodEnd) {
-    const dayOfWeek = current.getUTCDay() // 0=Sun…6=Sat
-    const dateStr = current.toISOString().slice(0, 10)
-    const isOffDay = toNumberArray(user.weeklyOffDays).includes(dayOfWeek)
-    const isHoliday = holidayDates.has(dateStr)
-    if (!isOffDay && !isHoliday) {
-      count++
-    }
-    current.setUTCDate(current.getUTCDate() + 1)
-  }
-
-  return count
+/** Schedule of one user for every WIB day from periodStart to periodEnd. */
+async function loadPeriodSchedule(userId: string, periodStart: Date, periodEnd: Date): Promise<DaySchedule[]> {
+  const schedules = await getScheduleForRange([userId], periodStart, periodEnd)
+  return [...(schedules.get(userId)?.values() ?? [])]
 }
 
 // ============================================================
@@ -189,8 +159,9 @@ async function _generatePayrollSlipInternal(
   }
   const hourlyRate = shiftHours > 0 ? Math.round(dailyRate / shiftHours) : 0
 
-  // 5. Count working days
-  const scheduledWorkDays = await calculateWorkingDays(userId, periodStart, periodEnd)
+  // 5. Count working days (schedule resolver: holidays, days off, rotation, roster)
+  const schedule = await loadPeriodSchedule(userId, periodStart, periodEnd)
+  const scheduledWorkDays = countScheduledWorkDays(schedule)
 
   // 6. Base monthly salary adjusted for actual working days
   const adjustedBaseSalary = Math.round(baseSalary26Days + (scheduledWorkDays - 26) * dailyRate)
@@ -203,15 +174,14 @@ async function _generatePayrollSlipInternal(
     }
   })
 
-  // 8. Fetch approved leave requests in the period
-  const leaveRequests = await prisma.leaveRequest.findMany({
-    where: {
-      userId,
-      status: 'APPROVED',
-      startDate: { lte: periodEnd },
-      endDate: { gte: periodStart }
-    }
-  })
+  // 8. Half-day leaves that fall on a working day of the period (from the resolver),
+  //    for their unpaid hours. Full-day leaves are counted per day in step 10.
+  const halfDayLeaveIds = [...new Set(
+    schedule.filter((d) => d.status === 'WORK' && d.leave?.type === 'HALF_DAY').map((d) => d.leave!.id)
+  )]
+  const leaveRequests = halfDayLeaveIds.length > 0
+    ? await prisma.leaveRequest.findMany({ where: { id: { in: halfDayLeaveIds } } })
+    : []
 
   // 9. Fetch approved overtime in the period
   const overtimeRequests = await prisma.overtimeRequest.findMany({
@@ -228,74 +198,53 @@ async function _generatePayrollSlipInternal(
 
   const attendanceMap = new Map(attendances.map(a => [a.date.toISOString().slice(0, 10), a]))
 
-  // Walk through each scheduled working day
-  const current = new Date(periodStart)
-  while (current <= periodEnd) {
-    const dayOfWeek = current.getUTCDay()
-    const dateStr = current.toISOString().slice(0, 10)
-    const isOffDay = toNumberArray(user.weeklyOffDays).includes(dayOfWeek)
-
-    if (!isOffDay) {
-      const att = attendanceMap.get(dateStr)
-
-      if (!att) {
-        // No record at all for a scheduled workday = Tidak Absen
-        ketidakhadiran++
-      } else {
-        switch (att.status) {
-          case 'PRESENT':
-            kehadiran++
-            break
-          case 'LATE':
-            kehadiran++
-            terlambat++
-            break
-          case 'FORGOT_CHECKIN':
-          case 'FORGOT_CHECKOUT':
-            kehadiran++ // Partially counted
-            lupaAbsen++
-            break
-          case 'TIDAK_ABSEN':
-          case 'ALPHA':
-            ketidakhadiran++
-            break
-          case 'ON_LEAVE':
-            // Cross-reference with leave requests to determine type
-            break
-          case 'HOLIDAY':
-            break
-        }
-      }
+  // Walk through each day of the resolved schedule. Holidays and days off are
+  // skipped; a leave day counts as its leave type, not as an absence.
+  let unpaidSickDays = 0
+  for (const day of schedule) {
+    if (day.status === 'LEAVE') {
+      if (day.leave?.type === 'ANNUAL_LEAVE') cuti++
+      else if (day.leave?.type === 'SICK') {
+        sakit++
+        if (!day.leave.isPaid) unpaidSickDays++
+      } else izin++
+      continue
     }
-    current.setUTCDate(current.getUTCDate() + 1)
-  }
+    if (day.status !== 'WORK') continue
+    if (day.leave?.type === 'HALF_DAY') izinSetengahHari++
 
-  // Tally leave types
-  for (const leave of leaveRequests) {
-    const ls = leave.startDate > periodStart ? leave.startDate : periodStart
-    const le = leave.endDate < periodEnd ? leave.endDate : periodEnd
-    const days = Math.round((le.getTime() - ls.getTime()) / (1000 * 60 * 60 * 24)) + 1
-
-    if (leave.type === 'ANNUAL_LEAVE') {
-      cuti += days
-    } else if (leave.type === 'SICK') {
-      sakit += days
-    } else if (leave.type === 'PERSONAL') {
-      izin += days
-    } else if (leave.type === 'HALF_DAY') {
-      izinSetengahHari += days
+    const att = attendanceMap.get(day.date)
+    if (!att) {
+      // No record at all for a scheduled workday = Tidak Absen
+      ketidakhadiran++
+      continue
+    }
+    switch (att.status) {
+      case 'PRESENT':
+        kehadiran++
+        break
+      case 'LATE':
+        kehadiran++
+        terlambat++
+        break
+      case 'FORGOT_CHECKIN':
+      case 'FORGOT_CHECKOUT':
+        kehadiran++ // Partially counted
+        lupaAbsen++
+        break
+      case 'TIDAK_ABSEN':
+      case 'ALPHA':
+        ketidakhadiran++
+        break
+      case 'ON_LEAVE':
+      case 'HOLIDAY':
+        // Set by HRD override; counted by the leave tally above or not at all
+        break
     }
   }
 
   // 11. Calculate deductions
   const unpaidDays = ketidakhadiran + izin
-  const unpaidSickDays = leaveRequests
-    .filter(l => l.type === 'SICK' && !l.isPaid)
-    .reduce((acc, l) => {
-      const ls = l.startDate > periodStart ? l.startDate : periodStart
-      const le = l.endDate < periodEnd ? l.endDate : periodEnd
-      return acc + Math.round((le.getTime() - ls.getTime()) / (1000 * 60 * 60 * 24)) + 1
-    }, 0)
 
   const potonganIzin = (unpaidDays + unpaidSickDays) * dailyRate
 

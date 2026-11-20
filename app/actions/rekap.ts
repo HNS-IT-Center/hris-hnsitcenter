@@ -2,6 +2,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { getServerUser } from '@/lib/auth'
+import { countScheduledWorkDays, getScheduleForRange } from '@/lib/schedule'
+import { dateKeyToStoredDay, wibDateKey } from '@/lib/utils/date'
 
 export type RecapData = {
   employee: {
@@ -33,9 +35,10 @@ export async function getMonthlyRecap(startDateStr: string, endDateStr: string, 
     throw new Error('Unauthorized')
   }
 
-  const startDate = new Date(startDateStr)
-  const endDate = new Date(endDateStr)
-  
+  // WIB days of the range; attendance dates are stored as midnight UTC.
+  const fromKey = wibDateKey(new Date(startDateStr))
+  const toKey = wibDateKey(new Date(endDateStr))
+
   // Ambil semua karyawan (termasuk HRD, dll kecuali BOSS)
   const employees = await prisma.user.findMany({
     where: { 
@@ -50,21 +53,17 @@ export async function getMonthlyRecap(startDateStr: string, endDateStr: string, 
   // Ambil semua attendance di rentang tersebut
   const attendances = await prisma.attendance.findMany({
     where: {
+      userId: { in: employees.map((e) => e.id) },
       date: {
-        gte: startDate,
-        lte: endDate
+        gte: dateKeyToStoredDay(fromKey),
+        lte: dateKeyToStoredDay(toKey)
       }
     }
   })
 
-  // Ambil semua izin/cuti yang disetujui di rentang tersebut
-  const leaves = await prisma.leaveRequest.findMany({
-    where: {
-      status: 'APPROVED',
-      startDate: { lte: endDate },
-      endDate: { gte: startDate }
-    }
-  })
+  // Jadwal per hari dari resolver (libur, cuti, rotasi, override) untuk semua karyawan sekaligus.
+  // Hari kerja di sini sama dengan scheduledWorkDays di slip gaji.
+  const schedules = await getScheduleForRange(employees.map((e) => e.id), fromKey, toKey)
 
   const recapList: RecapData[] = []
 
@@ -75,19 +74,14 @@ export async function getMonthlyRecap(startDateStr: string, endDateStr: string, 
   for (const emp of employees) {
     const empAttendances = attendances.filter(a => a.userId === emp.id)
     
-    // Hitung Leave
-    // Agak kompleks jika izin lintas bulan, tapi kita hitung berdasarkan hari izin yg overlap dgn rentang
+    // Hari cuti/izin = hari kerja yang tertutup izin yang disetujui (libur dan hari off tidak dihitung)
+    const days = [...(schedules.get(emp.id)?.values() ?? [])]
     let izinCount = 0
     let cutiCount = 0
-    const empLeaves = leaves.filter(l => l.userId === emp.id)
-    for (const l of empLeaves) {
-       // simplifikasi: anggap 1 request = 1 hari untuk rekapan jika tipe nya bukan annual, tapi kl ANNUAL bisa berhari-hari
-       // Untuk akurasi, sebaiknya iterasi hari per hari dalam leave request
-       const start = l.startDate < startDate ? startDate : l.startDate
-       const end = l.endDate > endDate ? endDate : l.endDate
-       const days = Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1
-       if (l.type === 'ANNUAL_LEAVE') cutiCount += days
-       else izinCount += days
+    for (const d of days) {
+      if (d.status !== 'LEAVE') continue
+      if (d.leave?.type === 'ANNUAL_LEAVE') cutiCount++
+      else izinCount++
     }
 
     let presentCount = 0
@@ -112,11 +106,8 @@ export async function getMonthlyRecap(startDateStr: string, endDateStr: string, 
     const avgM = Math.floor(avgArrival % 60)
     const avgArrivalStr = arrivalCount > 0 ? `${avgH.toString().padStart(2, '0')}:${avgM.toString().padStart(2, '0')}` : '-'
 
-    // Asumsi hari kerja dalam rentang tsb adalah (Total Hari kerja - (izin+cuti)). 
-    // Untuk dummy, kita anggap total absensi yg ada + izin = total hari dia masuk
-    // Tapi karena tidak ada table master hari libur di query ini, Alpha = Hari Kerja - (Present + Izin + Cuti)
-    // Supaya gampang (dan sesuai seeder), mari asumsikan 22 hari kerja per bulan.
-    const expectedDays = 22 
+    // Hari kerja terjadwal dari resolver (termasuk hari cuti), sama dengan slip gaji.
+    const expectedDays = countScheduledWorkDays(days)
     const alphaCount = Math.max(0, expectedDays - (presentCount + izinCount + cutiCount))
 
     recapList.push({

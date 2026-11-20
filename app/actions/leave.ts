@@ -1,7 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { toNumberArray } from '@/lib/utils/json-array'
+import { getScheduleForRange } from '@/lib/schedule'
 import { revalidatePath } from 'next/cache'
 import { getServerUser } from '@/lib/auth'
 import { isPrivilegedRole } from '@/lib/auth/roles'
@@ -86,26 +86,13 @@ export async function submitLeaveRequest(data: {
     if (data.type === 'HALF_DAY') {
        calculatedTotalDays = 1
     } else {
-       const user = await prisma.user.findUnique({
-         where: { id: data.userId },
-         select: { weeklyOffDays: true }
-       })
-       const holidays = await prisma.holidayAssignment.findMany({
-         where: {
-           OR: [{ applyToAll: true }, { userId: data.userId }]
-         },
-         include: { holidayMarker: true }
-       })
-       const holidayMs = holidays.map(h => new Date(h.holidayMarker.date).setHours(0,0,0,0))
-       const start = new Date(data.startDate).setHours(0,0,0,0)
-       const end = new Date(data.endDate).setHours(0,0,0,0)
-       
-       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-         if (toNumberArray(user?.weeklyOffDays).includes(new Date(d).getDay())) continue
-         if (holidayMs.includes(d)) continue
-         calculatedTotalDays++
+       // Count the days the employee would work (schedule resolver: weekly
+       // days off, holidays, rotation and roster days off are skipped).
+       const schedules = await getScheduleForRange([data.userId], data.startDate, data.endDate)
+       for (const day of schedules.get(data.userId)?.values() ?? []) {
+         if (day.status === 'WORK') calculatedTotalDays++
        }
-       
+
        if (calculatedTotalDays === 0) {
          return { success: false, error: 'Tidak ada hari kerja pada rentang tanggal ini.' }
        }
