@@ -122,6 +122,7 @@ model Store {
   attendances         Attendance[]
   rainyDays           RainyDay[]
   holidays            Holiday[]
+  attendancePolicies  AttendancePolicy[]
 }
 
 model Shift {
@@ -131,6 +132,7 @@ model Shift {
   endTime           String   // HH:mm WIB
   checkinWindowMin  Int      @default(30) // minutes before startTime check-in opens
   checkinWindowEndMin Int    @default(240) // minutes after startTime check-in closes
+  halfDayEndTime    String   @default("14:00") // HH:mm WIB end of a weekly half day (User.halfDays)
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -747,4 +749,48 @@ model OvertimeSetting {
   defaultHourlyRate        Int      @default(20000) // Used when UserPayrollConfig.overtimeHourlyRate is null
   updatedById              String?
   updatedAt                DateTime @updatedAt
+}
+
+// ============================================================
+// ATTENDANCE SETTINGS (Pusat Pengaturan Absensi, read via lib/policy)
+// ============================================================
+
+/// Attendance time rules and penalties. storeId null = every store; a store row
+/// replaces the global row for that store. A row applies from effectiveFrom
+/// (WIB day) until a newer row starts, so past days keep the rules they had.
+model AttendancePolicy {
+  id               String   @id @default(cuid())
+  storeId          String?
+  effectiveFrom    DateTime @db.Date
+  lateToleranceMin Int      @default(0)     // Minutes after shift start before a check-in is late
+  checkoutGraceMin Int      @default(55)    // Check-out allowed until shift (or overtime) end + this
+  rainyGraceMin    Int      @default(60)    // Extra late tolerance on a rainy day
+  latePenalty      Int      @default(20000) // Rupiah per late check-in
+  forgotPenalty    Int      @default(20000) // Rupiah per forgotten check-in or check-out
+  updatedById      String?
+  createdAt        DateTime @default(now())
+
+  store Store? @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, effectiveFrom])
+}
+
+/// Rules per leave type, edited by HRD. code matches LeaveRequest.type
+/// (the enum stays for the MVP; see docs/perencanaan/pusat-pengaturan-absensi.md).
+model LeaveTypeConfig {
+  id                     String   @id @default(cuid())
+  code                   String   @unique // ANNUAL_LEAVE, SICK, PERSONAL, HALF_DAY
+  name                   String
+  requiresAttachment     Boolean  @default(false)
+  attachmentDays         Int?     // Days after submitting to upload the attachment
+  isPaid                 Boolean  @default(true)
+  paidOnlyWithAttachment Boolean  @default(false)
+  deductsQuota           Boolean  @default(false)
+  annualQuotaDays        Int?     // Days per work year, for a type that deducts quota
+  maxDaysPerRequest      Int?
+  minNoticeDays          Int      @default(0) // Days before the start date; 0 = same day allowed
+  allowHalfDay           Boolean  @default(false)
+  isActive               Boolean  @default(true)
+  updatedById            String?
+  updatedAt              DateTime @updatedAt
 }
