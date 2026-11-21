@@ -106,7 +106,6 @@ async function main() {
         employeeId,
         email: ed.email,
         name: ed.name,
-        passwordHash: '$2b$10$Xm0ozO9MG3Jt5UyhNGqR/uo/QcyHbU/MNRePPVLIHfmbaCgw5yjbW', // "hns123456" bcrypt hash
         role: 'EMPLOYEE',
         storeId: store.id,
         shiftId: targetShiftId,
