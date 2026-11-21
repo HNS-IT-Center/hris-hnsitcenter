@@ -67,7 +67,15 @@ export async function getScheduleForRange(
       },
     }),
     prisma.shift.findMany({
-      select: { id: true, name: true, startTime: true, endTime: true, checkinWindowMin: true, checkinWindowEndMin: true },
+      select: {
+        id: true,
+        name: true,
+        startTime: true,
+        endTime: true,
+        checkinWindowMin: true,
+        checkinWindowEndMin: true,
+        halfDayEndTime: true,
+      },
     }),
     prisma.leaveRequest.findMany({
       where: {
