@@ -20,6 +20,7 @@ const shift = (id: string, startTime: string, endTime: string): ScheduleShift =>
   endTime,
   checkinWindowMin: 30,
   checkinWindowEndMin: 240,
+  halfDayEndTime: '14:00',
 })
 const PAGI = shift('pagi', '08:00', '17:00')
 const SIANG = shift('siang', '13:00', '22:00')
@@ -235,9 +236,16 @@ describe('leave', () => {
 })
 
 describe('half days', () => {
-  it('ends the weekly half day at 14:00', () => {
+  it('ends the weekly half day at the shift half-day end (14:00)', () => {
     const d = resolve('2026-11-28', { user: user({ halfDays: [6] }) }) // Saturday
     expect(d).toMatchObject({ status: 'WORK', startTime: '08:00', endTime: '14:00', isHalfDay: true })
+  })
+
+  it('uses the half-day end set on the shift', () => {
+    const own = new Map(shifts)
+    own.set('pagi', { ...PAGI, halfDayEndTime: '13:00' })
+    const d = resolveDay({ user: user({ halfDays: [6] }), date: '2026-11-28', shifts: own, leaves: [], holidays: [], override: null })
+    expect(d.endTime).toBe('13:00')
   })
 
   it('moves the start for a late-in half-day leave', () => {

@@ -1,6 +1,7 @@
 import 'server-only'
 
 import { prisma } from '@/lib/prisma'
+import { getAnnualLeaveQuota } from '@/lib/policy'
 import { generateNextEmployeeId } from '@/lib/utils/employee-id'
 import type { SsoIdClaims } from '@/lib/auth/oidc'
 
@@ -70,7 +71,8 @@ export async function linkOrProvisionSsoUser(claims: SsoIdClaims): Promise<LinkR
 }
 
 /**
- * Reset the annual leave quota to 12 on the employee's work anniversary.
+ * Reset the annual leave quota on the employee's work anniversary, to the
+ * days per year of the leave type that deducts quota (Pusat Pengaturan).
  * Runs on each dashboard load; it only writes when a reset is due.
  */
 export async function resetLeaveQuotaIfDue(userId: string) {
@@ -94,7 +96,7 @@ export async function resetLeaveQuotaIfDue(userId: string) {
   if (anniversary > joinDate && lastReset < anniversary) {
     await prisma.user.update({
       where: { id: userId },
-      data: { leaveQuotaRemaining: 12, lastQuotaResetDate: anniversary },
+      data: { leaveQuotaRemaining: await getAnnualLeaveQuota(), lastQuotaResetDate: anniversary },
     })
   }
 }

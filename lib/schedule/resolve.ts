@@ -13,7 +13,8 @@
  *   4. Rotation (shiftCycle + cycleStartDate)                    -> shift of the week
  *   5. Primary shift + weekly days off                           -> shift, or OFF
  *   6. Approved full-day leave on a day the person would work    -> LEAVE
- *   7. Weekly half day, then approved half-day leave             -> start or end time moved
+ *   7. Weekly half day (Shift.halfDayEndTime), then approved
+ *      half-day leave                                           -> start or end time moved
  *
  * Leave is checked after holidays and days off on purpose: a leave only uses up
  * days the person would otherwise work, the same rule as the leave day count.
@@ -23,12 +24,6 @@ import { weekdayOfKey, wibDateKey } from '@/lib/utils/date'
 
 /** Leave types that keep the person away the whole day. */
 export const FULL_DAY_LEAVE_TYPES = ['ANNUAL_LEAVE', 'SICK', 'PERSONAL'] as const
-
-/**
- * End of a weekly half day (User.halfDays). Same value the attendance code
- * used before; moves to Shift.halfDayEndTime in Sprint 2 (Pusat Pengaturan).
- */
-export const DEFAULT_HALF_DAY_END = '14:00'
 
 /** Placeholder the employee form stores for an empty rotation week. */
 const EMPTY_ROTATION_WEEK = 'none'
@@ -40,6 +35,7 @@ export type ScheduleShift = {
   endTime: string // HH:mm WIB
   checkinWindowMin: number
   checkinWindowEndMin: number
+  halfDayEndTime: string // HH:mm WIB, end of a weekly half day
 }
 
 export type ScheduleUser = {
@@ -220,8 +216,8 @@ export function resolveDay({ user, date, shifts, leaves, holidays, override }: R
     leave = fullLeave
   } else if (status === 'WORK') {
     // A roster override sets its own hours, so the weekly half day does not apply.
-    if (source !== 'OVERRIDE' && user.halfDays.includes(weekday) && endTime) {
-      endTime = DEFAULT_HALF_DAY_END
+    if (source !== 'OVERRIDE' && user.halfDays.includes(weekday) && shift) {
+      endTime = shift.halfDayEndTime
       isHalfDay = true
     }
     if (halfLeave?.halfDayTime) {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { validateCronAuth } from '@/lib/utils/cron-auth'
 import { HRD_AUDIENCE, formatDay, notify } from '@/lib/notify'
+import { getAttendancePolicyRows, pickAttendanceRules } from '@/lib/policy'
 
 export async function GET(req: Request) {
   try {
@@ -28,14 +29,19 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, message: 'No forgotten checkouts found' })
     }
 
+    // Penalty from the attendance policy in effect that day, per store
+    const policyRows = await getAttendancePolicyRows()
+    const dayKey = target.toISOString().slice(0, 10)
+
     const updates = []
     for (const att of forgottenAttendances) {
       // Set status to FORGOT_CHECKOUT and add a penalty
+      const { forgotPenalty } = pickAttendanceRules(policyRows, att.storeId, dayKey)
       updates.push(prisma.attendance.update({
         where: { id: att.id },
         data: {
           status: 'FORGOT_CHECKOUT',
-          penaltyAmount: { increment: 20000 },
+          penaltyAmount: { increment: forgotPenalty },
         }
       }))
       

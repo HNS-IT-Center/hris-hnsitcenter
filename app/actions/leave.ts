@@ -2,6 +2,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { getScheduleForRange } from '@/lib/schedule'
+import { getAnnualLeaveQuota, getLeaveTypeRules } from '@/lib/policy'
+import { addDaysToKey, wibDateKey } from '@/lib/utils/date'
 import { revalidatePath } from 'next/cache'
 import { getServerUser } from '@/lib/auth'
 import { isPrivilegedRole } from '@/lib/auth/roles'
@@ -41,9 +43,10 @@ export async function getMyLeaveQuota(userId: string) {
     select: { leaveQuotaRemaining: true },
   })
   const remaining = user?.leaveQuotaRemaining ?? 0
+  const total = await getAnnualLeaveQuota()
   return {
-    total: 12,
-    used: 12 - remaining,
+    total,
+    used: total - remaining,
     remaining,
   }
 }
@@ -66,6 +69,21 @@ export async function submitLeaveRequest(data: {
   try {
     // Employees submit only for themselves; HRD may submit on someone's behalf.
     const caller = await requireSelfOrPrivileged(data.userId)
+
+    // Leave type rules (Pusat Pengaturan, tab Jenis Izin). Overtime is not a leave type.
+    const typeRules = data.type === 'OVERTIME' ? null : await getLeaveTypeRules(data.type)
+    if (typeRules && !typeRules.isActive) {
+      return { success: false, error: `Jenis izin ${typeRules.name} sedang tidak aktif.` }
+    }
+    // Notice and length limits bind the employee; HRD may record leave on someone's behalf.
+    if (typeRules && caller.id === data.userId) {
+      if (typeRules.minNoticeDays > 0) {
+        const earliest = addDaysToKey(wibDateKey(new Date()), typeRules.minNoticeDays)
+        if (wibDateKey(new Date(data.startDate)) < earliest) {
+          return { success: false, error: `${typeRules.name} harus diajukan paling lambat ${typeRules.minNoticeDays} hari sebelum tanggal mulai.` }
+        }
+      }
+    }
 
     // 1. Overlap validation
     const overlapping = await prisma.leaveRequest.findFirst({
@@ -95,6 +113,9 @@ export async function submitLeaveRequest(data: {
 
        if (calculatedTotalDays === 0) {
          return { success: false, error: 'Tidak ada hari kerja pada rentang tanggal ini.' }
+       }
+       if (typeRules?.maxDaysPerRequest && caller.id === data.userId && calculatedTotalDays > typeRules.maxDaysPerRequest) {
+         return { success: false, error: `${typeRules.name} maksimal ${typeRules.maxDaysPerRequest} hari per pengajuan.` }
        }
     }
 
@@ -130,7 +151,8 @@ export async function submitLeaveRequest(data: {
         halfDayType: data.halfDayType,
         halfDayTime: data.halfDayTime,
         unpaidHours,
-        isPaid: data.type === 'SICK' && !data.sickNoteUrl ? false : true,
+        // Paid only after the attachment arrives (and HRD verifies it), e.g. sick leave
+        isPaid: typeRules?.paidOnlyWithAttachment && !data.sickNoteUrl ? false : true,
       },
     })
     revalidatePath('/leave')
@@ -205,7 +227,7 @@ export async function approveLeaveRequest(
     const finalRejectReason = approved ? null : (rejectReason?.trim() || "Tidak diizinkan")
 
     let quotaChange = 0
-    if (request.type === 'ANNUAL_LEAVE') {
+    if ((await getLeaveTypeRules(request.type)).deductsQuota) {
        const isCurrentPeriod = !request.user.lastQuotaResetDate || request.startDate >= request.user.lastQuotaResetDate
        if (isCurrentPeriod) {
          if (approved && request.status !== 'APPROVED') {
@@ -304,9 +326,10 @@ export async function uploadSickNote(id: string, sickNoteUrl: string, sickNoteFi
       return { success: false, error: 'Anda tidak berhak mengubah pengajuan ini.' }
     }
 
-    // 3 days limit constraint (3 * 24 * 60 * 60 * 1000 = 259200000 ms)
-    if (Date.now() - request.createdAt.getTime() > 259200000) {
-       return { success: false, error: 'Batas waktu 3 hari untuk mengunggah surat sakit telah habis.' }
+    // Upload deadline from the leave type (Pusat Pengaturan); null = no deadline
+    const { attachmentDays } = await getLeaveTypeRules(request.type)
+    if (attachmentDays != null && Date.now() - request.createdAt.getTime() > attachmentDays * 86400000) {
+       return { success: false, error: `Batas waktu ${attachmentDays} hari untuk mengunggah surat sakit telah habis.` }
     }
 
     await prisma.leaveRequest.update({

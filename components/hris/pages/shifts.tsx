@@ -37,7 +37,7 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
   const [shifts, setShifts] = useState<Shift[]>(initialShifts)
   
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [draft, setDraft] = useState({ name: "", startTime: "08:00", endTime: "17:00", checkinWindowMin: 15 })
+  const [draft, setDraft] = useState({ name: "", startTime: "08:00", endTime: "17:00", checkinWindowMin: 30 })
 
   const [editTarget, setEditTarget] = useState<Shift | null>(null)
 
@@ -51,7 +51,7 @@ export function ShiftsPage({ initialShifts }: { initialShifts: Shift[] }) {
         if (res.success) {
           setShifts(prev => [...prev, res.data])
           setIsAddOpen(false)
-          setDraft({ name: "", startTime: "08:00", endTime: "17:00", checkinWindowMin: 15 })
+          setDraft({ name: "", startTime: "08:00", endTime: "17:00", checkinWindowMin: 30 })
           return "Shift berhasil ditambahkan"
         } else {
           throw new Error(res.error)

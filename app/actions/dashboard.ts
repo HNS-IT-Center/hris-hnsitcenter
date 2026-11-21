@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { requirePrivileged, requireSelfOrPrivileged } from '@/lib/auth/guards'
 import { dateKeyToStoredDay, getPayrollPeriod, todayUTC, wibDateKey } from '@/lib/utils/date'
 import { getScheduleForRange } from '@/lib/schedule'
+import { getAnnualLeaveQuota } from '@/lib/policy'
 
 // ─── Employee Dashboard ────────────────────────────────────────────────────────
 
@@ -106,10 +107,11 @@ export async function getEmployeeDashboardData(userId: string) {
     }
   }
 
+  const quotaTotal = await getAnnualLeaveQuota()
   const quota = {
-    total: 12,
+    total: quotaTotal,
     remaining: user?.leaveQuotaRemaining ?? 0,
-    used: 12 - (user?.leaveQuotaRemaining ?? 0),
+    used: quotaTotal - (user?.leaveQuotaRemaining ?? 0),
   }
 
   return {
