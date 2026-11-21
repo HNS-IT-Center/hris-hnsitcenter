@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { getScheduleForDay, type DaySchedule } from '@/lib/schedule'
+import { checkoutDeadline, getAttendanceRules, lateThreshold } from '@/lib/policy'
 import { getDistanceInMeters } from '@/lib/utils/geo'
 import { requireSelfOrPrivileged, requireUser } from '@/lib/auth/guards'
 import { HRD_AUDIENCE, formatDay, notify } from '@/lib/notify'
@@ -253,6 +254,7 @@ export async function submitAttendance(data: {
     }
 
     const shift = schedule.shift
+    const rules = await getAttendanceRules(data.storeId, today)
     const shiftStart = parseTimeStr(schedule.startTime, now)
     const shiftEnd = parseTimeStr(schedule.endTime, now)
 
@@ -272,8 +274,8 @@ export async function submitAttendance(data: {
 
     if (!existing) {
       // --- CHECK-IN LOGIC ---
-      const checkinWindowMin = shift.checkinWindowMin === 15 ? 30 : shift.checkinWindowMin
-      const checkinOpenTime = new Date(shiftStart.getTime() - checkinWindowMin * 60000)
+      // Check-in window per shift (Pusat Pengaturan, tab Shift)
+      const checkinOpenTime = new Date(shiftStart.getTime() - shift.checkinWindowMin * 60000)
       const checkinCloseTime = new Date(shiftStart.getTime() + shift.checkinWindowEndMin * 60000)
 
       if (now < checkinOpenTime) {
@@ -328,11 +330,11 @@ export async function submitAttendance(data: {
         return { success: true, data: record, type: 'check-out' }
       }
 
-      // --- Rainy Day Grace Period ---
-      // If today is a rainy day for this employee (Holiday row with isRainyDay,
-      // for everyone, their store or department), lateness starts +60 minutes later.
+      // --- Late tolerance and rainy day grace (AttendancePolicy) ---
+      // On a rainy day for this employee (Holiday row with isRainyDay, for
+      // everyone, their store or department) lateness starts rainyGraceMin later.
       const isRainyDay = schedule.isRainyDay
-      const effectiveShiftStart = isRainyDay ? new Date(shiftStart.getTime() + 60 * 60000) : shiftStart
+      const effectiveShiftStart = lateThreshold(shiftStart, rules, isRainyDay)
 
       let status: 'PRESENT' | 'LATE' = 'PRESENT'
       let lateMinutes = 0
@@ -375,14 +377,11 @@ export async function submitAttendance(data: {
 
     } else if (!existing.checkOutTime) {
       // --- CHECK-OUT LOGIC ---
-      let checkoutCloseTime = new Date(shiftEnd.getTime() + 55 * 60000) // Max 55 mins pass end time
-      if (approvedOvertime && approvedOvertime.endTime) {
-        // Extend max checkout time if overtime exists
-        checkoutCloseTime = new Date(approvedOvertime.endTime.getTime() + 55 * 60000)
-      }
+      // Shift end (or approved overtime end) + checkoutGraceMin (AttendancePolicy)
+      const checkoutCloseTime = checkoutDeadline(shiftEnd, approvedOvertime?.endTime ?? null, rules)
 
       if (now > checkoutCloseTime) {
-        return { success: false, error: 'Batas waktu check-out telah lewat (maksimal 55 menit setelah shift berakhir atau lembur usai).' }
+        return { success: false, error: `Batas waktu check-out telah lewat (maksimal ${rules.checkoutGraceMin} menit setelah shift berakhir atau lembur usai).` }
       }
 
       // We enforce the early checkout warning in the UI, but we still allow it on the server (logged as anomaly)
@@ -503,7 +502,7 @@ export async function overrideAttendance(
         penaltyAmount = 0
         lateMinutes = 0
       } else if (newStatus === 'LATE') {
-        penaltyAmount = 20000
+        penaltyAmount = (await getAttendanceRules(record.storeId, record.date)).latePenalty
       }
 
       await prisma.attendance.update({

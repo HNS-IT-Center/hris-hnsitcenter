@@ -27,7 +27,7 @@ export async function createShift(data: {
         name: data.name,
         startTime: data.startTime,
         endTime: data.endTime,
-        checkinWindowMin: data.checkinWindowMin || 15
+        checkinWindowMin: data.checkinWindowMin ?? 30
       }
     })
     revalidatePath('/hrd/shifts')

@@ -7,6 +7,7 @@ import { getServerUser } from '@/lib/auth'
 import { getPayrollPeriodByMonth } from '@/lib/utils/date'
 import { requirePrivileged, requireSelfOrPrivileged } from '@/lib/auth/guards'
 import { countScheduledWorkDays, getScheduleForRange, type DaySchedule } from '@/lib/schedule'
+import { getAttendancePolicyRows, getLeaveTypeRows, isLeaveDayPaid, leaveTypeRules, pickAttendanceRules } from '@/lib/policy'
 import { notify } from '@/lib/notify'
 import { billableOvertimeHours, getOvertimeRules, workedOvertimeMinutes } from '@/lib/overtime'
 
@@ -198,16 +199,20 @@ async function _generatePayrollSlipInternal(
 
   const attendanceMap = new Map(attendances.map(a => [a.date.toISOString().slice(0, 10), a]))
 
+  // Rules from the Pusat Pengaturan: penalties use the policy in effect on
+  // each day (at the employee's store); paid or unpaid comes from the leave type.
+  const [policyRows, leaveTypeRows] = await Promise.all([getAttendancePolicyRows(), getLeaveTypeRows()])
+  let flatPenalties = 0
+  let unpaidLeaveDays = 0
+
   // Walk through each day of the resolved schedule. Holidays and days off are
   // skipped; a leave day counts as its leave type, not as an absence.
-  let unpaidSickDays = 0
   for (const day of schedule) {
     if (day.status === 'LEAVE') {
       if (day.leave?.type === 'ANNUAL_LEAVE') cuti++
-      else if (day.leave?.type === 'SICK') {
-        sakit++
-        if (!day.leave.isPaid) unpaidSickDays++
-      } else izin++
+      else if (day.leave?.type === 'SICK') sakit++
+      else izin++
+      if (day.leave && !isLeaveDayPaid(leaveTypeRules(leaveTypeRows, day.leave.type), day.leave)) unpaidLeaveDays++
       continue
     }
     if (day.status !== 'WORK') continue
@@ -219,6 +224,7 @@ async function _generatePayrollSlipInternal(
       ketidakhadiran++
       continue
     }
+    const dayRules = pickAttendanceRules(policyRows, user.storeId, day.date)
     switch (att.status) {
       case 'PRESENT':
         kehadiran++
@@ -226,11 +232,13 @@ async function _generatePayrollSlipInternal(
       case 'LATE':
         kehadiran++
         terlambat++
+        flatPenalties += dayRules.latePenalty
         break
       case 'FORGOT_CHECKIN':
       case 'FORGOT_CHECKOUT':
         kehadiran++ // Partially counted
         lupaAbsen++
+        flatPenalties += dayRules.forgotPenalty
         break
       case 'TIDAK_ABSEN':
       case 'ALPHA':
@@ -243,13 +251,9 @@ async function _generatePayrollSlipInternal(
     }
   }
 
-  // 11. Calculate deductions
-  const unpaidDays = ketidakhadiran + izin
-
-  const potonganIzin = (unpaidDays + unpaidSickDays) * dailyRate
-
-  // Flat 20,000 deductions per late/forgot incident
-  const flatPenalties = (terlambat + lupaAbsen) * 20000
+  // 11. Calculate deductions: absent days plus unpaid leave days (Izin, sick
+  //     without a verified note), and the late/forgot penalties tallied above.
+  const potonganIzin = (ketidakhadiran + unpaidLeaveDays) * dailyRate
 
   // Half-day permission deductions
   let potonganHalfDay = 0
