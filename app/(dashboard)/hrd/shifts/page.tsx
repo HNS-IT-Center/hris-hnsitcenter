@@ -1,7 +1,6 @@
-import { ShiftsPage } from "@/components/hris/pages/shifts"
-import { getShifts } from "@/app/actions/shift"
+import { redirect } from "next/navigation"
 
-export default async function Page() { 
-  const shifts = await getShifts()
-  return <ShiftsPage initialShifts={shifts} /> 
+// Moved to the Pusat Pengaturan Absensi (tab Shift).
+export default function Page() {
+  redirect("/hrd/pengaturan-absensi?tab=shift")
 }

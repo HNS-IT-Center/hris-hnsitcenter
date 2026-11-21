@@ -36,7 +36,7 @@ export async function createStore(data: {
         radiusMeters: data.radiusMeters || 150
       }
     })
-    revalidatePath('/hrd/stores')
+    revalidatePath('/hrd/pengaturan-absensi')
     return { success: true, data: store }
   } catch (error) {
     console.error('Error creating store:', error)
@@ -60,7 +60,7 @@ export async function updateStore(id: string, data: {
       where: { id },
       data
     })
-    revalidatePath('/hrd/stores')
+    revalidatePath('/hrd/pengaturan-absensi')
     const moved = !!before && (before.latitude !== store.latitude || before.longitude !== store.longitude || before.radiusMeters !== store.radiusMeters)
     const hoursChanged = !!before && (before.openTime !== store.openTime || before.closeTime !== store.closeTime)
     if (moved || hoursChanged) {
@@ -90,7 +90,7 @@ export async function deleteStore(id: string) {
     await prisma.store.delete({
       where: { id }
     })
-    revalidatePath('/hrd/stores')
+    revalidatePath('/hrd/pengaturan-absensi')
     return { success: true }
   } catch (error) {
     console.error('Error deleting store:', error)

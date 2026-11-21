@@ -164,7 +164,7 @@ export async function updateOvertimeSettings(data: { roundingThresholdMinutes: n
       update: { roundingThresholdMinutes: threshold, defaultHourlyRate: rate, updatedById: actor.id },
       create: { id: "default", roundingThresholdMinutes: threshold, defaultHourlyRate: rate, updatedById: actor.id },
     })
-    revalidatePath("/hrd/lembur")
+    revalidatePath("/hrd/pengaturan-absensi")
     revalidatePath("/hrd/payroll")
     return { success: true }
   } catch (error) {

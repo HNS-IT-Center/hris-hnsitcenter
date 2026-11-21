@@ -33,6 +33,7 @@ const SECTION_TITLES: Record<NavId, string> = {
   broadcast: "Broadcast",
   rekap: "Rekap Absensi",
   payroll: "Payroll",
+  "attendance-settings": "Pengaturan Absensi",
 }
 
 

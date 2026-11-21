@@ -30,7 +30,7 @@ export async function createShift(data: {
         checkinWindowMin: data.checkinWindowMin ?? 30
       }
     })
-    revalidatePath('/hrd/shifts')
+    revalidatePath('/hrd/pengaturan-absensi')
     return { success: true, data: shift }
   } catch (error) {
     console.error('Error creating shift:', error)
@@ -51,7 +51,7 @@ export async function updateShift(id: string, data: {
       where: { id },
       data
     })
-    revalidatePath('/hrd/shifts')
+    revalidatePath('/hrd/pengaturan-absensi')
     if (before && (before.startTime !== shift.startTime || before.endTime !== shift.endTime)) {
       const users = await prisma.user.findMany({ where: { shiftId: id, isActive: true }, select: { id: true } })
       await notify(
@@ -77,7 +77,7 @@ export async function deleteShift(id: string) {
     await prisma.shift.delete({
       where: { id }
     })
-    revalidatePath('/hrd/shifts')
+    revalidatePath('/hrd/pengaturan-absensi')
     return { success: true }
   } catch (error) {
     console.error('Error deleting shift:', error)

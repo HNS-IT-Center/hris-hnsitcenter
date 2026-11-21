@@ -1,9 +1,8 @@
 import { Metadata } from "next"
 import { getServerUser, hasRole } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { getAllOvertimeRequests, getOvertimeSettings } from "@/app/actions/overtime"
+import { getAllOvertimeRequests } from "@/app/actions/overtime"
 import { LemburPage } from "@/components/hris/pages/lembur"
-import { OvertimeSettingsCard } from "@/components/hris/pages/overtime-settings"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
 import Link from "next/link"
 
@@ -18,7 +17,7 @@ export default async function Page() {
     redirect("/")
   }
 
-  const [allRequests, overtimeSettings] = await Promise.all([getAllOvertimeRequests(), getOvertimeSettings()])
+  const allRequests = await getAllOvertimeRequests()
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -36,7 +35,13 @@ export default async function Page() {
       <div className="flex items-center justify-between space-y-2">
         <h2 className="text-3xl font-bold tracking-tight">Approval Lembur</h2>
       </div>
-      <OvertimeSettingsCard initial={overtimeSettings} />
+      <p className="text-sm text-muted-foreground">
+        Pembulatan jam dan tarif default lembur diatur di{" "}
+        <Link href="/hrd/pengaturan-absensi?tab=lembur" className="font-medium text-primary underline-offset-4 hover:underline">
+          Pengaturan Absensi, tab Lembur
+        </Link>
+        .
+      </p>
       <LemburPage allRequests={allRequests} />
     </div>
   )

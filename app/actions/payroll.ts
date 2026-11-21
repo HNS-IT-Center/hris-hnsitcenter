@@ -265,7 +265,7 @@ async function _generatePayrollSlipInternal(
 
   const potonganTerlambat = flatPenalties + potonganHalfDay
 
-  // 12. Calculate overtime pay (rules in lib/overtime.ts, set by HRD on /hrd/lembur).
+  // 12. Calculate overtime pay (rules in lib/overtime.ts, set by HRD in Pengaturan Absensi, tab Lembur).
   //     Each request is rounded on its own; early check-out shortens the worked time.
   const overtimeRules = await getOvertimeRules()
   const tarifLembur = overrides?.overtimeHourlyRate ?? cfg?.overtimeHourlyRate ?? overtimeRules.defaultHourlyRate

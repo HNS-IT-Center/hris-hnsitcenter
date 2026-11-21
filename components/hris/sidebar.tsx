@@ -15,7 +15,6 @@ import {
   ClipboardList,
   LayoutDashboard,
   LogOut,
-  MapPin,
   Megaphone,
   Target,
   User,
@@ -25,6 +24,7 @@ import {
   AlertTriangle,
   FileText,
   Wallet,
+  Settings2,
 } from "lucide-react"
 
 export type NavId =
@@ -44,6 +44,7 @@ export type NavId =
   | "broadcast"
   | "rekap"
   | "payroll"
+  | "attendance-settings"
 
 type NavItem = { id: NavId; label: string; icon: React.ElementType; href: string; badge?: number }
 
@@ -60,8 +61,7 @@ const HRD_NAV: NavItem[] = [
   { id: "hrd-attendance", label: "Log Absensi", icon: CalendarCheck, href: "/hrd/attendance" },
   { id: "hrd-anomalies", label: "Log Anomali", icon: AlertTriangle, href: "/hrd/anomalies" },
   { id: "employees", label: "Karyawan", icon: Users, href: "/hrd/employees" },
-  { id: "shifts", label: "Shift", icon: CalendarDays, href: "/hrd/shifts" },
-  { id: "stores", label: "Toko", icon: MapPin, href: "/hrd/stores" },
+  { id: "attendance-settings", label: "Pengaturan Absensi", icon: Settings2, href: "/hrd/pengaturan-absensi" },
   { id: "leave", label: "Approval Izin", icon: ClipboardList, href: "/hrd/leave" },
   { id: "payroll", label: "Payroll", icon: Wallet, href: "/hrd/payroll" },
   { id: "calendar", label: "Kalender Perusahaan", icon: CalendarRange, href: "/hrd/calendar" },
