@@ -3,7 +3,7 @@ import 'server-only'
 import { prisma } from '@/lib/prisma'
 
 /**
- * Overtime pay rules (OvertimeSetting, edited by HRD on /hrd/lembur).
+ * Overtime pay rules (OvertimeSetting, edited by HRD on /hrd/pengaturan-absensi?tab=lembur).
  *
  * Each approved overtime request is rounded on its own: full hours count, and
  * the leftover minutes count as one more hour when they reach the threshold.

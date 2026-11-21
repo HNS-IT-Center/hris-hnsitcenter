@@ -1,7 +1,6 @@
-import { StoresPage } from "@/components/hris/pages/stores"
-import { getStores } from "@/app/actions/store"
+import { redirect } from "next/navigation"
 
-export default async function Page() { 
-  const stores = await getStores()
-  return <StoresPage initialStores={stores} /> 
+// Moved to the Pusat Pengaturan Absensi (tab Lokasi).
+export default function Page() {
+  redirect("/hrd/pengaturan-absensi?tab=lokasi")
 }

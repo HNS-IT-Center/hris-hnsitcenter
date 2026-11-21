@@ -65,7 +65,7 @@ function ConfigEditor({ employee, currentYear, currentMonth, onClose, onSaved }:
   const [transport, setTransport] = useState(cfg?.transport ?? 0)
   const [bpjs, setBpjs] = useState(cfg?.bpjs ?? 0)
   const [pph21, setPph21] = useState(cfg?.pph21 ?? 0)
-  // Empty = company default from Pengaturan Lembur (/hrd/lembur).
+  // Empty = company default from Pengaturan Absensi, tab Lembur (/hrd/pengaturan-absensi?tab=lembur).
   const [overtimeRate, setOvertimeRate] = useState<string>(cfg?.overtimeHourlyRate != null ? String(cfg.overtimeHourlyRate) : "")
 
   // Shift hours for hourly rate preview
